@@ -1,0 +1,30 @@
+{
+  "name": "webaudio-node",
+  "version": "0.1.0",
+  "description": "A WebAudio implemenation for node without a browser",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Node",
+    "WebAudio",
+    "Audio",
+    "mp3",
+    "ogg",
+    "wav",
+    "ffmpeg",
+    "sdl"
+  ],
+  "author": "Luis Montes",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monteslu/webaudio-node.git"
+  },
+  "dependencies": {
+    "@kmamal/sdl": "^0.10.7",
+    "fluent-ffmpeg": "^2.1.3"
+  }
+}
