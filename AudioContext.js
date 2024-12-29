@@ -4,6 +4,7 @@ import { AudioDestinationNode } from './AudioDestinationNode.js';
 import { OscillatorNode } from './OscillatorNode.js';
 import { GainNode } from './GainNode.js';
 import { AudioBufferSourceNode } from './AudioBufferSourceNode.js';
+import { BiquadFilterNode } from './BiquadFilterNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
 import { decodeAudioData } from './decoder.js';
 
@@ -72,6 +73,10 @@ export class AudioContext {
 
   createBufferSource() {
     return new AudioBufferSourceNode(this);
+  }
+
+  createBiquadFilter() {
+    return new BiquadFilterNode(this);
   }
 
   createBuffer(numberOfChannels, length, sampleRate) {

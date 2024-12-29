@@ -4,62 +4,50 @@ export class GainNode extends AudioNode {
   constructor(context) {
     super(context);
     this.gain = {
-      value: 1.0,
-      _scheduledValues: [],
-      _startTime: null,
+      value: 0,
+      _events: [],
       setValueAtTime: (value, time) => {
-        this.gain.value = value;
-        this.gain._scheduledValues.push({
-          type: 'instant',
+        this.gain._events.push({
+          type: 'setValue',
           value,
-          time,
-          endTime: time
+          time
         });
-        // Initialize startTime if this is first event
-        if (this.gain._startTime === null) {
-          this.gain._startTime = this.context.currentTime;
-        }
+        this.gain.value = value;
       },
       exponentialRampToValueAtTime: (value, endTime) => {
-        if (value <= 0) {
-          throw new Error("exponentialRampToValueAtTime value must be greater than zero");
-        }
+        if (value <= 0) throw new Error('Cannot ramp to zero or negative value');
+        const lastEvent = this.gain._events[this.gain._events.length - 1];
+        const startEvent = {
+          type: 'setValue',
+          value: lastEvent ? lastEvent.value : this.gain.value,
+          time: lastEvent ? lastEvent.time : this.context.currentTime
+        };
         
-        const startValue = this.gain.value;
-        const startTime = this.context.currentTime;
-        
-        this.gain._scheduledValues.push({
-          type: 'exponential',
-          startValue,
+        this.gain._events.push({
+          type: 'exponentialRamp',
+          startValue: startEvent.value,
           endValue: value,
-          startTime,
+          startTime: startEvent.time,
           endTime
         });
       }
     };
   }
 
-  _getCurrentGain() {
-    const now = this.context.currentTime;
-    
-    // Find the active automation event
-    for (let i = this.gain._scheduledValues.length - 1; i >= 0; i--) {
-      const event = this.gain._scheduledValues[i];
-      
-      if (now >= event.startTime && now <= event.endTime) {
-        if (event.type === 'instant') {
-          return event.value;
-        } else if (event.type === 'exponential') {
-          // Calculate progress through the ramp
-          const timeProgress = (now - event.startTime) / (event.endTime - event.startTime);
-          const exponentialProgress = Math.pow(event.endValue / event.startValue, timeProgress);
-          return event.startValue * exponentialProgress;
-        }
+  _computeGain(time) {
+    let value = this.gain.value;
+    for (const event of this.gain._events) {
+      if (event.type === 'setValue' && time >= event.time) {
+        value = event.value;
+      } else if (event.type === 'exponentialRamp' && 
+                time >= event.startTime && 
+                time <= event.endTime) {
+        const progress = (time - event.startTime) / (event.endTime - event.startTime);
+        const ratio = event.endValue / event.startValue;
+        value = event.startValue * Math.pow(ratio, progress);
       }
     }
-    
-    // If no active automation, return the current value
-    return this.gain.value;
+    return value;
   }
 
   _process() {
@@ -70,17 +58,21 @@ export class GainNode extends AudioNode {
 
     const buffer = Buffer.alloc(inputBuffer.length);
     let offset = 0;
+    const samplesPerFrame = this.context._channels;
+    const timeIncrement = 1 / this.context.sampleRate;
+    const framesInBuffer = inputBuffer.length / (this.context._bytesPerSample * samplesPerFrame);
 
-    // Get current gain value considering automation
-    const currentGain = this._getCurrentGain();
-    console.log('Processing with gain:', currentGain);
+    for (let frame = 0; frame < framesInBuffer; frame++) {
+      const currentTime = this.context.currentTime + frame * timeIncrement;
+      const gainValue = this._computeGain(currentTime);
 
-    while (offset < inputBuffer.length) {
-      const sample = this.context._device.readSample(inputBuffer, offset);
-      const normalized = (sample - this.context._zeroSampleValue) / (this.context._range / 2);
-      const scaled = this.context._zeroSampleValue + 
-        (normalized * currentGain * (this.context._range / 2));
-      offset = this.context._device.writeSample(buffer, scaled, offset);
+      for (let channel = 0; channel < samplesPerFrame; channel++) {
+        const inputOffset = (frame * samplesPerFrame + channel) * this.context._bytesPerSample;
+        const sample = this.context._device.readSample(inputBuffer, inputOffset);
+        const normalized = (sample - this.context._zeroSampleValue) / (this.context._range / 2);
+        const scaled = this.context._zeroSampleValue + (normalized * gainValue * (this.context._range / 2));
+        offset = this.context._device.writeSample(buffer, scaled, offset);
+      }
     }
 
     return buffer;

@@ -3,6 +3,11 @@
 
 Implements the Web Audio API specification with Node including playback.
 
+### Installation
+
+```bash
+npm install webaudio-node
+```
 
 ### Requirements
 - Node.js >= 20
