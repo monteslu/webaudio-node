@@ -6,123 +6,74 @@ export class AudioBufferSourceNode extends AudioNode {
     this.buffer = null;
     this.playbackRate = 1.0;
     this.loop = false;
-    this.loopStart = 0;
-    this.loopEnd = 0;
-    this._position = 0;
     this._started = false;
     this._stopped = false;
     this.onended = null;
-    this._lastProcessTime = 0;
+    this._deviceInfo = null;
   }
 
-  _process() {
-    if (!this._started || this._stopped || !this.buffer) {
-      return Buffer.alloc(0);
-    }
-
-    // Calculate how many samples to generate
-    const duration = 0.05; // 50ms chunks
-    const outputSampleRate = this.context.sampleRate;
-    const numOutputFrames = Math.floor(duration * outputSampleRate);
-    const outputBuffer = Buffer.alloc(numOutputFrames * this.context._channels * this.context._bytesPerSample);
+  start(when = 0) {
+    if (this._started || !this.buffer || !this.buffer._channels) return;
     
-    let outputOffset = 0;
-
-    // Calculate resampling increment
-    const sampleIncrement = this.buffer.sampleRate / outputSampleRate;
-    const sourcePosition = this._position;
-
-    for (let i = 0; i < numOutputFrames; i++) {
-      // Calculate the exact source position
-      const exactSourcePos = sourcePosition + (i * sampleIncrement);
-      const sourcePos = Math.floor(exactSourcePos);
-      
-      if (sourcePos >= this.buffer.length) {
-        if (this.loop) {
-          this._position = 0;
-          continue;
-        } else {
-          this._stopped = true;
-          if (this.onended) {
-            setTimeout(this.onended, 0);
-          }
-          break;
-        }
-      }
-
-      // Get interpolated sample
-      let sample = 0;
-      for (let channel = 0; channel < this.buffer.numberOfChannels; channel++) {
-        const channelData = this.buffer.getChannelData(channel);
-        // Linear interpolation between samples
-        const pos1 = sourcePos;
-        const pos2 = Math.min(pos1 + 1, this.buffer.length - 1);
-        const fraction = exactSourcePos - pos1;
-        const value1 = channelData[pos1];
-        const value2 = channelData[pos2];
-        sample += value1 + (value2 - value1) * fraction;
-      }
-      sample /= this.buffer.numberOfChannels;
-
-      // Convert to device format
-      const scaledSample = this.context._zeroSampleValue + 
-        (sample * (this.context._range / 2));
-
-      // Write to all output channels
-      for (let j = 0; j < this.context._channels; j++) {
-        outputOffset = this.context._device.writeSample(outputBuffer, scaledSample, outputOffset);
-      }
-    }
-
-    // Update position
-    this._position += numOutputFrames * sampleIncrement;
-
-    if (this._position % (this.buffer.sampleRate * 10) < sampleIncrement) {
-      console.log('Playback progress:', {
-        seconds: this._position / this.buffer.sampleRate,
-        totalSeconds: this.buffer.length / this.buffer.sampleRate
-      });
-    }
-
-    return outputBuffer;
-  }
-
-  start(when = 0, offset = 0, duration = undefined) {
-    if (this._started) {
-      throw new DOMException('Already started', 'InvalidStateError');
-    }
-
     this._started = true;
-    this._stopped = false;
-    this._position = offset * this.buffer.sampleRate;
-    this._lastProcessTime = Date.now();
+    const isMusicTrack = this.buffer.duration > 30;
     
-    if (this.context.state === 'suspended') {
-      this.context.resume();
-    }
-    
-    if (this.context.destination._startProcessing) {
-      this.context.destination._startProcessing();
+    const deviceInfo = this.context.acquireDevice(isMusicTrack);
+    if (!deviceInfo) {
+      console.log(isMusicTrack ? 'Music queued' : 'No device available');
+      return;
     }
 
-    if (duration !== undefined) {
-      setTimeout(() => {
-        this._stopped = true;
-        this.context.destination._stopProcessing();
-        if (this.onended) {
-          this.onended();
+    this._deviceInfo = deviceInfo;
+    console.log('Starting playback on device:', deviceInfo.id);
+    
+    try {
+      const numChannels = this.buffer.numberOfChannels;
+      const length = this.buffer.length;
+      const bytesPerSample = 4;
+      const buffer = Buffer.alloc(length * numChannels * bytesPerSample);
+
+      // Interleave channels
+      for (let i = 0; i < length; i++) {
+        for (let channel = 0; channel < numChannels; channel++) {
+          const value = this.buffer._channels[channel][i];
+          buffer.writeFloatLE(value, (i * numChannels + channel) * bytesPerSample);
         }
-      }, duration * 1000);
+      }
+
+      const duration = this.buffer.duration * 1000;
+      
+      // Release device after duration
+      setTimeout(() => {
+        if (!this._stopped) {
+          console.log('Auto releasing device after duration:', this._deviceInfo.id);
+          this._stopped = true;
+          this.context.releaseDevice(this._deviceInfo);
+          this._deviceInfo = null;
+          if (this.onended) {
+            this.onended();
+          }
+        }
+      }, Math.max(100, duration + 100));
+
+      deviceInfo.device.enqueue(buffer);
+      deviceInfo.device.play();
+
+    } catch (err) {
+      console.error('Playback failed:', err);
+      if (this._deviceInfo) {
+        this.context.releaseDevice(this._deviceInfo);
+        this._deviceInfo = null;
+      }
     }
   }
 
-  stop(when = 0) {
-    this._stopped = true;
-    setTimeout(() => {
-      this.context.destination._stopProcessing();
-      if (this.onended) {
-        this.onended();
-      }
-    }, when * 1000);
+  stop() {
+    if (this._deviceInfo) {
+      console.log('Manual stop for device:', this._deviceInfo.id);
+      this.context.releaseDevice(this._deviceInfo);
+      this._deviceInfo = null;
+    }
+    this._stopped = true;  
   }
 }

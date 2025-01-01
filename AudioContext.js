@@ -4,33 +4,51 @@ import { AudioDestinationNode } from './AudioDestinationNode.js';
 import { OscillatorNode } from './OscillatorNode.js';
 import { GainNode } from './GainNode.js';
 import { AudioBufferSourceNode } from './AudioBufferSourceNode.js';
-import { BiquadFilterNode } from './BiquadFilterNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
-import { decodeAudioData } from './decoder.js';
+import ffmpeg from 'fluent-ffmpeg';
+import fs from 'fs/promises';
 
 export class AudioContext {
   constructor(options = {type: 'playback', frequency: 44100, format: 'f32', channels: 2}) {
     const { type = 'playback', frequency = 44100, format = 'f32', channels = 2 } = options;
     this.state = 'suspended';
-    this._device = sdl.audio.openDevice({ 
-      type,
-      frequency,  // Match standard audio sample rate
-      format,     // Use 32-bit float format
-      channels,        // Default to stereo
-    });
+    this._devices = [];
+    
+    for (let i = 0; i < 8; i++) {
+      const device = sdl.audio.openDevice({ type, frequency, format, channels });
+      this._devices.push({
+        device,
+        inUse: false,
+        id: i
+      });
+    }
     
     this.destination = new AudioDestinationNode(this);
-    this.sampleRate = this._device.frequency;
+    this.sampleRate = frequency;
     this._startTime = null;
-    
-    this._channels = this._device.channels;
-    this._bytesPerSample = this._device.bytesPerSample;
-    this._minSampleValue = this._device.minSampleValue;
-    this._maxSampleValue = this._device.maxSampleValue;
-    this._zeroSampleValue = this._device.zeroSampleValue;
-    this._range = this._maxSampleValue - this._minSampleValue;
-
+    this._format = format;
+    this._channels = channels;
     this._tempDir = path.join('.', 'webaudio_temp');
+  }
+
+  acquireDevice(isMusicTrack = false) {
+    const deviceInfo = this._devices.find(d => !d.inUse);
+    const availableCount = this._devices.filter(d => !d.inUse).length;
+    console.log('Available devices:', availableCount);
+    
+    if (deviceInfo) {
+      deviceInfo.inUse = true;
+      console.log('Acquired device:', deviceInfo.id);
+      return deviceInfo;
+    }
+    return null;
+  }
+
+  releaseDevice(deviceInfo) {
+    if (deviceInfo && deviceInfo.id !== undefined) {
+      console.log('Releasing device:', deviceInfo.id);
+      this._devices[deviceInfo.id].inUse = false;
+    }
   }
 
   get currentTime() {
@@ -41,7 +59,7 @@ export class AudioContext {
   resume() {
     if (this.state === 'suspended') {
       this._startTime = Date.now();
-      this._device.play();
+      this._devices.forEach(d => d.device.play());
       this.state = 'running';
     }
     return Promise.resolve();
@@ -49,7 +67,7 @@ export class AudioContext {
 
   suspend() {
     if (this.state === 'running') {
-      this._device.pause();
+      this._devices.forEach(d => d.device.pause());
       this.state = 'suspended';
     }
     return Promise.resolve();
@@ -57,7 +75,7 @@ export class AudioContext {
 
   close() {
     if (this.state !== 'closed') {
-      this._device.close();
+      this._devices.forEach(d => d.device.close());
       this.state = 'closed';
     }
     return Promise.resolve();
@@ -75,10 +93,6 @@ export class AudioContext {
     return new AudioBufferSourceNode(this);
   }
 
-  createBiquadFilter() {
-    return new BiquadFilterNode(this);
-  }
-
   createBuffer(numberOfChannels, length, sampleRate) {
     return new AudioBuffer({
       length,
@@ -89,27 +103,71 @@ export class AudioContext {
 
   async decodeAudioData(audioData, successCallback, errorCallback) {
     try {
-      const audioBuffer = await decodeAudioData(audioData, this);
+      const buffer = Buffer.from(audioData);
+      const tempDir = path.join('.', 'webaudio_temp');
+      const uniqueId = Date.now() + '-' + Math.random().toString(36).substr(2);
+      const inputPath = path.join(tempDir, `input_${uniqueId}`);
+      const outputPath = path.join(tempDir, `output_${uniqueId}`);
+
+      await fs.mkdir(tempDir, { recursive: true });
+      await fs.writeFile(inputPath, buffer);
+
+      const metadata = await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(inputPath, (err, data) => {
+          if (err) reject(err);
+          else resolve(data);
+        });
+      });
+
+      const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
+      if (!audioStream) throw new Error('No audio stream found');
+
+      const channels = audioStream.channels;
+      const sampleRate = parseInt(audioStream.sample_rate);
+      const duration = parseFloat(audioStream.duration);
+      const numSamples = Math.ceil(duration * sampleRate);
+
+      await new Promise((resolve, reject) => {
+        ffmpeg(inputPath)
+          .toFormat('f32le')
+          .audioChannels(channels)
+          .audioFrequency(sampleRate)
+          .output(outputPath)
+          .on('error', reject)
+          .on('end', resolve)
+          .run();
+      });
+
+      const rawData = await fs.readFile(outputPath);
+      const floatArray = new Float32Array(rawData.buffer, rawData.byteOffset, rawData.length / 4);
       
-      if (successCallback) {
-        try {
-          successCallback(audioBuffer);
-        } catch (callbackError) {
-          console.error('Error in successCallback:', callbackError);
+      const audioBuffer = new AudioBuffer({
+        length: numSamples,
+        numberOfChannels: channels,
+        sampleRate: sampleRate
+      });
+
+      // De-interleave channels
+      for (let channel = 0; channel < channels; channel++) {
+        const channelData = audioBuffer.getChannelData(channel);
+        for (let i = 0; i < numSamples; i++) {
+          channelData[i] = floatArray[i * channels + channel];
         }
       }
 
+      // Clean up temp files
+      await fs.rm(inputPath, { force: true }).catch(() => {});
+      await fs.rm(outputPath, { force: true }).catch(() => {});
+
+      if (successCallback) {
+        successCallback(audioBuffer);
+      }
       return audioBuffer;
 
     } catch (error) {
       if (errorCallback) {
-        try {
-          errorCallback(error);
-        } catch (callbackError) {
-          console.error('Error in errorCallback:', callbackError);
-        }
+        errorCallback(error);
       }
-
       throw error;
     }
   }
