@@ -10,6 +10,7 @@ export class AudioBufferSourceNode extends AudioNode {
     this._stopped = false;
     this.onended = null;
     this._deviceInfo = null;
+    this._endTime = 0;
   }
 
   start(when = 0) {
@@ -25,6 +26,16 @@ export class AudioBufferSourceNode extends AudioNode {
     }
 
     this._deviceInfo = deviceInfo;
+    const now = Date.now();
+    this._endTime = now + (this.buffer.duration * 1000);
+    
+    if (deviceInfo.endTime && now < deviceInfo.endTime) {
+      console.log('Device still playing, skipping');
+      this.context.releaseDevice(deviceInfo);
+      return;
+    }
+    
+    deviceInfo.endTime = this._endTime;
     console.log('Starting playback on device:', deviceInfo.id);
     
     try {
@@ -33,7 +44,6 @@ export class AudioBufferSourceNode extends AudioNode {
       const bytesPerSample = 4;
       const buffer = Buffer.alloc(length * numChannels * bytesPerSample);
 
-      // Interleave channels
       for (let i = 0; i < length; i++) {
         for (let channel = 0; channel < numChannels; channel++) {
           const value = this.buffer._channels[channel][i];
@@ -43,7 +53,6 @@ export class AudioBufferSourceNode extends AudioNode {
 
       const duration = this.buffer.duration * 1000;
       
-      // Release device after duration
       setTimeout(() => {
         if (!this._stopped) {
           console.log('Auto releasing device after duration:', this._deviceInfo.id);

@@ -19,7 +19,8 @@ export class AudioContext {
       this._devices.push({
         device,
         inUse: false,
-        id: i
+        id: i,
+        endTime: 0
       });
     }
     
@@ -32,13 +33,12 @@ export class AudioContext {
   }
 
   acquireDevice(isMusicTrack = false) {
-    const deviceInfo = this._devices.find(d => !d.inUse);
-    const availableCount = this._devices.filter(d => !d.inUse).length;
-    console.log('Available devices:', availableCount);
+    const now = Date.now();
+    const availableDevices = this._devices.filter(d => !d.inUse || now > d.endTime);
     
-    if (deviceInfo) {
+    if (availableDevices.length > 0) {
+      const deviceInfo = availableDevices[0];
       deviceInfo.inUse = true;
-      console.log('Acquired device:', deviceInfo.id);
       return deviceInfo;
     }
     return null;
@@ -46,7 +46,6 @@ export class AudioContext {
 
   releaseDevice(deviceInfo) {
     if (deviceInfo && deviceInfo.id !== undefined) {
-      console.log('Releasing device:', deviceInfo.id);
       this._devices[deviceInfo.id].inUse = false;
     }
   }
