@@ -6,7 +6,7 @@ import { GainNode } from './GainNode.js';
 import { AudioBufferSourceNode } from './AudioBufferSourceNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
 import ffmpeg from 'fluent-ffmpeg';
-import fs from 'fs/promises';
+import { Readable } from 'stream';
 
 export class AudioContext {
   constructor(options = {type: 'playback', frequency: 44100, format: 'f32', channels: 2}) {
@@ -29,7 +29,6 @@ export class AudioContext {
     this._startTime = null;
     this._format = format;
     this._channels = channels;
-    this._tempDir = path.join('.', 'webaudio_temp');
   }
 
   acquireDevice(isMusicTrack = false) {
@@ -102,61 +101,48 @@ export class AudioContext {
 
   async decodeAudioData(audioData, successCallback, errorCallback) {
     try {
-      const buffer = Buffer.from(audioData);
-      const tempDir = path.join('.', 'webaudio_temp');
-      const uniqueId = Date.now() + '-' + Math.random().toString(36).substr(2);
-      const inputPath = path.join(tempDir, `input_${uniqueId}`);
-      const outputPath = path.join(tempDir, `output_${uniqueId}`);
+      // Create input stream
+      const inputStream = new Readable();
+      inputStream.push(Buffer.from(audioData));
+      inputStream.push(null);
 
-      await fs.mkdir(tempDir, { recursive: true });
-      await fs.writeFile(inputPath, buffer);
-
-      const metadata = await new Promise((resolve, reject) => {
-        ffmpeg.ffprobe(inputPath, (err, data) => {
-          if (err) reject(err);
-          else resolve(data);
-        });
-      });
-
-      const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
-      if (!audioStream) throw new Error('No audio stream found');
-
-      const channels = audioStream.channels;
-      const sampleRate = parseInt(audioStream.sample_rate);
-      const duration = parseFloat(audioStream.duration);
-      const numSamples = Math.ceil(duration * sampleRate);
-
+      // Decode directly to memory using streams
+      const chunks = [];
       await new Promise((resolve, reject) => {
-        ffmpeg(inputPath)
+        ffmpeg(inputStream)
           .toFormat('f32le')
-          .audioChannels(channels)
-          .audioFrequency(sampleRate)
-          .output(outputPath)
+          .audioChannels(this._channels)
+          .audioFrequency(this.sampleRate)
           .on('error', reject)
-          .on('end', resolve)
-          .run();
+          .pipe()
+          .on('data', chunk => chunks.push(chunk))
+          .on('end', resolve);
       });
 
-      const rawData = await fs.readFile(outputPath);
-      const floatArray = new Float32Array(rawData.buffer, rawData.byteOffset, rawData.length / 4);
+      // Combine chunks and create float array
+      const buffer = Buffer.concat(chunks);
+      const floatArray = new Float32Array(buffer.buffer, buffer.byteOffset, buffer.length / 4);
       
+      // Calculate samples from actual decoded data
+      const numSamples = Math.floor(floatArray.length / this._channels);
+      
+      if (numSamples <= 0) {
+        throw new Error('No samples in decoded audio');
+      }
+
       const audioBuffer = new AudioBuffer({
         length: numSamples,
-        numberOfChannels: channels,
-        sampleRate: sampleRate
+        numberOfChannels: this._channels,
+        sampleRate: this.sampleRate
       });
 
       // De-interleave channels
-      for (let channel = 0; channel < channels; channel++) {
+      for (let channel = 0; channel < this._channels; channel++) {
         const channelData = audioBuffer.getChannelData(channel);
         for (let i = 0; i < numSamples; i++) {
-          channelData[i] = floatArray[i * channels + channel];
+          channelData[i] = floatArray[i * this._channels + channel];
         }
       }
-
-      // Clean up temp files
-      await fs.rm(inputPath, { force: true }).catch(() => {});
-      await fs.rm(outputPath, { force: true }).catch(() => {});
 
       if (successCallback) {
         successCallback(audioBuffer);
