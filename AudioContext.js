@@ -8,20 +8,26 @@ import { AudioBuffer } from './AudioBuffer.js';
 import ffmpeg from 'fluent-ffmpeg';
 import { Readable } from 'stream';
 
+const NUM_DEVICES = 12;
+
 export class AudioContext {
-  constructor(options = {type: 'playback', frequency: 44100, format: 'f32', channels: 2}) {
-    const { type = 'playback', frequency = 44100, format = 'f32', channels = 2 } = options;
+  constructor(options = {type: 'playback', frequency: 44100, format: 'f32', channels: 1}) {
+    const { type = 'playback', frequency = 44100, format = 'f32', channels = 1 } = options;
     this.state = 'suspended';
     this._devices = [];
     
-    for (let i = 0; i < 8; i++) {
-      const device = sdl.audio.openDevice({ type, frequency, format, channels });
-      this._devices.push({
-        device,
-        inUse: false,
-        id: i,
-        endTime: 0
-      });
+    for (let i = 0; i < NUM_DEVICES; i++) {
+      try {
+        const device = sdl.audio.openDevice({ type, frequency, format, channels });
+        this._devices.push({
+          device,
+          inUse: false,
+          id: i,
+          endTime: 0
+        });
+      } catch (e) {
+        console.error('error opening device', e);
+      }
     }
     
     this.destination = new AudioDestinationNode(this);
@@ -121,28 +127,15 @@ export class AudioContext {
 
       // Combine chunks and create float array
       const buffer = Buffer.concat(chunks);
-      const floatArray = new Float32Array(buffer.buffer, buffer.byteOffset, buffer.length / 4);
-      
-      // Calculate samples from actual decoded data
-      const numSamples = Math.floor(floatArray.length / this._channels);
-      
-      if (numSamples <= 0) {
-        throw new Error('No samples in decoded audio');
-      }
+
+      const numSamples = (buffer.length / this._channels) / 4;
 
       const audioBuffer = new AudioBuffer({
         length: numSamples,
         numberOfChannels: this._channels,
         sampleRate: this.sampleRate
       });
-
-      // De-interleave channels
-      for (let channel = 0; channel < this._channels; channel++) {
-        const channelData = audioBuffer.getChannelData(channel);
-        for (let i = 0; i < numSamples; i++) {
-          channelData[i] = floatArray[i * this._channels + channel];
-        }
-      }
+      audioBuffer.buffer = buffer;
 
       if (successCallback) {
         successCallback(audioBuffer);

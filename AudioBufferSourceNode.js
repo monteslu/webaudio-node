@@ -30,32 +30,23 @@ export class AudioBufferSourceNode extends AudioNode {
     this._endTime = now + (this.buffer.duration * 1000);
     
     if (deviceInfo.endTime && now < deviceInfo.endTime) {
-      console.log('Device still playing, skipping');
+      //console.log('Device still playing, skipping');
       this.context.releaseDevice(deviceInfo);
       return;
     }
     
     deviceInfo.endTime = this._endTime;
-    console.log('Starting playback on device:', deviceInfo.id);
+    // console.log('Starting playback on device:', deviceInfo.id);
     
     try {
-      const numChannels = this.buffer.numberOfChannels;
-      const length = this.buffer.length;
-      const bytesPerSample = 4;
-      const buffer = Buffer.alloc(length * numChannels * bytesPerSample);
 
-      for (let i = 0; i < length; i++) {
-        for (let channel = 0; channel < numChannels; channel++) {
-          const value = this.buffer._channels[channel][i];
-          buffer.writeFloatLE(value, (i * numChannels + channel) * bytesPerSample);
-        }
-      }
 
       const duration = this.buffer.duration * 1000;
+      // console.log('duration', duration, this.buffer.duration);
       
       setTimeout(() => {
         if (!this._stopped) {
-          console.log('Auto releasing device after duration:', this._deviceInfo.id);
+          // console.log('Auto releasing device after duration:', this._deviceInfo.id);
           this._stopped = true;
           this.context.releaseDevice(this._deviceInfo);
           this._deviceInfo = null;
@@ -63,9 +54,9 @@ export class AudioBufferSourceNode extends AudioNode {
             this.onended();
           }
         }
-      }, Math.max(100, duration + 100));
+      }, Math.max(50, duration + 50));
 
-      deviceInfo.device.enqueue(buffer);
+      deviceInfo.device.enqueue(this.buffer.buffer);
       deviceInfo.device.play();
 
     } catch (err) {
