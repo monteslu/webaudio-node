@@ -1,6 +1,6 @@
 {
   "name": "webaudio-node",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A WebAudio implemenation for node without a browser",
   "main": "index.js",
   "type": "module",

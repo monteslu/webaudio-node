@@ -1,10 +1,11 @@
 import { AudioNode } from './AudioNode.js';
+import { AudioParam } from './AudioParam.js';
 
 export class AudioBufferSourceNode extends AudioNode {
   constructor(context) {
     super(context);
     this.buffer = null;
-    this.playbackRate = 1.0;
+    this.playbackRate = new AudioParam(context, 1.0);
     this.loop = false;
     this._started = false;
     this._stopped = false;
@@ -70,7 +71,7 @@ export class AudioBufferSourceNode extends AudioNode {
 
   stop() {
     if (this._deviceInfo) {
-      console.log('Manual stop for device:', this._deviceInfo.id);
+      // console.log('Manual stop for device:', this._deviceInfo.id);
       this.context.releaseDevice(this._deviceInfo);
       this._deviceInfo = null;
     }
