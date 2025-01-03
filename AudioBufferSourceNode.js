@@ -52,7 +52,7 @@ export class AudioBufferSourceNode extends AudioNode {
           this.context.releaseDevice(this._deviceInfo);
           this._deviceInfo = null;
           if (this.onended) {
-            this.onended();
+            this.onended({ target: this });
           }
         }
       }, Math.max(50, duration + 50));
