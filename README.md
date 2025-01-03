@@ -21,44 +21,32 @@ npm install webaudio-node
 import { AudioContext } from 'webaudio-node';
 import fs from 'fs/promises';
 
+// Create audio context
+const audioContext = new AudioContext();
+
 async function run() {
-  // Create audio context
-  const audioContext = new AudioContext();
-
-  // load an mp3, ogg, wav, etc.
   const fileData = await fs.readFile('/path/to/audio/file.mp3');
-
-  // Convert to ArrayBuffer as required by decodeAudioData
-  const arrayBuffer = fileData.buffer.slice(
-    fileData.byteOffset,
-    fileData.byteOffset + fileData.byteLength
-  );
-
+  
   // Decode the audio file
-  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  const audioBuffer = await audioContext.decodeAudioData(fileData);
 
   // Create buffer source node
   const source = audioContext.createBufferSource();
   source.buffer = audioBuffer;
 
-  // Connect to destination
-  source.connect(audioContext.destination);
-
   // Optional: Add event handler for when playback ends
   source.onended = () => {
     console.log('Playback finished');
-    audioContext.close();
     process.exit(0);
   };
 
-  // Start playing
+  source.connect(audioContext.destination);
   source.start(0);
-  console.log('Playing audio file:', filename);
-  console.log('Duration:', audioBuffer.duration, 'seconds');
-
+  console.log('Duration:', source.buffer.duration, 'seconds');
 }
 
 run();
+
 ```
 
 
