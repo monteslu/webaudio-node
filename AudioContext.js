@@ -5,31 +5,54 @@ import { OscillatorNode } from './OscillatorNode.js';
 import { GainNode } from './GainNode.js';
 import { AudioBufferSourceNode } from './AudioBufferSourceNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
-import { decodeAudioData } from './decoder.js';
+import ffmpeg from 'fluent-ffmpeg';
+import { Readable } from 'stream';
+
+const NUM_DEVICES = 12;
 
 export class AudioContext {
-  constructor(options = {type: 'playback', frequency: 44100, format: 'f32', channels: 2}) {
-    const { type = 'playback', frequency = 44100, format = 'f32', channels = 2 } = options;
+  constructor(options = {type: 'playback', frequency: 44100, format: 'f32', channels: 1}) {
+    const { type = 'playback', frequency = 44100, format = 'f32', channels = 1 } = options;
     this.state = 'suspended';
-    this._device = sdl.audio.openDevice({ 
-      type,
-      frequency,  // Match standard audio sample rate
-      format,     // Use 32-bit float format
-      channels,        // Default to stereo
-    });
+    this._devices = [];
+    
+    for (let i = 0; i < NUM_DEVICES; i++) {
+      try {
+        const device = sdl.audio.openDevice({ type, frequency, format, channels });
+        this._devices.push({
+          device,
+          inUse: false,
+          id: i,
+          endTime: 0
+        });
+      } catch (e) {
+        console.error('error opening device', e);
+      }
+    }
     
     this.destination = new AudioDestinationNode(this);
-    this.sampleRate = this._device.frequency;
+    this.sampleRate = frequency;
     this._startTime = null;
-    
-    this._channels = this._device.channels;
-    this._bytesPerSample = this._device.bytesPerSample;
-    this._minSampleValue = this._device.minSampleValue;
-    this._maxSampleValue = this._device.maxSampleValue;
-    this._zeroSampleValue = this._device.zeroSampleValue;
-    this._range = this._maxSampleValue - this._minSampleValue;
+    this._format = format;
+    this._channels = channels;
+  }
 
-    this._tempDir = path.join('.', 'webaudio_temp');
+  acquireDevice(isMusicTrack = false) {
+    const now = Date.now();
+    const availableDevices = this._devices.filter(d => !d.inUse || now > d.endTime);
+    
+    if (availableDevices.length > 0) {
+      const deviceInfo = availableDevices[0];
+      deviceInfo.inUse = true;
+      return deviceInfo;
+    }
+    return null;
+  }
+
+  releaseDevice(deviceInfo) {
+    if (deviceInfo && deviceInfo.id !== undefined) {
+      this._devices[deviceInfo.id].inUse = false;
+    }
   }
 
   get currentTime() {
@@ -40,7 +63,7 @@ export class AudioContext {
   resume() {
     if (this.state === 'suspended') {
       this._startTime = Date.now();
-      this._device.play();
+      this._devices.forEach(d => d.device.play());
       this.state = 'running';
     }
     return Promise.resolve();
@@ -48,7 +71,7 @@ export class AudioContext {
 
   suspend() {
     if (this.state === 'running') {
-      this._device.pause();
+      this._devices.forEach(d => d.device.pause());
       this.state = 'suspended';
     }
     return Promise.resolve();
@@ -56,7 +79,7 @@ export class AudioContext {
 
   close() {
     if (this.state !== 'closed') {
-      this._device.close();
+      this._devices.forEach(d => d.device.close());
       this.state = 'closed';
     }
     return Promise.resolve();
@@ -84,27 +107,45 @@ export class AudioContext {
 
   async decodeAudioData(audioData, successCallback, errorCallback) {
     try {
-      const audioBuffer = await decodeAudioData(audioData, this);
-      
-      if (successCallback) {
-        try {
-          successCallback(audioBuffer);
-        } catch (callbackError) {
-          console.error('Error in successCallback:', callbackError);
-        }
-      }
+      // Create input stream
+      const inputStream = new Readable();
+      inputStream.push(Buffer.from(audioData));
+      inputStream.push(null);
 
+      // Decode directly to memory using streams
+      const chunks = [];
+      await new Promise((resolve, reject) => {
+        ffmpeg(inputStream)
+          .toFormat('f32le')
+          .audioChannels(this._channels)
+          .audioFrequency(this.sampleRate)
+          .on('error', reject)
+          .pipe()
+          .on('data', chunk => chunks.push(chunk))
+          .on('end', resolve);
+      });
+
+      // Combine chunks and create float array
+      const buffer = Buffer.concat(chunks);
+
+      const numSamples = (buffer.length / this._channels) / 4;
+
+      const audioBuffer = new AudioBuffer({
+        length: numSamples,
+        numberOfChannels: this._channels,
+        sampleRate: this.sampleRate
+      });
+      audioBuffer.buffer = buffer;
+
+      if (successCallback) {
+        successCallback(audioBuffer);
+      }
       return audioBuffer;
 
     } catch (error) {
       if (errorCallback) {
-        try {
-          errorCallback(error);
-        } catch (callbackError) {
-          console.error('Error in errorCallback:', callbackError);
-        }
+        errorCallback(error);
       }
-
       throw error;
     }
   }

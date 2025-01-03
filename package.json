@@ -17,6 +17,7 @@
     "ffmpeg",
     "sdl"
   ],
+  "node": ">=20.0.0",
   "author": "Luis Montes",
   "license": "ISC",
   "repository": {

@@ -3,20 +3,24 @@ export class AudioNode {
     this.context = context;
     this.numberOfInputs = 0;
     this.numberOfOutputs = 1;
-    this.channelCount = context._channels;
+    this.channelCount = 2;
     this.channelCountMode = 'explicit';
     this.channelInterpretation = 'speakers';
     this._inputs = [];
     this._outputs = [];
   }
 
-  connect(destination, outputIndex = 0, inputIndex = 0) {
-    console.log('connect', typeof destination, destination instanceof AudioNode, destination.constructor.name);
+  connect(destination) {
+    // Check if connecting to context.destination
+    if (destination === this.context.destination) {
+      // No actual connection needed - device handles output
+      return destination;
+    }
+
     if (!(destination instanceof AudioNode)) {
       throw new Error('Destination must be an AudioNode');
     }
 
-    // Simply connect nodes - let specific node types handle their constraints
     destination._inputs.push(this);
     this._outputs.push(destination);
     return destination;
@@ -30,10 +34,5 @@ export class AudioNode {
       }
     });
     this._outputs = [];
-  }
-
-  _process() {
-    // Override in subclasses
-    return Buffer.alloc(0);
   }
 }

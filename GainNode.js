@@ -5,84 +5,33 @@ export class GainNode extends AudioNode {
     super(context);
     this.gain = {
       value: 1.0,
-      _scheduledValues: [],
-      _startTime: null,
+      _events: [],
       setValueAtTime: (value, time) => {
-        this.gain.value = value;
-        this.gain._scheduledValues.push({
-          type: 'instant',
+        this.gain._events.push({
+          type: 'setValue',
           value,
-          time,
-          endTime: time
+          time
         });
-        // Initialize startTime if this is first event
-        if (this.gain._startTime === null) {
-          this.gain._startTime = this.context.currentTime;
-        }
-      },
-      exponentialRampToValueAtTime: (value, endTime) => {
-        if (value <= 0) {
-          throw new Error("exponentialRampToValueAtTime value must be greater than zero");
-        }
+        this.gain.value = value;
         
-        const startValue = this.gain.value;
-        const startTime = this.context.currentTime;
-        
-        this.gain._scheduledValues.push({
-          type: 'exponential',
-          startValue,
-          endValue: value,
-          startTime,
-          endTime
-        });
+        // Update SDL device volume if connected to a source
+        if (this._inputs[0] && this._inputs[0]._deviceIndex >= 0) {
+          const device = this.context._devices[this._inputs[0]._deviceIndex];
+          device.setVolume(Math.max(0, Math.min(1, value)));
+        }
       }
     };
   }
 
-  _getCurrentGain() {
-    const now = this.context.currentTime;
+  connect(destination) {
+    super.connect(destination);
     
-    // Find the active automation event
-    for (let i = this.gain._scheduledValues.length - 1; i >= 0; i--) {
-      const event = this.gain._scheduledValues[i];
-      
-      if (now >= event.startTime && now <= event.endTime) {
-        if (event.type === 'instant') {
-          return event.value;
-        } else if (event.type === 'exponential') {
-          // Calculate progress through the ramp
-          const timeProgress = (now - event.startTime) / (event.endTime - event.startTime);
-          const exponentialProgress = Math.pow(event.endValue / event.startValue, timeProgress);
-          return event.startValue * exponentialProgress;
-        }
-      }
+    // Set initial volume on connection
+    if (this._inputs[0] && this._inputs[0]._deviceIndex >= 0) {
+      const device = this.context._devices[this._inputs[0]._deviceIndex];
+      device.setVolume(Math.max(0, Math.min(1, this.gain.value)));
     }
     
-    // If no active automation, return the current value
-    return this.gain.value;
-  }
-
-  _process() {
-    if (this._inputs.length === 0) return Buffer.alloc(0);
-
-    const inputBuffer = this._inputs[0]._process();
-    if (!inputBuffer || inputBuffer.length === 0) return Buffer.alloc(0);
-
-    const buffer = Buffer.alloc(inputBuffer.length);
-    let offset = 0;
-
-    // Get current gain value considering automation
-    const currentGain = this._getCurrentGain();
-    console.log('Processing with gain:', currentGain);
-
-    while (offset < inputBuffer.length) {
-      const sample = this.context._device.readSample(inputBuffer, offset);
-      const normalized = (sample - this.context._zeroSampleValue) / (this.context._range / 2);
-      const scaled = this.context._zeroSampleValue + 
-        (normalized * currentGain * (this.context._range / 2));
-      offset = this.context._device.writeSample(buffer, scaled, offset);
-    }
-
-    return buffer;
+    return destination;
   }
 }
