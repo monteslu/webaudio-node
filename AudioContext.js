@@ -1,5 +1,4 @@
 import sdl from '@kmamal/sdl';
-import path from 'path';
 import { AudioDestinationNode } from './AudioDestinationNode.js';
 import { OscillatorNode } from './OscillatorNode.js';
 import { GainNode } from './GainNode.js';

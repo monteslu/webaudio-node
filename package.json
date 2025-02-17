@@ -1,6 +1,6 @@
 {
   "name": "webaudio-node",
-  "version": "0.1.2",
+  "version": "0.1.333",
   "description": "A WebAudio implemenation for node without a browser",
   "main": "index.js",
   "type": "module",
@@ -25,7 +25,7 @@
     "url": "https://github.com/monteslu/webaudio-node.git"
   },
   "dependencies": {
-    "@kmamal/sdl": "^0.10.7",
+    "@kmamal/sdl": "^0.10.13",
     "fluent-ffmpeg": "^2.1.3"
   }
 }
