@@ -2,7 +2,7 @@
  * Implementation of Web Audio API's AudioParam interface
  */
 export class AudioParam {
-  constructor(defaultValue) {
+  constructor(context, defaultValue) {
     this.value = defaultValue;
     this.defaultValue = defaultValue;
     this.minValue = -3.4028235e38;
