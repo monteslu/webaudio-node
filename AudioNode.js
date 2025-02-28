@@ -1,11 +1,11 @@
 export class AudioNode {
-  constructor(context) {
+  constructor(context, options = {}) {
     this.context = context;
     this.numberOfInputs = 0;
     this.numberOfOutputs = 1;
-    this.channelCount = 2;
-    this.channelCountMode = 'explicit';
-    this.channelInterpretation = 'speakers';
+    this.channelCount = options.channelCount || 2;
+    this.channelCountMode = options.channelCountMode ||'explicit';
+    this.channelInterpretation = options.channelInterpretation || 'speakers';
     this._inputs = [];
     this._outputs = [];
   }
