@@ -4,6 +4,7 @@ import { OscillatorNode } from './OscillatorNode.js';
 import { GainNode } from './GainNode.js';
 import { AudioBufferSourceNode } from './AudioBufferSourceNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
+import { PannerNode } from './PannerNode.js';
 import ffmpeg from 'fluent-ffmpeg';
 import { Readable } from 'stream';
 
@@ -94,6 +95,10 @@ export class AudioContext {
 
   createBufferSource() {
     return new AudioBufferSourceNode(this);
+  }
+
+  createPanner() {
+    return new PannerNode(this);
   }
 
   createBuffer(numberOfChannels, length, sampleRate) {
