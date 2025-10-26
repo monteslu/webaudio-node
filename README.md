@@ -342,6 +342,7 @@ MIT License - see [LICENSE](LICENSE)
 - SDL2 for audio output
 - FFmpeg for audio decoding
 - SIMD intrinsics (NEON/SSE/AVX) for performance
+- [kmamal's sdl-node](https://github.com/kmamal/node-sdl) for paving the way with SDL Node.js bindings
 
 ---
 
