@@ -1,23 +1,38 @@
 {
   "name": "webaudio-node",
-  "version": "0.2.0",
-  "description": "A WebAudio implemenation for node without a browser",
+  "version": "1.0.0",
+  "description": "Full-featured Web Audio API for Node.js with SIMD optimizations, AudioWorklet, and microphone support (98% spec compliant)",
   "main": "index.js",
   "type": "module",
+  "gypfile": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "install": "node scripts/install.mjs",
+    "build": "node scripts/build.mjs",
+    "download-sdl": "node scripts/download-sdl.mjs",
+    "test": "node test/basic-playback.js"
   },
   "keywords": [
     "Node",
     "WebAudio",
     "Audio",
+    "AudioWorklet",
+    "microphone",
+    "audio-input",
+    "audio-processing",
     "mp3",
     "ogg",
     "wav",
     "ffmpeg",
-    "sdl"
+    "sdl",
+    "native",
+    "addon",
+    "high-performance",
+    "SIMD",
+    "real-time"
   ],
-  "node": ">=20.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "author": "Luis Montes",
   "license": "ISC",
   "repository": {
@@ -25,7 +40,11 @@
     "url": "https://github.com/monteslu/webaudio-node.git"
   },
   "dependencies": {
-    "@kmamal/sdl": "^0.10.13",
+    "@kmamal/build-sdl": "file:../build-sdl",
     "fluent-ffmpeg": "^2.1.3"
+  },
+  "devDependencies": {
+    "node-addon-api": "^8.5.0",
+    "node-gyp": "^11.2.0"
   }
 }

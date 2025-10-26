@@ -1,0 +1,83 @@
+name: Build Native Addon
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          # macOS builds
+          - os: macos-latest
+            arch: x64
+            platform: darwin-x64
+          - os: macos-latest
+            arch: arm64
+            platform: darwin-arm64
+
+          # Linux builds
+          - os: ubuntu-latest
+            arch: x64
+            platform: linux-x64
+          - os: ubuntu-latest
+            arch: arm64
+            platform: linux-arm64
+
+          # Windows build
+          - os: windows-latest
+            arch: x64
+            platform: win32-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Download SDL
+        run: node scripts/download-sdl.mjs
+
+      - name: Build native addon
+        run: node scripts/build.mjs
+
+      - name: Package binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          tar -czf dist/${{ matrix.platform }}.tar.gz -C build/Release webaudio_native.node
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: dist/${{ matrix.platform }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/**/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

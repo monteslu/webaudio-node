@@ -1,2 +1,17 @@
-node_modules
+node_modules/
+build/
+sdl/
+tmp/
+.sdl-env
+*.node
+*.o
+*.a
+*.so
+*.dylib
+*.dll
 package-lock.json
+.DS_Store
+
+# Test files (user-generated)
+test/reference-data/
+test/samples/

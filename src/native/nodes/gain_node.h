@@ -1,0 +1,34 @@
+#ifndef WEBAUDIO_GAIN_NODE_H
+#define WEBAUDIO_GAIN_NODE_H
+
+#include "audio_node.h"
+#include "../audio_param.h"
+#include <memory>
+
+namespace webaudio {
+
+class GainNode : public AudioNode {
+public:
+	GainNode(int sample_rate, int channels);
+	~GainNode() override = default;
+
+	void Process(float* output, int frame_count) override;
+
+	void SetParameter(const std::string& name, float value) override;
+	void ScheduleParameterValue(const std::string& name, float value, double time) override;
+	void ScheduleParameterRamp(const std::string& name, float value, double time, bool exponential) override;
+	void ScheduleParameterTarget(const std::string& name, float target, double time, double time_constant) override;
+	void ScheduleParameterCurve(const std::string& name, const std::vector<float>& values, double time, double duration) override;
+	void CancelScheduledParameterValues(const std::string& name, double cancel_time) override;
+	void CancelAndHoldParameterAtTime(const std::string& name, double cancel_time) override;
+
+	AudioParam* GetAudioParam(const std::string& name) override;
+
+private:
+	std::unique_ptr<AudioParam> gain_param_;
+	// double current_time_;  // Removed - already in base class AudioNode
+};
+
+} // namespace webaudio
+
+#endif // WEBAUDIO_GAIN_NODE_H
