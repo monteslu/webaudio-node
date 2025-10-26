@@ -12,7 +12,7 @@ public:
 	WaveShaperNode(int sample_rate, int channels);
 	~WaveShaperNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	void SetCurve(const float* curve_data, int curve_length);
 	void ClearCurve();

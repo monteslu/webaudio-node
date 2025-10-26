@@ -4,6 +4,10 @@
 #include <algorithm>
 #include <complex>
 
+#ifdef __ARM_NEON
+#include <arm_neon.h>
+#endif
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -30,87 +34,123 @@ IIRFilterNode::IIRFilterNode(int sample_rate, int channels,
 		}
 	}
 
-	// Initialize delay lines for each channel
-	int max_delay = std::max(feedforward_.size(), feedback_.size());
-	x_history_.resize(channels_);
-	y_history_.resize(channels_);
-
+	// Initialize state arrays for Direct Form II Transposed
+	// State size is max(M, N) - 1
+	int state_size = std::max(feedforward_.size(), feedback_.size()) - 1;
+	state_.resize(channels_);
 	for (int ch = 0; ch < channels_; ++ch) {
-		x_history_[ch].resize(max_delay, 0.0f);
-		y_history_[ch].resize(max_delay, 0.0f);
+		state_[ch].resize(state_size, 0.0f);
 	}
 }
 
-void IIRFilterNode::Process(float* output, int frame_count) {
+void IIRFilterNode::Process(float* output, int frame_count, int output_index) {
 	std::lock_guard<std::mutex> lock(filter_mutex_);
 
+	// Cache computed channels to avoid repeated GetChannels() calls
+	const int computed_channels = GetChannels();
+
 	// Clear output
-	ClearBuffer(output, frame_count);
+	ClearBuffer(output, frame_count, computed_channels);
 
 	// Mix all inputs
+	const size_t required_size = frame_count * computed_channels;
+	if (input_buffer_.size() < required_size) {
+		input_buffer_.resize(required_size, 0.0f);
+	}
+
 	for (auto* input_node : inputs_) {
 		if (input_node && input_node->IsActive()) {
-			if (input_buffer_.size() < static_cast<size_t>(frame_count * channels_)) {
-				input_buffer_.resize(frame_count * channels_, 0.0f);
-			}
-
-			std::memset(input_buffer_.data(), 0, frame_count * channels_ * sizeof(float));
 			input_node->Process(input_buffer_.data(), frame_count);
-			MixBuffer(output, input_buffer_.data(), frame_count);
+			MixBuffer(output, input_buffer_.data(), frame_count, computed_channels, 1.0f);
 		}
 	}
 
-	// Apply IIR filter per channel
-	int M = feedforward_.size();  // Feedforward order
-	int N = feedback_.size();     // Feedback order
+	// Apply IIR filter per channel using Direct Form II Transposed
+	// This is MUCH faster: better cache locality, no circular buffer overhead
+	const int M = feedforward_.size();  // Feedforward order
+	const int N = feedback_.size();     // Feedback order
+	const int state_size = std::max(M, N) - 1;
 
-	for (int ch = 0; ch < channels_; ++ch) {
-		auto& x_hist = x_history_[ch];
-		auto& y_hist = y_history_[ch];
+	for (int ch = 0; ch < computed_channels; ++ch) {
+		float* s = state_[ch].data();  // State array
 
-		for (int frame = 0; frame < frame_count; ++frame) {
-			int idx = frame * channels_ + ch;
-			float x_n = output[idx];  // Current input
+		// Optimized path for common 5-coefficient (4th order) case
+		if (M == 5 && N == 5 && state_size == 4) {
+			const float b0 = feedforward_[0];
+			const float b1 = feedforward_[1];
+			const float b2 = feedforward_[2];
+			const float b3 = feedforward_[3];
+			const float b4 = feedforward_[4];
+			const float a1 = feedback_[1];
+			const float a2 = feedback_[2];
+			const float a3 = feedback_[3];
+			const float a4 = feedback_[4];
 
-			// Compute output using Direct Form I:
-			// y[n] = b[0]*x[n] + b[1]*x[n-1] + ... + b[M-1]*x[n-M+1]
-			//      - a[1]*y[n-1] - a[2]*y[n-2] - ... - a[N-1]*y[n-N+1]
+			// Cache state values to encourage register allocation
+			float s0 = s[0];
+			float s1 = s[1];
+			float s2 = s[2];
+			float s3 = s[3];
 
-			float y_n = 0.0f;
+			for (int frame = 0; frame < frame_count; ++frame) {
+				const int idx = frame * computed_channels + ch;
+				const float x = output[idx];
 
-			// Feedforward (numerator)
-			for (int i = 0; i < M; ++i) {
-				if (i == 0) {
-					y_n += feedforward_[i] * x_n;
-				} else if (i < static_cast<int>(x_hist.size())) {
-					y_n += feedforward_[i] * x_hist[i - 1];
+				// Direct Form II Transposed (fully optimized for 4th order)
+				const float y = b0 * x + s0;
+				const float new_s0 = b1 * x - a1 * y + s1;
+				const float new_s1 = b2 * x - a2 * y + s2;
+				const float new_s2 = b3 * x - a3 * y + s3;
+				const float new_s3 = b4 * x - a4 * y;
+
+				s0 = new_s0;
+				s1 = new_s1;
+				s2 = new_s2;
+				s3 = new_s3;
+
+				output[idx] = y;
+			}
+
+			// Write back cached state
+			s[0] = s0;
+			s[1] = s1;
+			s[2] = s2;
+			s[3] = s3;
+		} else {
+			// General case for arbitrary filter orders
+			for (int frame = 0; frame < frame_count; ++frame) {
+				const int idx = frame * computed_channels + ch;
+				const float x = output[idx];
+
+				// Direct Form II Transposed:
+				// y[n] = b[0]*x[n] + state[0]
+				float y = feedforward_[0] * x + (state_size > 0 ? s[0] : 0.0f);
+
+				// Update states:
+				// state[i] = b[i+1]*x[n] - a[i+1]*y[n] + state[i+1]
+				for (int i = 0; i < state_size; ++i) {
+					float new_state = 0.0f;
+
+					// Feedforward contribution
+					if (i + 1 < M) {
+						new_state += feedforward_[i + 1] * x;
+					}
+
+					// Feedback contribution
+					if (i + 1 < N) {
+						new_state -= feedback_[i + 1] * y;
+					}
+
+					// Next state contribution
+					if (i + 1 < state_size) {
+						new_state += s[i + 1];
+					}
+
+					s[i] = new_state;
 				}
-			}
 
-			// Feedback (denominator), skip a[0] since it's normalized to 1
-			for (int i = 1; i < N; ++i) {
-				if (i < static_cast<int>(y_hist.size())) {
-					y_n -= feedback_[i] * y_hist[i - 1];
-				}
+				output[idx] = y;
 			}
-
-			// Update delay lines (shift right)
-			for (int i = x_hist.size() - 1; i > 0; --i) {
-				x_hist[i] = x_hist[i - 1];
-			}
-			if (!x_hist.empty()) {
-				x_hist[0] = x_n;
-			}
-
-			for (int i = y_hist.size() - 1; i > 0; --i) {
-				y_hist[i] = y_hist[i - 1];
-			}
-			if (!y_hist.empty()) {
-				y_hist[0] = y_n;
-			}
-
-			// Write output
-			output[idx] = y_n;
 		}
 	}
 }

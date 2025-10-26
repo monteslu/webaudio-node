@@ -7,12 +7,12 @@
 #include <arm_neon.h>
 #endif
 
-#ifdef __SSE__
+#if defined(__SSE__) || defined(__SSE2__)
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #endif
 
-#ifdef __AVX__
+#if defined(__AVX__) || defined(__AVX2__)
 #include <immintrin.h>
 #endif
 
@@ -23,7 +23,16 @@ namespace webaudio {
 void Mixer::Mix(float* dest, const float* src, int sample_count, float gain) {
 	int i = 0;
 
-#ifdef __AVX__
+#if defined(__AVX2__) && defined(__FMA__)
+	// AVX2 + FMA: Process 8 samples at once with fused multiply-add (fastest!)
+	__m256 gain_vec = _mm256_set1_ps(gain);
+	for (; i + 8 <= sample_count; i += 8) {
+		__m256 dest_vec = _mm256_loadu_ps(&dest[i]);
+		__m256 src_vec = _mm256_loadu_ps(&src[i]);
+		dest_vec = _mm256_fmadd_ps(src_vec, gain_vec, dest_vec);  // dest + (src * gain)
+		_mm256_storeu_ps(&dest[i], dest_vec);
+	}
+#elif defined(__AVX__)
 	// AVX: Process 8 samples at once (x86-64 with AVX support)
 	__m256 gain_vec = _mm256_set1_ps(gain);
 	for (; i + 8 <= sample_count; i += 8) {

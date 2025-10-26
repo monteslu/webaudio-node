@@ -61,7 +61,7 @@ void StereoPannerNode::CancelAndHoldParameterAtTime(const std::string& name, dou
 	}
 }
 
-void StereoPannerNode::Process(float* output, int frame_count) {
+void StereoPannerNode::Process(float* output, int frame_count, int output_index) {
 	// Clear output
 	ClearBuffer(output, frame_count);
 

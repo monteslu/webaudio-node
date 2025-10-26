@@ -13,7 +13,7 @@ public:
 	DelayNode(int sample_rate, int channels, float max_delay_time = 1.0f);
 	~DelayNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	void SetParameter(const std::string& name, float value) override;
 

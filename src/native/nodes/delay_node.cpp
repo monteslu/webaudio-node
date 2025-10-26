@@ -26,20 +26,20 @@ void DelayNode::SetParameter(const std::string& name, float value) {
 	}
 }
 
-void DelayNode::Process(float* output, int frame_count) {
+void DelayNode::Process(float* output, int frame_count, int output_index) {
 	// Clear output
-	ClearBuffer(output, frame_count);
+	ClearBuffer(output, frame_count, channels_);
 
 	// Mix all inputs
+	if (input_buffer_.size() < static_cast<size_t>(frame_count * channels_)) {
+		input_buffer_.resize(frame_count * channels_, 0.0f);
+	}
+
 	for (auto* input_node : inputs_) {
 		if (input_node && input_node->IsActive()) {
-			if (input_buffer_.size() < static_cast<size_t>(frame_count * channels_)) {
-				input_buffer_.resize(frame_count * channels_, 0.0f);
-			}
-
 			std::memset(input_buffer_.data(), 0, frame_count * channels_ * sizeof(float));
 			input_node->Process(input_buffer_.data(), frame_count);
-			MixBuffer(output, input_buffer_.data(), frame_count);
+			MixBuffer(output, input_buffer_.data(), frame_count, channels_, 1.0f);
 		}
 	}
 
@@ -66,8 +66,11 @@ void DelayNode::Process(float* output, int frame_count) {
 			// Output delayed sample
 			output[idx] = delayed_sample;
 
-			// Increment write position
-			write_positions_[ch] = (write_positions_[ch] + 1) % max_delay_samples_;
+			// Increment write position (use conditional wrap instead of modulo)
+			write_positions_[ch]++;
+			if (write_positions_[ch] >= max_delay_samples_) {
+				write_positions_[ch] = 0;
+			}
 		}
 	}
 }

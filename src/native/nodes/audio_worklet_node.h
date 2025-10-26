@@ -18,7 +18,7 @@ public:
 	AudioWorkletNode(int sample_rate, int channels, const std::string& processor_name);
 	~AudioWorkletNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	// Parameter management
 	void AddParameter(const std::string& name, float default_value, float min_value, float max_value);

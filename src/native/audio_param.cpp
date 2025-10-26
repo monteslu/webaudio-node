@@ -13,13 +13,14 @@ AudioParam::AudioParam(float default_value, float min_value, float max_value)
 }
 
 void AudioParam::SetValue(float value) {
-	std::lock_guard<std::mutex> lock(mutex_);
-	value_ = ClampValue(value);
+	// Lock-free atomic write (mutex only needed for events vector)
+	value_.store(ClampValue(value), std::memory_order_release);
 }
 
 float AudioParam::GetValue() const {
-	std::lock_guard<std::mutex> lock(mutex_);
-	return value_;
+	// Lock-free atomic read - CRITICAL for performance!
+	// This is called every frame in oscillators/filters
+	return value_.load(std::memory_order_acquire);
 }
 
 void AudioParam::SetValueAtTime(float value, double time) {
@@ -36,7 +37,7 @@ void AudioParam::SetValueAtTime(float value, double time) {
 	event.time_constant = 0.0;
 	event.duration = 0.0;
 	events_.push_back(event);
-	SortEvents();
+	// Defer sorting until we read - MASSIVE speedup for batch scheduling!
 }
 
 void AudioParam::LinearRampToValueAtTime(float value, double time) {
@@ -53,7 +54,7 @@ void AudioParam::LinearRampToValueAtTime(float value, double time) {
 	event.time_constant = 0.0;
 	event.duration = 0.0;
 	events_.push_back(event);
-	SortEvents();
+	// Defer sorting until we read
 }
 
 void AudioParam::ExponentialRampToValueAtTime(float value, double time) {
@@ -92,7 +93,7 @@ void AudioParam::ExponentialRampToValueAtTime(float value, double time) {
 	event.time_constant = 0.0;
 	event.duration = 0.0;
 	events_.push_back(event);
-	SortEvents();
+	// Defer sorting
 }
 
 void AudioParam::SetTargetAtTime(float target, double time, double time_constant) {
@@ -114,7 +115,7 @@ void AudioParam::SetTargetAtTime(float target, double time, double time_constant
 	event.time_constant = time_constant;
 	event.duration = 0.0;
 	events_.push_back(event);
-	SortEvents();
+	// Defer sorting
 }
 
 void AudioParam::SetValueCurveAtTime(const std::vector<float>& values, double time, double duration) {
@@ -143,7 +144,7 @@ void AudioParam::SetValueCurveAtTime(const std::vector<float>& values, double ti
 	event.duration = duration;
 	event.curve_values = values;
 	events_.push_back(event);
-	SortEvents();
+	// Defer sorting
 }
 
 void AudioParam::CancelAndHoldAtTime(double cancel_time, int sample_rate) {
@@ -181,8 +182,12 @@ float AudioParam::GetValueAtTime(double time, int sample_rate) const {
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	if (events_.empty()) {
-		return value_;
+		return value_.load(std::memory_order_acquire);
 	}
+
+	// Sort events on first read (deferred from scheduling for speed)
+	// This is const, but we're sorting the internal vector - hack but thread-safe
+	const_cast<AudioParam*>(this)->SortEvents();
 
 	// Find relevant events
 	const AutomationEvent* prev_event = nullptr;
@@ -199,7 +204,7 @@ float AudioParam::GetValueAtTime(double time, int sample_rate) const {
 
 	// No events before current time
 	if (!prev_event) {
-		return value_;
+		return value_.load(std::memory_order_acquire);
 	}
 
 	// Event exactly at current time

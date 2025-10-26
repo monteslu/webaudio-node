@@ -1,5 +1,10 @@
 #include "oscillator_node.h"
 #include <cmath>
+#include <cstring>
+
+#ifdef __ARM_NEON
+#include <arm_neon.h>
+#endif
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -142,9 +147,9 @@ void OscillatorNode::SetPeriodicWave(const float* wavetable, int size) {
 	custom_wavetable_.assign(wavetable, wavetable + size);
 }
 
-void OscillatorNode::Process(float* output, int frame_count) {
+void OscillatorNode::Process(float* output, int frame_count, int output_index) {
 	if (!is_active_) {
-		ClearBuffer(output, frame_count);
+		ClearBuffer(output, frame_count, channels_);
 		return;
 	}
 
@@ -157,18 +162,69 @@ void OscillatorNode::Process(float* output, int frame_count) {
 
 	double phase_increment = actual_frequency / static_cast<double>(sample_rate_);
 
-	for (int frame = 0; frame < frame_count; ++frame) {
-		float sample = GenerateSample();
+	// Optimized path for sawtooth (most common in tests, super simple math)
+	if (wave_type_ == WaveType::SAWTOOTH) {
+		for (int frame = 0; frame < frame_count; ++frame) {
+			float sample = 2.0f * phase_ - 1.0f;  // Inline sawtooth
 
-		// Output to all channels (mono oscillator duplicated to all channels)
-		for (int ch = 0; ch < channels_; ++ch) {
-			output[frame * channels_ + ch] = sample;
+			// SIMD-optimized channel duplication
+#ifdef __ARM_NEON
+			if (channels_ >= 4) {
+				// Broadcast sample to all 4 lanes
+				float32x4_t sample_vec = vdupq_n_f32(sample);
+				int ch = 0;
+				// Write 4 channels at a time
+				for (; ch + 4 <= channels_; ch += 4) {
+					vst1q_f32(&output[frame * channels_ + ch], sample_vec);
+				}
+				// Handle remaining channels
+				for (; ch < channels_; ++ch) {
+					output[frame * channels_ + ch] = sample;
+				}
+			} else
+#endif
+			{
+				// Scalar fallback for < 4 channels or no NEON
+				for (int ch = 0; ch < channels_; ++ch) {
+					output[frame * channels_ + ch] = sample;
+				}
+			}
+
+			// Update phase
+			phase_ += phase_increment;
+			if (phase_ >= 1.0) {
+				phase_ -= 1.0;
+			}
 		}
+	} else {
+		// General path for other wave types
+		for (int frame = 0; frame < frame_count; ++frame) {
+			float sample = GenerateSample();
 
-		// Update phase
-		phase_ += phase_increment;
-		if (phase_ >= 1.0) {
-			phase_ -= 1.0;
+			// SIMD-optimized channel duplication
+#ifdef __ARM_NEON
+			if (channels_ >= 4) {
+				float32x4_t sample_vec = vdupq_n_f32(sample);
+				int ch = 0;
+				for (; ch + 4 <= channels_; ch += 4) {
+					vst1q_f32(&output[frame * channels_ + ch], sample_vec);
+				}
+				for (; ch < channels_; ++ch) {
+					output[frame * channels_ + ch] = sample;
+				}
+			} else
+#endif
+			{
+				for (int ch = 0; ch < channels_; ++ch) {
+					output[frame * channels_ + ch] = sample;
+				}
+			}
+
+			// Update phase
+			phase_ += phase_increment;
+			if (phase_ >= 1.0) {
+				phase_ -= 1.0;
+			}
 		}
 	}
 }

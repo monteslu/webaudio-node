@@ -16,7 +16,7 @@ AudioWorkletNode::AudioWorkletNode(int sample_rate, int channels, const std::str
 	output_buffer_.resize(4096 * channels, 0.0f);
 }
 
-void AudioWorkletNode::Process(float* output, int frame_count) {
+void AudioWorkletNode::Process(float* output, int frame_count, int output_index) {
 	int sample_count = frame_count * channels_;
 
 	// Ensure output buffer is large enough

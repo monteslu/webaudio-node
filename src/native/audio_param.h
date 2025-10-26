@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <mutex>
+#include <atomic>
 
 namespace webaudio {
 
@@ -53,13 +54,13 @@ public:
 	bool HasModulationInputs() const { return has_modulation_; }
 
 private:
-	float value_;
+	std::atomic<float> value_;  // Lock-free for GetValue() hot path!
 	// float default_value_;  // Unused for now, could be useful for reset() method
 	float min_value_;
 	float max_value_;
 
 	std::vector<AutomationEvent> events_;
-	mutable std::mutex mutex_;
+	mutable std::mutex mutex_;  // Only for events, not value_
 
 	// Modulation support
 	std::vector<float> modulation_buffer_;

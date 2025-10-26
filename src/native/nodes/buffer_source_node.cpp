@@ -22,7 +22,7 @@ BufferSourceNode::BufferSourceNode(int sample_rate, int channels)
 	, scheduled_start_time_(-1.0)
 	// , scheduled_stop_time_(-1.0)  // TODO: Implement stop(when) timing
 	, playback_offset_(0.0)
-	// , playback_duration_(0.0)  // TODO: Implement start(when, offset, duration)
+	, playback_duration_(0.0)  // 0 = play to end
 	{
 }
 
@@ -67,10 +67,14 @@ void BufferSourceNode::SetParameter(const std::string& name, float value) {
 		loop_end_ = value;
 	} else if (name == "detune") {
 		detune_param_->SetValue(value);
+	} else if (name == "playbackOffset") {
+		playback_offset_ = value;
+	} else if (name == "playbackDuration") {
+		playback_duration_ = value;
 	}
 }
 
-void BufferSourceNode::Process(float* output, int frame_count) {
+void BufferSourceNode::Process(float* output, int frame_count, int output_index) {
 	// Check if we should start playing
 	if (!has_started_ && scheduled_start_time_ >= 0.0 && current_time_ >= scheduled_start_time_) {
 		has_started_ = true;
@@ -85,8 +89,6 @@ void BufferSourceNode::Process(float* output, int frame_count) {
 		return;
 	}
 
-	ClearBuffer(output, frame_count);
-
 	// Get pointer to the correct buffer data
 	const float* buffer_ptr = using_shared_buffer_ ? shared_buffer_data_->data() : buffer_data_.data();
 
@@ -96,7 +98,41 @@ void BufferSourceNode::Process(float* output, int frame_count) {
 	float detune_ratio = std::pow(2.0f, detune / 1200.0f);
 	float effective_rate = playback_rate_ * detune_ratio;
 
-	// Convert loop times from seconds to sample positions
+	// Fast path: rate=1.0 and matching channels (covers both looping and non-looping)
+	// This avoids branches in the hot loop and uses memcpy for bulk copying
+	if (effective_rate == 1.0f && buffer_channels_ == channels_) {
+		int frames_written = 0;
+		float* out_ptr = output;
+
+		while (frames_written < frame_count) {
+			int current_pos = static_cast<int>(playback_position_);
+
+			// Calculate how many frames we can copy before end/loop point
+			int frames_available = buffer_length_ - current_pos;
+			int frames_to_copy = std::min(frame_count - frames_written, frames_available);
+
+			if (frames_to_copy > 0) {
+				int start_idx = current_pos * channels_;
+				std::memcpy(out_ptr, buffer_ptr + start_idx, frames_to_copy * channels_ * sizeof(float));
+				playback_position_ += frames_to_copy;
+				out_ptr += frames_to_copy * channels_;
+				frames_written += frames_to_copy;
+			}
+
+			// Check for end/loop
+			if (static_cast<int>(playback_position_) >= buffer_length_) {
+				if (loop_) {
+					playback_position_ = loop_start_ * sample_rate_;
+				} else {
+					is_active_ = false;
+					break;
+				}
+			}
+		}
+		return;
+	}
+
+	// General path with looping/rate change support
 	int loop_start_samples = static_cast<int>(loop_start_ * sample_rate_);
 	int loop_end_samples = loop_end_ > 0.0
 		? static_cast<int>(loop_end_ * sample_rate_)
@@ -106,8 +142,19 @@ void BufferSourceNode::Process(float* output, int frame_count) {
 	loop_start_samples = std::max(0, std::min(loop_start_samples, buffer_length_ - 1));
 	loop_end_samples = std::max(loop_start_samples + 1, std::min(loop_end_samples, buffer_length_));
 
+	// Calculate playback end position if duration is specified
+	double playback_end_samples = (playback_duration_ > 0.0)
+		? (playback_offset_ * sample_rate_ + playback_duration_ * sample_rate_)
+		: buffer_length_;
+
 	for (int frame = 0; frame < frame_count; ++frame) {
 		int current_pos = static_cast<int>(playback_position_);
+
+		// Check if we've exceeded duration
+		if (playback_duration_ > 0.0 && playback_position_ >= playback_end_samples) {
+			is_active_ = false;
+			break;
+		}
 
 		// Check if we've reached the end
 		if (current_pos >= buffer_length_) {

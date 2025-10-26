@@ -48,6 +48,14 @@ export class AudioBufferSourceNode extends AudioNode {
 		// Set buffer ID (not data) in native code
 		this.context._engine.setNodeBufferId(this._nodeId, this.buffer._id);
 
+		// Set playback offset and duration
+		if (offset !== 0) {
+			this.context._engine.setNodeParameter(this._nodeId, 'playbackOffset', offset);
+		}
+		if (duration !== undefined) {
+			this.context._engine.setNodeParameter(this._nodeId, 'playbackDuration', duration);
+		}
+
 		// Set loop parameters
 		this.context._engine.setNodeParameter(this._nodeId, 'loop', this.loop ? 1.0 : 0.0);
 		this.context._engine.setNodeParameter(this._nodeId, 'loopStart', this.loopStart);

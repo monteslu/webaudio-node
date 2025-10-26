@@ -11,12 +11,6 @@ namespace webaudio {
 
 PannerNode::PannerNode(int sample_rate, int channels)
 	: AudioNode(sample_rate, channels)
-	, position_x_(0.0f)
-	, position_y_(0.0f)
-	, position_z_(0.0f)
-	, orientation_x_(1.0f)
-	, orientation_y_(0.0f)
-	, orientation_z_(0.0f)
 	, distance_model_("inverse")
 	, ref_distance_(1.0f)
 	, max_distance_(10000.0f)
@@ -27,6 +21,26 @@ PannerNode::PannerNode(int sample_rate, int channels)
 	, panning_model_("equalpower") {
 
 	is_active_ = true;
+
+	// Initialize position AudioParams (default: origin)
+	position_x_param_ = std::make_unique<AudioParam>(0.0f);
+	position_y_param_ = std::make_unique<AudioParam>(0.0f);
+	position_z_param_ = std::make_unique<AudioParam>(0.0f);
+
+	// Initialize orientation AudioParams (default: looking in +X direction)
+	orientation_x_param_ = std::make_unique<AudioParam>(1.0f);
+	orientation_y_param_ = std::make_unique<AudioParam>(0.0f);
+	orientation_z_param_ = std::make_unique<AudioParam>(0.0f);
+}
+
+AudioParam* PannerNode::GetAudioParam(const std::string& name) {
+	if (name == "positionX") return position_x_param_.get();
+	if (name == "positionY") return position_y_param_.get();
+	if (name == "positionZ") return position_z_param_.get();
+	if (name == "orientationX") return orientation_x_param_.get();
+	if (name == "orientationY") return orientation_y_param_.get();
+	if (name == "orientationZ") return orientation_z_param_.get();
+	return nullptr;
 }
 
 void PannerNode::SetDistanceModel(const std::string& model) {
@@ -81,17 +95,22 @@ float PannerNode::ComputeConeGain(float dx, float dy, float dz) {
 	float dir_y = -dy / distance;
 	float dir_z = -dz / distance;
 
+	// Get orientation from AudioParams
+	float orientation_x = orientation_x_param_->GetValue();
+	float orientation_y = orientation_y_param_->GetValue();
+	float orientation_z = orientation_z_param_->GetValue();
+
 	// Normalize orientation
-	float orient_len = std::sqrt(orientation_x_ * orientation_x_ +
-	                             orientation_y_ * orientation_y_ +
-	                             orientation_z_ * orientation_z_);
+	float orient_len = std::sqrt(orientation_x * orientation_x +
+	                             orientation_y * orientation_y +
+	                             orientation_z * orientation_z);
 	if (orient_len < 0.0001f) {
 		return 1.0f; // No orientation
 	}
 
-	float norm_orient_x = orientation_x_ / orient_len;
-	float norm_orient_y = orientation_y_ / orient_len;
-	float norm_orient_z = orientation_z_ / orient_len;
+	float norm_orient_x = orientation_x / orient_len;
+	float norm_orient_y = orientation_y / orient_len;
+	float norm_orient_z = orientation_z / orient_len;
 
 	// Dot product gives cosine of angle
 	float dot = dir_x * norm_orient_x + dir_y * norm_orient_y + dir_z * norm_orient_z;
@@ -148,14 +167,16 @@ void PannerNode::ApplyEqualPowerPanning(float* output, const float* input, int f
 	}
 }
 
-void PannerNode::Process(float* output, int frame_count) {
+void PannerNode::Process(float* output, int frame_count, int output_index) {
 	// Clear output
 	ClearBuffer(output, frame_count);
 
+	// Get position from AudioParams
+	float dx = position_x_param_->GetValue();
+	float dy = position_y_param_->GetValue();
+	float dz = position_z_param_->GetValue();
+
 	// Compute distance from listener (always at origin)
-	float dx = position_x_;
-	float dy = position_y_;
-	float dz = position_z_;
 	float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
 
 	// Compute gains

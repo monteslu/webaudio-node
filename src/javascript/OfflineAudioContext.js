@@ -19,6 +19,7 @@ import { ConvolverNode } from './nodes/ConvolverNode.js';
 import { PannerNode } from './nodes/PannerNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
 import { PeriodicWave } from './PeriodicWave.js';
+import { AudioListener } from './AudioListener.js';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +63,9 @@ export class OfflineAudioContext {
 		// Create destination node
 		const destNodeId = this._engine.createNode('destination');
 		this.destination = new AudioDestinationNode(this, destNodeId);
+
+		// Create audio listener for spatial audio
+		this.listener = new AudioListener(this);
 
 		this.state = 'suspended';
 		this._rendering = false;
@@ -142,7 +146,7 @@ export class OfflineAudioContext {
 	}
 
 	createPeriodicWave(real, imag, options = {}) {
-		return new PeriodicWave(this, real, imag, options);
+		return new PeriodicWave(this, { real, imag, ...options });
 	}
 
 	// Main rendering method

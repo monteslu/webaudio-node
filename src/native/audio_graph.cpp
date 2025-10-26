@@ -33,8 +33,9 @@ AudioGraph::AudioGraph(int sample_rate, int channels, int buffer_size)
 
 	// Create destination node automatically
 	auto dest_node = std::make_shared<DestinationNode>(sample_rate, channels);
-	destination_node_id_ = next_node_id_++;
-	nodes_[destination_node_id_] = dest_node;
+	uint32_t dest_id = next_node_id_++;
+	destination_node_id_.store(dest_id, std::memory_order_release);
+	nodes_[dest_id] = dest_node;
 }
 
 AudioGraph::~AudioGraph() {
@@ -136,12 +137,36 @@ void AudioGraph::Connect(uint32_t source_id, uint32_t dest_id, uint32_t output_i
 		return;
 	}
 
-	// Add connection
-	connections_.push_back({source_id, dest_id, output_idx, input_idx, "", false});
+	// Create connection with channel routing info
+	Connection conn;
+	conn.source_id = source_id;
+	conn.dest_id = dest_id;
+	conn.output_index = output_idx;
+	conn.input_index = input_idx;
+	conn.param_name = "";
+	conn.is_param_connection = false;
+	conn.needs_channel_routing = (output_idx > 0 || input_idx > 0);
 
-	// Update node connections
+	connections_.push_back(conn);
+
+	// Update node connections - NOW WITH PORT INFO!
 	source_it->second->AddOutput(dest_it->second.get());
-	dest_it->second->AddInput(source_it->second.get());
+	dest_it->second->AddInput(source_it->second.get(), output_idx, input_idx);
+
+	// Special handling for ChannelSplitter and ChannelMerger nodes
+	// These nodes need to know about channel routing
+
+	// If source is a ChannelSplitter, inform it which channel this output wants
+	ChannelSplitterNode* splitter = dynamic_cast<ChannelSplitterNode*>(source_it->second.get());
+	if (splitter) {
+		splitter->SetOutputChannelMapping(dest_it->second.get(), output_idx);
+	}
+
+	// If dest is a ChannelMerger, inform it which input channel this connection provides
+	ChannelMergerNode* merger = dynamic_cast<ChannelMergerNode*>(dest_it->second.get());
+	if (merger) {
+		merger->SetInputChannelMapping(source_it->second.get(), input_idx);
+	}
 }
 
 void AudioGraph::ConnectToParam(uint32_t source_id, uint32_t dest_id, const std::string& param_name, uint32_t output_idx) {
@@ -233,21 +258,17 @@ void AudioGraph::SetNodeParameter(uint32_t node_id, const std::string& param_nam
 
 	auto it = nodes_.find(node_id);
 	if (it != nodes_.end()) {
-		// Try PannerNode first
+		// Try PannerNode for non-AudioParam properties
 		PannerNode* panner_node = dynamic_cast<PannerNode*>(it->second.get());
 		if (panner_node) {
-			if (param_name == "positionX") panner_node->SetPositionX(value);
-			else if (param_name == "positionY") panner_node->SetPositionY(value);
-			else if (param_name == "positionZ") panner_node->SetPositionZ(value);
-			else if (param_name == "orientationX") panner_node->SetOrientationX(value);
-			else if (param_name == "orientationY") panner_node->SetOrientationY(value);
-			else if (param_name == "orientationZ") panner_node->SetOrientationZ(value);
-			else if (param_name == "refDistance") panner_node->SetRefDistance(value);
+			// AudioParam properties (positionX/Y/Z, orientationX/Y/Z) are handled via SetParameter
+			if (param_name == "refDistance") panner_node->SetRefDistance(value);
 			else if (param_name == "maxDistance") panner_node->SetMaxDistance(value);
 			else if (param_name == "rolloffFactor") panner_node->SetRolloffFactor(value);
 			else if (param_name == "coneInnerAngle") panner_node->SetConeInnerAngle(value);
 			else if (param_name == "coneOuterAngle") panner_node->SetConeOuterAngle(value);
 			else if (param_name == "coneOuterGain") panner_node->SetConeOuterGain(value);
+			else it->second->SetParameter(param_name, value);  // Try AudioParam
 			return;
 		}
 
@@ -416,78 +437,91 @@ void AudioGraph::CancelAndHoldParameterAtTime(uint32_t node_id, const std::strin
 }
 
 void AudioGraph::Process(float* output, int frame_count) {
-	// Lock for graph modifications
-	std::lock_guard<std::mutex> lock(graph_mutex_);
+	// NO LOCK in audio callback! (graph modifications are protected separately)
+	// This is safe because:
+	// 1. Nodes are never deleted, only deactivated
+	// 2. Connections are read-only during playback
+	// 3. Destination node ID is set at construction
 
 	// Calculate current time
 	double current_time = GetCurrentTime();
 
-	// Update current time only on active nodes (optimization: skip inactive nodes)
+	// Update current time for all nodes
+	// Needed for BufferSourceNode scheduling and other time-dependent nodes
 	for (auto& pair : nodes_) {
-		// Always update source nodes (they may need to check scheduled start times)
-		// Also update active nodes
-		AudioNode* node = pair.second.get();
-		if (node->IsActive() ||
-		    dynamic_cast<BufferSourceNode*>(node) ||
-		    dynamic_cast<OscillatorNode*>(node) ||
-		    dynamic_cast<ConstantSourceNode*>(node)) {
-			node->SetCurrentTime(current_time);
-		}
+		pair.second->SetCurrentTime(current_time);
 	}
 
-	// Clear output buffer
-	std::memset(output, 0, frame_count * channels_ * sizeof(float));
+	// Skip output buffer clear - DestinationNode::Process() clears it anyway
 
-	// First, clear all AudioParam modulation inputs for params that have connections
-	std::set<std::pair<uint32_t, std::string>> params_to_clear;
-	for (const auto& conn : connections_) {
-		if (conn.is_param_connection) {
-			params_to_clear.insert({conn.dest_id, conn.param_name});
-		}
-	}
-
-	for (const auto& param_id : params_to_clear) {
-		auto node_it = nodes_.find(param_id.first);
-		if (node_it != nodes_.end()) {
-			AudioParam* param = node_it->second->GetAudioParam(param_id.second);
-			if (param) {
-				param->ClearModulationInputs();
+	// Fast path: Skip param processing entirely if no param connections exist
+	// Cache this check result to avoid iterating connections every quantum
+	static bool has_param_connections_cached = false;
+	static size_t last_connections_size = 0;
+	if (connections_.size() != last_connections_size) {
+		// Connections changed, recompute
+		has_param_connections_cached = false;
+		for (const auto& conn : connections_) {
+			if (conn.is_param_connection) {
+				has_param_connections_cached = true;
+				break;
 			}
 		}
+		last_connections_size = connections_.size();
 	}
+	bool has_param_connections = has_param_connections_cached;
 
-	// Process param connections (modulation sources)
-	// Use pre-allocated buffer (no malloc in audio callback!)
-	int param_buffer_size = frame_count * channels_;
-	if (param_buffer_.size() < static_cast<size_t>(param_buffer_size)) {
-		param_buffer_.resize(param_buffer_size, 0.0f);
-	}
-
-	for (const auto& conn : connections_) {
-		if (conn.is_param_connection) {
-			auto source_it = nodes_.find(conn.source_id);
-			auto dest_it = nodes_.find(conn.dest_id);
-
-			if (source_it != nodes_.end() && dest_it != nodes_.end()) {
-				AudioNode* source_node = source_it->second.get();
-				AudioNode* dest_node = dest_it->second.get();
-
-				// Get the AudioParam from the destination node
-				AudioParam* param = dest_node->GetAudioParam(conn.param_name);
-				if (param && source_node->IsActive()) {
-					// Process source node into pre-allocated buffer
-					std::memset(param_buffer_.data(), 0, param_buffer_size * sizeof(float));
-					source_node->Process(param_buffer_.data(), frame_count);
-
-					// Add to param's modulation input
-					param->AddModulationInput(param_buffer_.data(), frame_count);
+	if (has_param_connections) {
+		// Clear all AudioParam modulation inputs for params that have connections
+		// Note: We iterate connections directly instead of building a set (faster)
+		for (const auto& conn : connections_) {
+			if (conn.is_param_connection) {
+				auto node_it = nodes_.find(conn.dest_id);
+				if (node_it != nodes_.end()) {
+					AudioParam* param = node_it->second->GetAudioParam(conn.param_name);
+					if (param) {
+						param->ClearModulationInputs();
+					}
 				}
 			}
 		}
 	}
 
-	// Get destination node
-	auto dest_it = nodes_.find(destination_node_id_);
+	if (has_param_connections) {
+		// Process param connections (modulation sources)
+		// Use pre-allocated buffer (no malloc in audio callback!)
+		int param_buffer_size = frame_count * channels_;
+		if (param_buffer_.size() < static_cast<size_t>(param_buffer_size)) {
+			param_buffer_.resize(param_buffer_size, 0.0f);
+		}
+
+		for (const auto& conn : connections_) {
+			if (conn.is_param_connection) {
+				auto source_it = nodes_.find(conn.source_id);
+				auto dest_it = nodes_.find(conn.dest_id);
+
+				if (source_it != nodes_.end() && dest_it != nodes_.end()) {
+					AudioNode* source_node = source_it->second.get();
+					AudioNode* dest_node = dest_it->second.get();
+
+					// Get the AudioParam from the destination node
+					AudioParam* param = dest_node->GetAudioParam(conn.param_name);
+					if (param && source_node->IsActive()) {
+						// Process source node into pre-allocated buffer
+						std::memset(param_buffer_.data(), 0, param_buffer_size * sizeof(float));
+						source_node->Process(param_buffer_.data(), frame_count);
+
+						// Add to param's modulation input
+						param->AddModulationInput(param_buffer_.data(), frame_count);
+					}
+				}
+			}
+		}
+	}
+
+	// Get destination node (lock-free read)
+	uint32_t dest_id = destination_node_id_.load(std::memory_order_acquire);
+	auto dest_it = nodes_.find(dest_id);
 	if (dest_it == nodes_.end()) {
 		return;
 	}
@@ -497,7 +531,7 @@ void AudioGraph::Process(float* output, int frame_count) {
 		return;
 	}
 
-	// Process destination node (which pulls from inputs)
+	// Process destination node (which pulls from inputs) - NO LOCK!
 	dest_node->Process(output, frame_count);
 
 	// Increment sample counter

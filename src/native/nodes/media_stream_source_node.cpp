@@ -14,7 +14,7 @@ MediaStreamSourceNode::MediaStreamSourceNode(int sample_rate, int channels)
 	ring_buffer_.resize(buffer_size_, 0.0f);
 }
 
-void MediaStreamSourceNode::Process(float* output, int frame_count) {
+void MediaStreamSourceNode::Process(float* output, int frame_count, int output_index) {
 	int sample_count = frame_count * channels_;
 
 	std::lock_guard<std::mutex> lock(buffer_mutex_);

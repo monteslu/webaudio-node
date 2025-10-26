@@ -2,8 +2,10 @@
 #define WEBAUDIO_PANNER_NODE_H
 
 #include "audio_node.h"
+#include "../audio_param.h"
 #include <string>
 #include <cmath>
+#include <memory>
 
 namespace webaudio {
 
@@ -12,20 +14,10 @@ public:
 	PannerNode(int sample_rate, int channels);
 	~PannerNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
-	// Position
-	void SetPositionX(float x) { position_x_ = x; }
-	void SetPositionY(float y) { position_y_ = y; }
-	void SetPositionZ(float z) { position_z_ = z; }
-	float GetPositionX() const { return position_x_; }
-	float GetPositionY() const { return position_y_; }
-	float GetPositionZ() const { return position_z_; }
-
-	// Orientation
-	void SetOrientationX(float x) { orientation_x_ = x; }
-	void SetOrientationY(float y) { orientation_y_ = y; }
-	void SetOrientationZ(float z) { orientation_z_ = z; }
+	// AudioParam getters (Web Audio API spec)
+	AudioParam* GetAudioParam(const std::string& name) override;
 
 	// Distance model
 	void SetDistanceModel(const std::string& model);
@@ -42,9 +34,13 @@ public:
 	void SetPanningModel(const std::string& model);
 
 private:
-	// Listener is always at (0, 0, 0) looking down -Z axis
-	float position_x_, position_y_, position_z_;
-	float orientation_x_, orientation_y_, orientation_z_;
+	// Position and orientation as AudioParams (Web Audio API spec)
+	std::unique_ptr<AudioParam> position_x_param_;
+	std::unique_ptr<AudioParam> position_y_param_;
+	std::unique_ptr<AudioParam> position_z_param_;
+	std::unique_ptr<AudioParam> orientation_x_param_;
+	std::unique_ptr<AudioParam> orientation_y_param_;
+	std::unique_ptr<AudioParam> orientation_z_param_;
 
 	std::string distance_model_;  // "linear", "inverse", "exponential"
 	float ref_distance_;

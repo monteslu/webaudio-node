@@ -24,7 +24,7 @@ public:
 	BiquadFilterNode(int sample_rate, int channels, const std::string& type = "lowpass");
 	~BiquadFilterNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	void SetParameter(const std::string& name, float value) override;
 
@@ -34,11 +34,11 @@ private:
 	std::unique_ptr<AudioParam> q_param_;
 	std::unique_ptr<AudioParam> gain_param_;
 
-	// Biquad coefficients
-	double b0_, b1_, b2_, a1_, a2_;
+	// Biquad coefficients (using float for speed - double precision not needed for audio)
+	float b0_, b1_, b2_, a1_, a2_;
 
-	// State variables (per channel)
-	std::vector<double> x1_, x2_, y1_, y2_;
+	// State variables (per channel) - float for cache efficiency
+	std::vector<float> x1_, x2_, y1_, y2_;
 
 	void UpdateCoefficients();
 	FilterType StringToFilterType(const std::string& type);

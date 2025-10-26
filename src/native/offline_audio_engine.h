@@ -50,8 +50,21 @@ private:
 	Napi::Value StartRendering(const Napi::CallbackInfo& info);
 
 	// Analyser node support
+	Napi::Value SetAnalyserFFTSize(const Napi::CallbackInfo& info);
+	Napi::Value SetAnalyserMinDecibels(const Napi::CallbackInfo& info);
+	Napi::Value SetAnalyserMaxDecibels(const Napi::CallbackInfo& info);
+	Napi::Value SetAnalyserSmoothingTimeConstant(const Napi::CallbackInfo& info);
 	Napi::Value GetFrequencyData(const Napi::CallbackInfo& info);
 	Napi::Value GetTimeDomainData(const Napi::CallbackInfo& info);
+	Napi::Value GetFloatFrequencyData(const Napi::CallbackInfo& info);
+	Napi::Value GetByteFrequencyData(const Napi::CallbackInfo& info);
+	Napi::Value GetFloatTimeDomainData(const Napi::CallbackInfo& info);
+	Napi::Value GetByteTimeDomainData(const Napi::CallbackInfo& info);
+
+	// WaveShaper node support
+	Napi::Value SetWaveShaperCurve(const Napi::CallbackInfo& info);
+	Napi::Value ClearWaveShaperCurve(const Napi::CallbackInfo& info);
+	Napi::Value SetWaveShaperOversample(const Napi::CallbackInfo& info);
 
 	std::unique_ptr<AudioGraph> graph_;
 	int sample_rate_;

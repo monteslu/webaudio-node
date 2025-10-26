@@ -3,6 +3,7 @@ import { OfflineAudioContext } from './OfflineAudioContext.js';
 import { AudioBuffer } from './AudioBuffer.js';
 import { AudioNode } from './AudioNode.js';
 import { AudioParam } from './AudioParam.js';
+import { AudioListener } from './AudioListener.js';
 import { PeriodicWave } from './PeriodicWave.js';
 import { AudioDestinationNode } from './nodes/AudioDestinationNode.js';
 import { AudioBufferSourceNode } from './nodes/AudioBufferSourceNode.js';
@@ -29,6 +30,7 @@ export {
 	AudioBuffer,
 	AudioNode,
 	AudioParam,
+	AudioListener,
 	PeriodicWave,
 	AudioDestinationNode,
 	AudioBufferSourceNode,
@@ -56,6 +58,7 @@ export default {
 	AudioBuffer,
 	AudioNode,
 	AudioParam,
+	AudioListener,
 	PeriodicWave,
 	AudioDestinationNode,
 	AudioBufferSourceNode,

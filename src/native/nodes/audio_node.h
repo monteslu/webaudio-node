@@ -14,10 +14,16 @@ public:
 	virtual ~AudioNode() = default;
 
 	// Processing
-	virtual void Process(float* output, int frame_count) = 0;
+	virtual void Process(float* output, int frame_count, int output_index = 0) = 0;
 
-	// Connection management
-	void AddInput(AudioNode* node);
+	// Connection management - now with output/input port tracking
+	struct InputConnection {
+		AudioNode* node;
+		int output_index;  // Which output port of the source node
+		int input_index;   // Which input port of this node
+	};
+
+	void AddInput(AudioNode* node, int output_index = 0, int input_index = 0);
 	void AddOutput(AudioNode* node);
 	void RemoveInput(AudioNode* node);
 	void RemoveOutput(AudioNode* node);
@@ -37,7 +43,7 @@ public:
 	// State
 	bool IsActive() const { return is_active_; }
 	int GetSampleRate() const { return sample_rate_; }
-	int GetChannels() const { return channels_; }
+	virtual int GetChannels() const;  // Returns computed channel count based on inputs (per spec!)
 
 	// Time
 	void SetCurrentTime(double time) { current_time_ = time; }
@@ -48,7 +54,10 @@ public:
 
 	// Buffer management
 	void ClearBuffer(float* buffer, int frame_count);
+	void ClearBuffer(float* buffer, int frame_count, int channels);  // Optimized version with pre-computed channels
 	void MixBuffer(float* dest, const float* src, int frame_count, float gain = 1.0f);
+	void MixBuffer(float* dest, const float* src, int frame_count, int channels, float gain);  // Optimized version with pre-computed channels
+	void MixBuffer(float* dest, const float* src, int frame_count, int input_channels, int output_channels, float gain);  // With channel conversion
 
 protected:
 	int sample_rate_;
@@ -56,11 +65,19 @@ protected:
 	bool is_active_;
 	double current_time_;
 
-	std::vector<AudioNode*> inputs_;
+	std::vector<InputConnection> input_connections_;  // Changed from raw pointers
 	std::vector<AudioNode*> outputs_;
 
+	// Backward compatibility - maintain inputs_ as pointers for nodes that don't use port info yet
+	std::vector<AudioNode*> inputs_;
+
 	// Scratch buffer for mixing inputs
+	// Note: Consider pre-allocating this to reduce dynamic allocations
 	std::vector<float> input_buffer_;
+
+	// Cached computed channel count (to avoid O(N^2) recursive GetChannels() calls)
+	mutable int cached_channels_;
+	mutable bool channels_cache_valid_;
 };
 
 } // namespace webaudio

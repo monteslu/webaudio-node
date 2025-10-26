@@ -14,7 +14,7 @@ public:
 	              const std::vector<float>& feedback);
 	~IIRFilterNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	void GetFrequencyResponse(const float* frequency_hz, float* mag_response,
 	                          float* phase_response, int array_length) const;
@@ -23,9 +23,8 @@ private:
 	std::vector<float> feedforward_;  // b coefficients (numerator)
 	std::vector<float> feedback_;     // a coefficients (denominator)
 
-	// Delay lines per channel
-	std::vector<std::vector<float>> x_history_;  // Input history [channel][sample]
-	std::vector<std::vector<float>> y_history_;  // Output history [channel][sample]
+	// Direct Form II Transposed state (much faster - single state array per channel)
+	std::vector<std::vector<float>> state_;  // State per channel [channel][state]
 
 	mutable std::mutex filter_mutex_;
 };

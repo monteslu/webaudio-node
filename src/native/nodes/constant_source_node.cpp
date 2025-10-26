@@ -21,7 +21,7 @@ void ConstantSourceNode::Stop(double when) {
 	is_active_ = false;
 }
 
-void ConstantSourceNode::Process(float* output, int frame_count) {
+void ConstantSourceNode::Process(float* output, int frame_count, int output_index) {
 	if (!is_active_ || !has_started_ || has_stopped_) {
 		ClearBuffer(output, frame_count);
 		return;

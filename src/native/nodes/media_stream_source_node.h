@@ -13,7 +13,7 @@ public:
 	MediaStreamSourceNode(int sample_rate, int channels);
 	~MediaStreamSourceNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	// Called by audio capture callback to feed data
 	void FeedAudioData(const float* data, int frame_count);

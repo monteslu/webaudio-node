@@ -12,7 +12,7 @@ public:
 	DynamicsCompressorNode(int sample_rate, int channels);
 	~DynamicsCompressorNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 	AudioParam* GetAudioParam(const std::string& name) override;
 
 	float GetReduction() const { return current_reduction_; }

@@ -21,6 +21,7 @@ import { AudioWorkletNode } from './nodes/AudioWorkletNode.js';
 import { MediaStreamSourceNode } from './nodes/MediaStreamSourceNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
 import { PeriodicWave } from './PeriodicWave.js';
+import { AudioListener } from './AudioListener.js';
 import ffmpeg from 'fluent-ffmpeg';
 import { Readable } from 'stream';
 
@@ -58,6 +59,9 @@ export class AudioContext {
 		// Create destination node
 		const destNodeId = this._engine.createNode('destination');
 		this.destination = new AudioDestinationNode(this, destNodeId);
+
+		// Create audio listener for spatial audio
+		this.listener = new AudioListener(this);
 
 		this.state = 'suspended';
 	}
@@ -175,17 +179,24 @@ export class AudioContext {
 			inputStream.push(Buffer.from(audioData));
 			inputStream.push(null);
 
-			// Decode directly to memory using ffmpeg
+			// Decode directly to memory using ffmpeg with fast decode options
 			const chunks = [];
 			await new Promise((resolve, reject) => {
-				ffmpeg(inputStream)
+				const stream = ffmpeg(inputStream)
+					.inputOptions([
+						'-threads 1',           // Single thread for small files (less overhead)
+						'-analyzeduration 0',   // Skip analysis phase
+						'-probesize 32'         // Minimal probing
+					])
 					.toFormat('f32le')
 					.audioChannels(this._channels)
 					.audioFrequency(this.sampleRate)
 					.on('error', reject)
-					.pipe()
-					.on('data', chunk => chunks.push(chunk))
-					.on('end', resolve);
+					.stream();
+
+				stream.on('data', chunk => chunks.push(chunk));
+				stream.on('end', resolve);
+				stream.on('error', reject);
 			});
 
 			// Combine chunks and create float array
@@ -197,7 +208,20 @@ export class AudioContext {
 				numberOfChannels: this._channels,
 				sampleRate: this.sampleRate
 			});
-			audioBuffer._buffer = buffer;
+
+			// Fast de-interleaving using TypedArray view (10-100x faster than readFloatLE)
+			const floatView = new Float32Array(buffer.buffer, buffer.byteOffset, buffer.length / 4);
+
+			for (let ch = 0; ch < this._channels; ch++) {
+				const channelData = audioBuffer._channels[ch];
+				for (let frame = 0; frame < numSamples; frame++) {
+					channelData[frame] = floatView[frame * this._channels + ch];
+				}
+			}
+
+			// Regenerate interleaved buffer from channels
+			// This ensures the buffer is in the exact format expected by the engine
+			audioBuffer._updateInternalBuffer();
 
 			if (successCallback) {
 				successCallback(audioBuffer);

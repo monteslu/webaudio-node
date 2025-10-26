@@ -14,10 +14,11 @@ namespace webaudio {
 struct Connection {
 	uint32_t source_id;
 	uint32_t dest_id;
-	uint32_t output_index;
-	uint32_t input_index;
+	uint32_t output_index;   // Which channel/output of source (for ChannelSplitter)
+	uint32_t input_index;    // Which channel/input of dest (for ChannelMerger)
 	std::string param_name;  // Empty for node connections, set for param connections
 	bool is_param_connection = false;
+	bool needs_channel_routing = false;  // True if output_index > 0 or input_index > 0
 };
 
 struct SharedBuffer {
@@ -77,9 +78,9 @@ private:
 	std::atomic<uint32_t> next_node_id_{1};
 	std::map<uint32_t, std::shared_ptr<AudioNode>> nodes_;
 	std::vector<Connection> connections_;
-	std::mutex graph_mutex_;
+	std::mutex graph_mutex_;  // Only for graph modifications, NOT audio processing
 
-	uint32_t destination_node_id_{0};
+	std::atomic<uint32_t> destination_node_id_{0};
 
 	// Time tracking
 	std::atomic<uint64_t> current_sample_{0};

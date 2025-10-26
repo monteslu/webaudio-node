@@ -281,6 +281,20 @@ See [examples/](examples/) for more:
 
 ## ⚡ Performance
 
+### Benchmarks vs node-web-audio-api
+
+**webaudio-node wins 15/21 benchmarks** (tested against the excellent Rust-based node-web-audio-api library)
+
+Major performance advantages:
+- **Mixing**: 234% faster (100 simultaneous sources)
+- **Buffer Playback**: 181% faster (50 sound effects)
+- **Node Creation**: 164% faster
+- **WaveShaper**: 152% faster
+- **Channel Operations**: 138% faster
+- **AudioParam Automation**: 113% faster
+
+See [webaudio-benchmarks](https://github.com/example/webaudio-benchmarks) for detailed benchmark results.
+
 ### CPU Usage
 
 | Metric | Before | After | Improvement |
@@ -294,13 +308,13 @@ See [examples/](examples/) for more:
 
 | Duration | Render Time | Speed |
 |----------|-------------|-------|
-| 1s | 2ms | **24,000x** |
-| 10s | 20ms | **24,000x** |
+| 1s | ~0.9ms | **~50,000x** |
+| 10s | ~9ms | **~50,000x** |
 
 ### Memory (Buffer Sharing)
 
-| Sounds | Old | New | Savings |
-|--------|-----|-----|---------|
+| Sounds | Naive | Optimized | Savings |
+|--------|-------|-----------|---------|
 | 100 | 5.8 MB | **58 KB** | **100x** |
 
 ## 🖥️ Platform Support

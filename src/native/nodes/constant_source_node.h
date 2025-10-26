@@ -12,7 +12,7 @@ public:
 	ConstantSourceNode(int sample_rate, int channels);
 	~ConstantSourceNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	void Start(double when) override;
 	void Stop(double when) override;

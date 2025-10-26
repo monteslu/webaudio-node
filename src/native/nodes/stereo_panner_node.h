@@ -12,7 +12,7 @@ public:
 	StereoPannerNode(int sample_rate, int channels);
 	~StereoPannerNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	void SetParameter(const std::string& name, float value) override;
 	void ScheduleParameterValue(const std::string& name, float value, double time) override;

@@ -10,7 +10,7 @@ public:
 	DestinationNode(int sample_rate, int channels);
 	~DestinationNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 };
 
 } // namespace webaudio

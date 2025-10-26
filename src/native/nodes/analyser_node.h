@@ -7,6 +7,7 @@
 #include <complex>
 #include <memory>
 #include <mutex>
+#include <atomic>
 
 namespace webaudio {
 
@@ -15,7 +16,7 @@ public:
 	AnalyserNode(int sample_rate, int channels);
 	~AnalyserNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	// Configuration
 	void SetFFTSize(int size);
@@ -45,17 +46,24 @@ private:
 
 	// Circular buffer for time domain data
 	std::vector<float> time_buffer_;
-	int write_index_;
+	std::atomic<int> write_index_;
 
 	// FFT
 	std::unique_ptr<FFT> fft_;
 	std::vector<std::complex<float>> fft_output_;
 	std::vector<float> magnitude_spectrum_;
 	std::vector<float> smoothed_spectrum_;
+	std::vector<float> hann_window_;         // Pre-computed Hann window
+	std::vector<float> ordered_buffer_;      // Reusable buffer for FFT input
+	std::vector<float> cached_freq_data_;    // Cached dB-converted frequency data
+	int last_fft_write_index_;               // Track when FFT was last computed
+	std::atomic<bool> fft_dirty_;            // Track if FFT needs recomputation (atomic for lock-free)
+	bool freq_data_dirty_;                   // Track if cached freq data needs update
 
 	mutable std::mutex data_mutex_;
 
 	void UpdateFFT();
+	void ComputeHannWindow();
 };
 
 } // namespace webaudio

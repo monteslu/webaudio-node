@@ -13,7 +13,7 @@ public:
 	BufferSourceNode(int sample_rate, int channels);
 	~BufferSourceNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	void SetBuffer(float* data, int length, int num_channels);
 	void SetSharedBuffer(std::shared_ptr<std::vector<float>> data, int length, int num_channels);
@@ -42,7 +42,7 @@ private:
 	double scheduled_start_time_;
 	// double scheduled_stop_time_;  // TODO: Implement stop(when) timing
 	double playback_offset_;  // offset into buffer to start playback
-	// double playback_duration_;  // TODO: Implement start(when, offset, duration)
+	double playback_duration_;  // duration to play (0 = play to end)
 };
 
 } // namespace webaudio

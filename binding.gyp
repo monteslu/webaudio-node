@@ -54,16 +54,21 @@
 						'cflags_cc': [ '-march=armv8-a' ],
 					}],
 					['target_arch == "x64"', {
-						'cflags': [ '-msse', '-msse2' ],
-						'cflags_cc': [ '-msse', '-msse2' ],
+						'cflags': [ '-msse', '-msse2', '-mavx', '-mavx2', '-mfma' ],
+						'cflags_cc': [ '-msse', '-msse2', '-mavx', '-mavx2', '-mfma' ],
 					}],
 				],
 			}],
 			['OS == "mac"', {
 				'cflags': [ '-D_THREAD_SAFE' ],
+				'cflags_cc': [ '-std=c++17', '-frtti', '-O3', '-flto', '-ffast-math', '-march=armv8-a', '-mtune=native' ],
+				'ldflags': [ '-flto' ],
 				'xcode_settings': {
 				'OTHER_CFLAGS': [ '-std=c++17' ],
+				'OTHER_CPLUSPLUSFLAGS': [ '-std=c++17', '-march=armv8-a', '-mtune=native' ],
 				'GCC_ENABLE_CPP_RTTI': 'YES',
+				'GCC_OPTIMIZATION_LEVEL': '3',
+				'LLVM_LTO': 'YES',
 			},
 				'include_dirs': [
 					'$(SDL_INC)',
@@ -73,18 +78,6 @@
 				'link_settings': {
 					'libraries': [ '-Wl,-rpath,@loader_path' ],
 				},
-			'conditions': [
-				['target_arch == "arm64"', {
-					'xcode_settings': {
-						'OTHER_CFLAGS': [ '-std=c++17', '-march=armv8-a' ],
-					},
-				}],
-				['target_arch == "x64"', {
-					'xcode_settings': {
-						'OTHER_CFLAGS': [ '-std=c++17', '-msse', '-msse2' ],
-					},
-				}],
-			],
 			}],
 			['OS == "win"', {
 				'cflags': [ '-D_REENTRANT' ],

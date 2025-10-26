@@ -21,7 +21,7 @@ public:
 	OscillatorNode(int sample_rate, int channels, const std::string& type = "sine");
 	~OscillatorNode() override = default;
 
-	void Process(float* output, int frame_count) override;
+	void Process(float* output, int frame_count, int output_index = 0) override;
 
 	// Set custom waveform (wavetable)
 	void SetPeriodicWave(const float* wavetable, int size);
@@ -48,6 +48,12 @@ private:
 
 	// Custom wavetable for CUSTOM wave type
 	std::vector<float> custom_wavetable_;
+
+	// Optimized sine wavetable (static, shared across all oscillators)
+	static constexpr int SINE_TABLE_SIZE = 2048;
+	static float sine_table_[SINE_TABLE_SIZE];
+	static bool sine_table_initialized_;
+	static void InitializeSineTable();
 
 	float GenerateSample();
 	WaveType StringToWaveType(const std::string& type);
