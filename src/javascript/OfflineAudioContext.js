@@ -20,6 +20,8 @@ import { PannerNode } from './nodes/PannerNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
 import { PeriodicWave } from './PeriodicWave.js';
 import { AudioListener } from './AudioListener.js';
+import ffmpeg from 'fluent-ffmpeg';
+import { Readable } from 'stream';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -180,6 +182,70 @@ export class OfflineAudioContext {
 		this._rendering = false;
 
 		return buffer;
+	}
+
+	async decodeAudioData(audioData, successCallback, errorCallback) {
+		try {
+			// Create input stream
+			const inputStream = new Readable();
+			inputStream.push(Buffer.from(audioData));
+			inputStream.push(null);
+
+			// Decode directly to memory using ffmpeg with fast decode options
+			const chunks = [];
+			await new Promise((resolve, reject) => {
+				const stream = ffmpeg(inputStream)
+					.inputOptions([
+						'-threads 1',           // Single thread for small files (less overhead)
+						'-analyzeduration 0',   // Skip analysis phase
+						'-probesize 32'         // Minimal probing
+					])
+					.toFormat('f32le')
+					.audioChannels(this._channels)
+					.audioFrequency(this.sampleRate)
+					.on('error', reject)
+					.stream();
+
+				stream.on('data', chunk => chunks.push(chunk));
+				stream.on('end', resolve);
+				stream.on('error', reject);
+			});
+
+			// Combine chunks and create float array
+			const buffer = Buffer.concat(chunks);
+			const numSamples = (buffer.length / this._channels) / 4;
+
+			const audioBuffer = new AudioBuffer({
+				length: numSamples,
+				numberOfChannels: this._channels,
+				sampleRate: this.sampleRate
+			});
+
+			// Fast de-interleaving using TypedArray view (10-100x faster than readFloatLE)
+			const floatView = new Float32Array(buffer.buffer, buffer.byteOffset, buffer.length / 4);
+
+			for (let ch = 0; ch < this._channels; ch++) {
+				const channelData = audioBuffer._channels[ch];
+				for (let frame = 0; frame < numSamples; frame++) {
+					channelData[frame] = floatView[frame * this._channels + ch];
+				}
+			}
+
+			// Regenerate interleaved buffer from channels
+			// This ensures the buffer is in the exact format expected by the engine
+			audioBuffer._updateInternalBuffer();
+
+			if (successCallback) {
+				successCallback(audioBuffer);
+			}
+			return audioBuffer;
+
+		} catch (error) {
+			if (errorCallback) {
+				errorCallback(error);
+			}
+			throw error;
+		}
 	}
 
 	// These methods don't apply to offline context but included for compatibility

@@ -1,0 +1,23 @@
+// WASM-based WebAudio implementation
+export { WasmAudioContext as AudioContext } from './src/wasm-integration/WasmAudioContext.js';
+export { WasmOfflineAudioContext as OfflineAudioContext } from './src/wasm-integration/WasmOfflineAudioContext.js';
+export { AudioBuffer } from './src/javascript/AudioBuffer.js';
+export { AudioNode } from './src/javascript/AudioNode.js';
+export { AudioParam } from './src/javascript/AudioParam.js';
+export { AudioDestinationNode } from './src/javascript/nodes/AudioDestinationNode.js';
+export { AudioBufferSourceNode } from './src/javascript/nodes/AudioBufferSourceNode.js';
+export { GainNode } from './src/javascript/nodes/GainNode.js';
+export { OscillatorNode } from './src/javascript/nodes/OscillatorNode.js';
+export { BiquadFilterNode } from './src/javascript/nodes/BiquadFilterNode.js';
+export { DelayNode } from './src/javascript/nodes/DelayNode.js';
+export { StereoPannerNode } from './src/javascript/nodes/StereoPannerNode.js';
+export { ConstantSourceNode } from './src/javascript/nodes/ConstantSourceNode.js';
+export { ChannelSplitterNode } from './src/javascript/nodes/ChannelSplitterNode.js';
+export { ChannelMergerNode } from './src/javascript/nodes/ChannelMergerNode.js';
+export { AnalyserNode } from './src/javascript/nodes/AnalyserNode.js';
+export { DynamicsCompressorNode } from './src/javascript/nodes/DynamicsCompressorNode.js';
+export { WaveShaperNode } from './src/javascript/nodes/WaveShaperNode.js';
+export { IIRFilterNode } from './src/javascript/nodes/IIRFilterNode.js';
+export { ConvolverNode } from './src/javascript/nodes/ConvolverNode.js';
+export { PannerNode } from './src/javascript/nodes/PannerNode.js';
+export { PeriodicWave } from './src/javascript/PeriodicWave.js';

@@ -62,18 +62,20 @@ export class AudioBuffer {
 	}
 
 	_updateInternalBuffer() {
-		// Create interleaved buffer for native code
+		// Create interleaved buffer for native/WASM code
 		const totalSamples = this.length * this.numberOfChannels;
-		if (!this._buffer || this._buffer.length !== totalSamples * 4) {
-			this._buffer = Buffer.allocUnsafe(totalSamples * 4);
+
+		// Use Float32Array for compatibility with both Node and WASM
+		if (!this._buffer || this._buffer.length !== totalSamples) {
+			this._buffer = new Float32Array(totalSamples);
 		}
 
 		// Interleave channels
 		for (let frame = 0; frame < this.length; frame++) {
 			for (let ch = 0; ch < this.numberOfChannels; ch++) {
 				const value = this._channels[ch][frame];
-				const offset = (frame * this.numberOfChannels + ch) * 4;
-				this._buffer.writeFloatLE(value, offset);
+				const offset = frame * this.numberOfChannels + ch;
+				this._buffer[offset] = value;
 			}
 		}
 	}
@@ -81,6 +83,11 @@ export class AudioBuffer {
 	_getInterleavedData() {
 		if (!this._buffer) {
 			this._updateInternalBuffer();
+		}
+		// For Node Buffer compatibility, convert Float32Array to Buffer if needed
+		if (typeof Buffer !== 'undefined' && !(this._buffer instanceof Buffer)) {
+			// Keep as Float32Array for WASM, or could convert to Buffer for Node if needed
+			return this._buffer;
 		}
 		return this._buffer;
 	}
