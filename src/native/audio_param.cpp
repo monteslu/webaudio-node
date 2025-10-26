@@ -1,6 +1,7 @@
 #include "audio_param.h"
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 namespace webaudio {
 
@@ -22,6 +23,11 @@ float AudioParam::GetValue() const {
 }
 
 void AudioParam::SetValueAtTime(float value, double time) {
+	// Validate time parameter
+	if (std::isnan(time) || time < 0.0) {
+		throw std::range_error("Invalid time parameter");
+	}
+
 	std::lock_guard<std::mutex> lock(mutex_);
 	AutomationEvent event;
 	event.type = AutomationEvent::Type::SET_VALUE;
@@ -34,6 +40,11 @@ void AudioParam::SetValueAtTime(float value, double time) {
 }
 
 void AudioParam::LinearRampToValueAtTime(float value, double time) {
+	// Validate time parameter
+	if (std::isnan(time) || time < 0.0) {
+		throw std::range_error("Invalid time parameter");
+	}
+
 	std::lock_guard<std::mutex> lock(mutex_);
 	AutomationEvent event;
 	event.type = AutomationEvent::Type::LINEAR_RAMP;
@@ -46,7 +57,34 @@ void AudioParam::LinearRampToValueAtTime(float value, double time) {
 }
 
 void AudioParam::ExponentialRampToValueAtTime(float value, double time) {
+	// Validate time parameter
+	if (std::isnan(time) || time < 0.0) {
+		throw std::range_error("Invalid time parameter");
+	}
+
+	// Validate value > 0 (required for exponential ramp)
+	if (value <= 0.0f) {
+		throw std::range_error("ExponentialRampToValueAtTime: value must be positive (> 0)");
+	}
+
 	std::lock_guard<std::mutex> lock(mutex_);
+
+	// Check if previous event value is also positive
+	float prev_value = value_;
+	if (!events_.empty()) {
+		// Find the last event before or at this time
+		for (auto it = events_.rbegin(); it != events_.rend(); ++it) {
+			if (it->time <= time) {
+				prev_value = it->value;
+				break;
+			}
+		}
+	}
+
+	if (prev_value <= 0.0f) {
+		throw std::range_error("ExponentialRampToValueAtTime: previous value must be positive (> 0)");
+	}
+
 	AutomationEvent event;
 	event.type = AutomationEvent::Type::EXPONENTIAL_RAMP;
 	event.time = time;
@@ -58,6 +96,16 @@ void AudioParam::ExponentialRampToValueAtTime(float value, double time) {
 }
 
 void AudioParam::SetTargetAtTime(float target, double time, double time_constant) {
+	// Validate time parameter
+	if (std::isnan(time) || time < 0.0) {
+		throw std::range_error("Invalid time parameter");
+	}
+
+	// Validate timeConstant >= 0
+	if (time_constant < 0.0) {
+		throw std::range_error("SetTargetAtTime: timeConstant must be non-negative");
+	}
+
 	std::lock_guard<std::mutex> lock(mutex_);
 	AutomationEvent event;
 	event.type = AutomationEvent::Type::SET_TARGET;
@@ -70,11 +118,22 @@ void AudioParam::SetTargetAtTime(float target, double time, double time_constant
 }
 
 void AudioParam::SetValueCurveAtTime(const std::vector<float>& values, double time, double duration) {
-	std::lock_guard<std::mutex> lock(mutex_);
-
-	if (values.empty() || duration <= 0.0) {
-		return;
+	// Validate time parameter
+	if (std::isnan(time) || time < 0.0) {
+		throw std::range_error("Invalid time parameter");
 	}
+
+	// Validate values array has at least 2 elements
+	if (values.size() < 2) {
+		throw std::invalid_argument("SetValueCurveAtTime: values must have at least 2 elements");
+	}
+
+	// Validate duration > 0
+	if (duration <= 0.0) {
+		throw std::range_error("SetValueCurveAtTime: duration must be positive (> 0)");
+	}
+
+	std::lock_guard<std::mutex> lock(mutex_);
 
 	AutomationEvent event;
 	event.type = AutomationEvent::Type::SET_CURVE;
@@ -87,11 +146,16 @@ void AudioParam::SetValueCurveAtTime(const std::vector<float>& values, double ti
 	SortEvents();
 }
 
-void AudioParam::CancelAndHoldAtTime(double cancel_time) {
+void AudioParam::CancelAndHoldAtTime(double cancel_time, int sample_rate) {
+	// Validate time parameter
+	if (std::isnan(cancel_time) || cancel_time < 0.0) {
+		throw std::range_error("Invalid time parameter");
+	}
+
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	// Get the value at the cancel time
-	float hold_value = GetValueAtTime(cancel_time, 44100); // Sample rate doesn't matter for this
+	float hold_value = GetValueAtTime(cancel_time, sample_rate);
 
 	// Remove all events at or after cancel_time
 	events_.erase(
@@ -232,6 +296,11 @@ void AudioParam::Process(float* output, int frame_count, double current_time, in
 }
 
 void AudioParam::CancelScheduledValues(double cancel_time) {
+	// Validate time parameter
+	if (std::isnan(cancel_time) || cancel_time < 0.0) {
+		throw std::range_error("Invalid time parameter");
+	}
+
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	events_.erase(

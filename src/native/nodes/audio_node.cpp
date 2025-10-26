@@ -72,7 +72,7 @@ void AudioNode::CancelScheduledParameterValues(const std::string& name, double c
 	// Default implementation - override in derived classes
 }
 
-void AudioNode::CancelAndHoldParameterAtTime(const std::string& name, double cancel_time) {
+void AudioNode::CancelAndHoldParameterAtTime(const std::string& name, double cancel_time, int sample_rate) {
 	// Default implementation - override in derived classes
 }
 

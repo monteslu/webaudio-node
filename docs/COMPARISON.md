@@ -251,7 +251,7 @@ Changes needed:
 
 | Implementation | Compliance | Notes |
 |----------------|-----------|-------|
-| **webaudio-node** | **~98%** | All practical nodes, AudioWorklet, MediaStreamSource |
+| **webaudio-node** | **~99%** | Full AudioParam validation, all practical nodes |
 | **node-web-audio-api** | **~99%** | Full spec including browser-specific nodes |
 | **web-audio-engine** | **~80%** | Core features, missing AudioWorklet |
 
@@ -264,22 +264,27 @@ Changes needed:
 ❌ **MediaStreamAudioDestinationNode** - Outputs to browser MediaStream (node-web-audio-api has partial support)
 
 **The 1% difference likely comes from:**
-- **node-web-audio-api** may have more complete AudioParam implementations
 - More comprehensive PeriodicWave support
 - Additional AudioContext/OfflineAudioContext options
 - More accurate filter implementations (closer to spec formulas)
 - Better AudioBuffer validation and error handling
+- Minor edge cases in specific node implementations
 
 ### What webaudio-node DOES have:
 
 ✅ All 18 core/processing audio nodes (Oscillator, Gain, Filter, Delay, Reverb, Compressor, Panner, etc.)
 ✅ **AudioWorkletNode** - Custom audio processing (modern replacement for deprecated ScriptProcessorNode)
 ✅ **MediaStreamSourceNode** - Microphone/audio input capture (the useful part of MediaStream)
-✅ AudioParam automation (all 7 methods)
+✅ **AudioParam automation** (all 7 methods) with **full spec-compliant validation**:
+  - Throws `RangeError` for invalid time parameters (negative, NaN)
+  - Throws `RangeError` for exponentialRamp with value ≤ 0 or previous value ≤ 0
+  - Throws `RangeError` for setTargetAtTime with negative timeConstant
+  - Throws `RangeError` for setValueCurveAtTime with duration ≤ 0
+  - Throws `TypeError` for setValueCurveAtTime with < 2 values
 ✅ OfflineAudioContext (24,000x realtime)
 ✅ SIMD optimizations (52% CPU reduction)
 
-**Bottom line:** Both are 100% spec-compliant for practical Node.js use cases. The 1% difference is browser-specific nodes that don't apply to Node.js anyway.
+**Bottom line:** Both are 99% spec-compliant for practical Node.js use cases. The 1% difference is browser-specific nodes that don't apply to Node.js anyway.
 
 ## Performance Comparison (Measured + Estimates)
 

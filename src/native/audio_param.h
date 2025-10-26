@@ -32,14 +32,14 @@ public:
 	void SetValue(float value);
 	float GetValue() const;
 
-	// Automation scheduling
+	// Automation scheduling (may throw std::invalid_argument or std::range_error for invalid parameters)
 	void SetValueAtTime(float value, double time);
 	void LinearRampToValueAtTime(float value, double time);
 	void ExponentialRampToValueAtTime(float value, double time);
 	void SetTargetAtTime(float target, double time, double time_constant);
 	void SetValueCurveAtTime(const std::vector<float>& values, double time, double duration);
 	void CancelScheduledValues(double cancel_time);
-	void CancelAndHoldAtTime(double cancel_time);
+	void CancelAndHoldAtTime(double cancel_time, int sample_rate);
 
 	// Get computed value at specific time
 	float GetValueAtTime(double time, int sample_rate) const;

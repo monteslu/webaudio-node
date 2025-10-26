@@ -69,10 +69,10 @@ export class AudioParam {
 
 	setValueCurveAtTime(values, startTime, duration) {
 		if (!values || values.length === 0) {
-			throw new Error('setValueCurveAtTime: values must be a non-empty array');
+			throw new TypeError('setValueCurveAtTime: values must be a non-empty array');
 		}
 		if (duration <= 0) {
-			throw new Error('setValueCurveAtTime: duration must be positive');
+			throw new RangeError('setValueCurveAtTime: duration must be positive');
 		}
 
 		// Convert to regular array if it's a Float32Array

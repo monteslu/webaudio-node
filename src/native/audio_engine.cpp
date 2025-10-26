@@ -388,46 +388,60 @@ Napi::Value AudioEngine::ScheduleParameterValue(const Napi::CallbackInfo& info) 
 	std::string param_name = info[1].As<Napi::String>().Utf8Value();
 	std::string method = info[2].As<Napi::String>().Utf8Value();
 
-	if (method == "setValueAtTime") {
-		float value = info[3].As<Napi::Number>().FloatValue();
-		double start_time = info[4].As<Napi::Number>().DoubleValue();
-		graph_->ScheduleParameterValue(node_id, param_name, value, start_time);
-	}
-	else if (method == "linearRampToValueAtTime") {
-		float value = info[3].As<Napi::Number>().FloatValue();
-		double start_time = info[4].As<Napi::Number>().DoubleValue();
-		graph_->ScheduleParameterRamp(node_id, param_name, value, start_time, false);
-	}
-	else if (method == "exponentialRampToValueAtTime") {
-		float value = info[3].As<Napi::Number>().FloatValue();
-		double start_time = info[4].As<Napi::Number>().DoubleValue();
-		graph_->ScheduleParameterRamp(node_id, param_name, value, start_time, true);
-	}
-	else if (method == "setTargetAtTime") {
-		float target = info[3].As<Napi::Number>().FloatValue();
-		double start_time = info[4].As<Napi::Number>().DoubleValue();
-		double time_constant = info[5].As<Napi::Number>().DoubleValue();
-		graph_->ScheduleParameterTarget(node_id, param_name, target, start_time, time_constant);
-	}
-	else if (method == "setValueCurveAtTime") {
-		Napi::Array values_array = info[3].As<Napi::Array>();
-		double start_time = info[4].As<Napi::Number>().DoubleValue();
-		double duration = info[5].As<Napi::Number>().DoubleValue();
-
-		std::vector<float> values;
-		for (uint32_t i = 0; i < values_array.Length(); ++i) {
-			values.push_back(values_array.Get(i).As<Napi::Number>().FloatValue());
+	try {
+		if (method == "setValueAtTime") {
+			float value = info[3].As<Napi::Number>().FloatValue();
+			double start_time = info[4].As<Napi::Number>().DoubleValue();
+			graph_->ScheduleParameterValue(node_id, param_name, value, start_time);
 		}
+		else if (method == "linearRampToValueAtTime") {
+			float value = info[3].As<Napi::Number>().FloatValue();
+			double start_time = info[4].As<Napi::Number>().DoubleValue();
+			graph_->ScheduleParameterRamp(node_id, param_name, value, start_time, false);
+		}
+		else if (method == "exponentialRampToValueAtTime") {
+			float value = info[3].As<Napi::Number>().FloatValue();
+			double start_time = info[4].As<Napi::Number>().DoubleValue();
+			graph_->ScheduleParameterRamp(node_id, param_name, value, start_time, true);
+		}
+		else if (method == "setTargetAtTime") {
+			float target = info[3].As<Napi::Number>().FloatValue();
+			double start_time = info[4].As<Napi::Number>().DoubleValue();
+			double time_constant = info[5].As<Napi::Number>().DoubleValue();
+			graph_->ScheduleParameterTarget(node_id, param_name, target, start_time, time_constant);
+		}
+		else if (method == "setValueCurveAtTime") {
+			Napi::Array values_array = info[3].As<Napi::Array>();
+			double start_time = info[4].As<Napi::Number>().DoubleValue();
+			double duration = info[5].As<Napi::Number>().DoubleValue();
 
-		graph_->ScheduleParameterCurve(node_id, param_name, values, start_time, duration);
+			std::vector<float> values;
+			for (uint32_t i = 0; i < values_array.Length(); ++i) {
+				values.push_back(values_array.Get(i).As<Napi::Number>().FloatValue());
+			}
+
+			graph_->ScheduleParameterCurve(node_id, param_name, values, start_time, duration);
+		}
+		else if (method == "cancelScheduledValues") {
+			double cancel_time = info[3].As<Napi::Number>().DoubleValue();
+			graph_->CancelScheduledParameterValues(node_id, param_name, cancel_time);
+		}
+		else if (method == "cancelAndHoldAtTime") {
+			double cancel_time = info[3].As<Napi::Number>().DoubleValue();
+			graph_->CancelAndHoldParameterAtTime(node_id, param_name, cancel_time);
+		}
 	}
-	else if (method == "cancelScheduledValues") {
-		double cancel_time = info[3].As<Napi::Number>().DoubleValue();
-		graph_->CancelScheduledParameterValues(node_id, param_name, cancel_time);
+	catch (const std::range_error& e) {
+		Napi::RangeError::New(env, e.what()).ThrowAsJavaScriptException();
+		return env.Undefined();
 	}
-	else if (method == "cancelAndHoldAtTime") {
-		double cancel_time = info[3].As<Napi::Number>().DoubleValue();
-		graph_->CancelAndHoldParameterAtTime(node_id, param_name, cancel_time);
+	catch (const std::invalid_argument& e) {
+		Napi::TypeError::New(env, e.what()).ThrowAsJavaScriptException();
+		return env.Undefined();
+	}
+	catch (const std::exception& e) {
+		Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+		return env.Undefined();
 	}
 
 	return env.Undefined();

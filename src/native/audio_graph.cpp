@@ -411,7 +411,7 @@ void AudioGraph::CancelAndHoldParameterAtTime(uint32_t node_id, const std::strin
 
 	auto it = nodes_.find(node_id);
 	if (it != nodes_.end()) {
-		it->second->CancelAndHoldParameterAtTime(param_name, cancel_time);
+		it->second->CancelAndHoldParameterAtTime(param_name, cancel_time, sample_rate_);
 	}
 }
 

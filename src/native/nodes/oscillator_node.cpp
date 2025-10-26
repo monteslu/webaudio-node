@@ -90,11 +90,11 @@ void OscillatorNode::CancelScheduledParameterValues(const std::string& name, dou
 	}
 }
 
-void OscillatorNode::CancelAndHoldParameterAtTime(const std::string& name, double cancel_time) {
+void OscillatorNode::CancelAndHoldParameterAtTime(const std::string& name, double cancel_time, int sample_rate) {
 	if (name == "frequency") {
-		frequency_param_->CancelAndHoldAtTime(cancel_time);
+		frequency_param_->CancelAndHoldAtTime(cancel_time, sample_rate);
 	} else if (name == "detune") {
-		detune_param_->CancelAndHoldAtTime(cancel_time);
+		detune_param_->CancelAndHoldAtTime(cancel_time, sample_rate);
 	}
 }
 

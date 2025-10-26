@@ -51,9 +51,9 @@ void GainNode::CancelScheduledParameterValues(const std::string& name, double ca
 	}
 }
 
-void GainNode::CancelAndHoldParameterAtTime(const std::string& name, double cancel_time) {
+void GainNode::CancelAndHoldParameterAtTime(const std::string& name, double cancel_time, int sample_rate) {
 	if (name == "gain") {
-		gain_param_->CancelAndHoldAtTime(cancel_time);
+		gain_param_->CancelAndHoldAtTime(cancel_time, sample_rate);
 	}
 }
 

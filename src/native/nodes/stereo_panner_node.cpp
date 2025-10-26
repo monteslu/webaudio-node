@@ -55,9 +55,9 @@ void StereoPannerNode::CancelScheduledParameterValues(const std::string& name, d
 	}
 }
 
-void StereoPannerNode::CancelAndHoldParameterAtTime(const std::string& name, double cancel_time) {
+void StereoPannerNode::CancelAndHoldParameterAtTime(const std::string& name, double cancel_time, int sample_rate) {
 	if (name == "pan") {
-		pan_param_->CancelAndHoldAtTime(cancel_time);
+		pan_param_->CancelAndHoldAtTime(cancel_time, sample_rate);
 	}
 }
 

@@ -32,7 +32,7 @@ public:
 	virtual void ScheduleParameterTarget(const std::string& name, float target, double time, double time_constant);
 	virtual void ScheduleParameterCurve(const std::string& name, const std::vector<float>& values, double time, double duration);
 	virtual void CancelScheduledParameterValues(const std::string& name, double cancel_time);
-	virtual void CancelAndHoldParameterAtTime(const std::string& name, double cancel_time);
+	virtual void CancelAndHoldParameterAtTime(const std::string& name, double cancel_time, int sample_rate);
 
 	// State
 	bool IsActive() const { return is_active_; }

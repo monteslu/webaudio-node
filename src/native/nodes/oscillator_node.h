@@ -35,7 +35,7 @@ public:
 	void ScheduleParameterTarget(const std::string& name, float target, double time, double time_constant) override;
 	void ScheduleParameterCurve(const std::string& name, const std::vector<float>& values, double time, double duration) override;
 	void CancelScheduledParameterValues(const std::string& name, double cancel_time) override;
-	void CancelAndHoldParameterAtTime(const std::string& name, double cancel_time) override;
+	void CancelAndHoldParameterAtTime(const std::string& name, double cancel_time, int sample_rate) override;
 
 	AudioParam* GetAudioParam(const std::string& name) override;
 

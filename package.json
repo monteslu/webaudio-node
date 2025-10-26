@@ -1,7 +1,7 @@
 {
   "name": "webaudio-node",
   "version": "1.0.0",
-  "description": "Full-featured Web Audio API for Node.js with SIMD optimizations, AudioWorklet, and microphone support (98% spec compliant)",
+  "description": "Full-featured Web Audio API for Node.js with SIMD optimizations, AudioWorklet, and microphone support (99% spec compliant)",
   "main": "index.js",
   "type": "module",
   "gypfile": true,
