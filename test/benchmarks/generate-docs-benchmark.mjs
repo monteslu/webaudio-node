@@ -42,7 +42,13 @@ for (let i = 0; i < lines.length; i++) {
 	if (line.includes('═══') && !line.includes('SUMMARY') && !line.includes('Testing')) {
 		const match = line.match(/═══\s+(.+?)\s+═══/);
 		if (match) {
-			currentBenchmark = match[1].trim();
+			const benchmarkName = match[1].trim();
+			// Skip Memory Usage benchmark - it measures memory, not time
+			if (!benchmarkName.includes('Memory Usage')) {
+				currentBenchmark = benchmarkName;
+			} else {
+				currentBenchmark = null;
+			}
 		}
 	}
 
