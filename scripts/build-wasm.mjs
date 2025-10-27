@@ -22,9 +22,9 @@ const BUILD_CONFIG = {
         '-s MODULARIZE=1',       // Module pattern
         '-s EXPORT_ES6=1',       // ES6 module
         '-s EXPORT_NAME=MODULE_NAME',  // Placeholder
-        '--no-entry',            // Library mode
+        '--no-entry'            // Library mode
     ],
-    runtimeMethods: '["ccall","cwrap","getValue","setValue","HEAPF32"]',
+    runtimeMethods: '["ccall","cwrap","getValue","setValue","HEAPF32"]'
 };
 
 // Module definitions
@@ -42,8 +42,8 @@ const MODULES = [
             '_processWaveShaper',
             '_destroyWaveShaper',
             '_malloc',
-            '_free',
-        ],
+            '_free'
+        ]
     },
     {
         name: 'fft',
@@ -59,8 +59,8 @@ const MODULES = [
             '_inverseFFT',
             '_destroyFFT',
             '_malloc',
-            '_free',
-        ],
+            '_free'
+        ]
     },
     {
         name: 'mixer',
@@ -73,8 +73,8 @@ const MODULES = [
             '_clear',
             '_copy',
             '_applyGain',
-            '_clip',
-        ],
+            '_clip'
+        ]
     },
     {
         name: 'resampler',
@@ -86,8 +86,8 @@ const MODULES = [
             '_createResampler',
             '_processResampler',
             '_resetResampler',
-            '_destroyResampler',
-        ],
+            '_destroyResampler'
+        ]
     },
     {
         name: 'audio_param',
@@ -105,8 +105,8 @@ const MODULES = [
             '_exponentialRampToValueAtTime',
             '_setTargetAtTime',
             '_cancelScheduledParamValues',
-            '_getParamValueAtTime',
-        ],
+            '_getParamValueAtTime'
+        ]
     },
     {
         name: 'gain_node',
@@ -117,8 +117,8 @@ const MODULES = [
         functions: [
             '_createGainNode',
             '_destroyGainNode',
-            '_processGainNode',
-        ],
+            '_processGainNode'
+        ]
     },
     {
         name: 'oscillator_node',
@@ -133,17 +133,17 @@ const MODULES = [
             '_stopOscillator',
             '_setOscillatorWaveType',
             '_setPeriodicWave',
-            '_processOscillatorNode',
-        ],
-    },
+            '_processOscillatorNode'
+        ]
+    }
 ];
 
 function buildModule(module) {
     const { name, displayName, source, output, exportName, functions } = module;
 
-    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`Building: ${displayName}`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Check source exists
     const sourcePath = path.join(rootDir, source);
@@ -171,7 +171,7 @@ function buildModule(module) {
         `-s EXPORTED_FUNCTIONS='${exportedFunctions}'`,
         `-s EXPORTED_RUNTIME_METHODS='${BUILD_CONFIG.runtimeMethods}'`,
         source,
-        `-o ${output}`,
+        `-o ${output}`
     ].join(' ');
 
     console.log(`Source: ${source}`);
@@ -183,7 +183,7 @@ function buildModule(module) {
         console.log('Compiling...');
         execSync(command, {
             cwd: rootDir,
-            stdio: 'inherit',
+            stdio: 'inherit'
         });
 
         // Check output exists
@@ -198,7 +198,7 @@ function buildModule(module) {
         const wasmStats = statSync(wasmPath);
 
         console.log('');
-        console.log(`✅ Build successful!`);
+        console.log('✅ Build successful!');
         console.log(`   WASM: ${(wasmStats.size / 1024).toFixed(1)} KB`);
         console.log(`   JS:   ${(stats.size / 1024).toFixed(1)} KB`);
         console.log(`   Total: ${((stats.size + wasmStats.size) / 1024).toFixed(1)} KB`);
@@ -219,7 +219,7 @@ async function buildAll() {
     console.log('');
     console.log(`Modules to build: ${MODULES.length}`);
     console.log(`Compiler: ${BUILD_CONFIG.compiler}`);
-    console.log(`Optimization: -O3 -msimd128`);
+    console.log('Optimization: -O3 -msimd128');
 
     let successCount = 0;
     let failCount = 0;

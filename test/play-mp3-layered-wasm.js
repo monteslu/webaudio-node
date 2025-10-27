@@ -11,9 +11,9 @@ console.log('\n🎵 WASM: Playing 5 layered instances of rising_sun.mp3...\n');
 const sampleRate = 48000;
 const duration = 10; // seconds
 const context = new OfflineAudioContext({
-	numberOfChannels: 2,
-	length: sampleRate * duration,
-	sampleRate: sampleRate
+    numberOfChannels: 2,
+    length: sampleRate * duration,
+    sampleRate: sampleRate
 });
 
 const audioFilePath = join(__dirname, 'samples', 'rising_sun.mp3');
@@ -36,20 +36,20 @@ const numInstances = 5;
 
 console.log('Creating layered sources with 1-second intervals:');
 for (let i = 0; i < numInstances; i++) {
-	const source = context.createBufferSource();
-	source.buffer = buffer;
+    const source = context.createBufferSource();
+    source.buffer = buffer;
 
-	// Individual gain for each instance
-	const instanceGain = context.createGain();
-	instanceGain.gain.value = 1.0;
+    // Individual gain for each instance
+    const instanceGain = context.createGain();
+    instanceGain.gain.value = 1.0;
 
-	source.connect(instanceGain);
-	instanceGain.connect(masterGain);
+    source.connect(instanceGain);
+    instanceGain.connect(masterGain);
 
-	// Start each source with 1 second delay
-	const startTime = i * 1.0;
-	source.start(startTime);
-	console.log(`  Instance ${i + 1}: starts at ${startTime}s`);
+    // Start each source with 1 second delay
+    const startTime = i * 1.0;
+    source.start(startTime);
+    console.log(`  Instance ${i + 1}: starts at ${startTime}s`);
 }
 
 console.log(`\nRendering ${duration} seconds of layered audio...\n`);
@@ -63,43 +63,43 @@ console.log(`✅ Rendered in ${renderTime.toFixed(2)}ms`);
 const ch0 = rendered.getChannelData(0);
 let max = 0;
 for (let i = 0; i < ch0.length; i++) {
-	max = Math.max(max, Math.abs(ch0[i]));
+    max = Math.max(max, Math.abs(ch0[i]));
 }
 console.log(`Max amplitude: ${max.toFixed(6)}`);
 
 // Write WAV
 function writeWav(filename, buffer) {
-	const numChannels = buffer.numberOfChannels;
-	const length = buffer.length;
-	const header = Buffer.alloc(44);
-	const dataSize = length * numChannels * 2;
+    const numChannels = buffer.numberOfChannels;
+    const length = buffer.length;
+    const header = Buffer.alloc(44);
+    const dataSize = length * numChannels * 2;
 
-	header.write('RIFF', 0);
-	header.writeUInt32LE(36 + dataSize, 4);
-	header.write('WAVE', 8);
-	header.write('fmt ', 12);
-	header.writeUInt32LE(16, 16);
-	header.writeUInt16LE(1, 20);
-	header.writeUInt16LE(numChannels, 22);
-	header.writeUInt32LE(sampleRate, 24);
-	header.writeUInt32LE(sampleRate * numChannels * 2, 28);
-	header.writeUInt16LE(numChannels * 2, 32);
-	header.writeUInt16LE(16, 34);
-	header.write('data', 36);
-	header.writeUInt32LE(dataSize, 40);
+    header.write('RIFF', 0);
+    header.writeUInt32LE(36 + dataSize, 4);
+    header.write('WAVE', 8);
+    header.write('fmt ', 12);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20);
+    header.writeUInt16LE(numChannels, 22);
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(sampleRate * numChannels * 2, 28);
+    header.writeUInt16LE(numChannels * 2, 32);
+    header.writeUInt16LE(16, 34);
+    header.write('data', 36);
+    header.writeUInt32LE(dataSize, 40);
 
-	const data = Buffer.alloc(dataSize);
-	let offset = 0;
-	for (let i = 0; i < length; i++) {
-		for (let ch = 0; ch < numChannels; ch++) {
-			const sample = buffer.getChannelData(ch)[i];
-			const pcm = Math.max(-1, Math.min(1, sample)) * 32767;
-			data.writeInt16LE(pcm, offset);
-			offset += 2;
-		}
-	}
+    const data = Buffer.alloc(dataSize);
+    let offset = 0;
+    for (let i = 0; i < length; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+            const sample = buffer.getChannelData(ch)[i];
+            const pcm = Math.max(-1, Math.min(1, sample)) * 32767;
+            data.writeInt16LE(pcm, offset);
+            offset += 2;
+        }
+    }
 
-	writeFileSync(filename, Buffer.concat([header, data]));
+    writeFileSync(filename, Buffer.concat([header, data]));
 }
 
 const outputFile = '/tmp/wasm-layered-mp3.wav';

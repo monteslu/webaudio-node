@@ -52,8 +52,8 @@ await new Promise(resolve => setTimeout(resolve, 1000));
 // Test 5: Moving sound (left to right)
 console.log('Test 5: Moving sound (left to right sweep)');
 for (let x = -5; x <= 5; x += 0.5) {
-	panner.positionX = x;
-	await new Promise(resolve => setTimeout(resolve, 50));
+    panner.positionX = x;
+    await new Promise(resolve => setTimeout(resolve, 50));
 }
 
 // Test 6: Distance attenuation
@@ -62,9 +62,9 @@ console.log('  Moving from near (1m) to far (10m)');
 panner.setPosition(0, 0, 0);
 
 for (let z = -1; z >= -10; z -= 1) {
-	panner.positionZ = z;
-	console.log(`  Distance: ${-z}m`);
-	await new Promise(resolve => setTimeout(resolve, 200));
+    panner.positionZ = z;
+    console.log(`  Distance: ${-z}m`);
+    await new Promise(resolve => setTimeout(resolve, 200));
 }
 
 // Test 7: Different distance models

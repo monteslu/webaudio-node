@@ -11,7 +11,7 @@ async function testBufferSource() {
     const context = new WasmOfflineAudioContext({
         numberOfChannels: 2,
         length: Math.floor(sampleRate * duration),
-        sampleRate: sampleRate,
+        sampleRate: sampleRate
     });
 
     // Create a simple sine wave buffer (440Hz)
@@ -76,7 +76,7 @@ async function testBufferSource() {
     console.log('📈 Audio Analysis:');
     console.log(`   RMS Level: ${rms.toFixed(4)}`);
     console.log(`   Peak Level: ${peak.toFixed(4)}`);
-    console.log(`   Expected Peak: ~1.0 (full amplitude sine wave)`);
+    console.log('   Expected Peak: ~1.0 (full amplitude sine wave)');
     console.log('');
 
     // Verify we got audio

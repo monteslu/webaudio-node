@@ -59,10 +59,10 @@ async function main() {
 
     // Connect: source → EQ → master → output
     source.connect(lowBand)
-          .connect(midBand)
-          .connect(highBand)
-          .connect(masterGain)
-          .connect(ctx.destination);
+        .connect(midBand)
+        .connect(highBand)
+        .connect(masterGain)
+        .connect(ctx.destination);
 
     // Start playback
     await ctx.resume();

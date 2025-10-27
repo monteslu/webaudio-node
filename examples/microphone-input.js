@@ -9,13 +9,13 @@ const ctx = new AudioContext({ sampleRate: 48000, channels: 2 });
 console.log('📋 Available input devices:');
 const devices = await ctx.getInputDevices();
 if (devices.length === 0) {
-	console.log('   ⚠️  No input devices found!');
-	console.log('   Make sure you have a microphone connected.\n');
-	process.exit(1);
+    console.log('   ⚠️  No input devices found!');
+    console.log('   Make sure you have a microphone connected.\n');
+    process.exit(1);
 }
 
 devices.forEach(device => {
-	console.log(`   [${device.id}] ${device.name}`);
+    console.log(`   [${device.id}] ${device.name}`);
 });
 console.log('');
 
@@ -42,8 +42,8 @@ console.log('▶️  Starting microphone capture...');
 const started = await micSource.start();
 
 if (!started) {
-	console.log('❌ Failed to start microphone capture');
-	process.exit(1);
+    console.log('❌ Failed to start microphone capture');
+    process.exit(1);
 }
 
 console.log('✅ Microphone is live! You should hear yourself through the speakers.');
@@ -57,28 +57,28 @@ const dataArray = new Float32Array(analyser.fftSize);
 let updateCount = 0;
 
 const monitorInterval = setInterval(() => {
-	analyser.getFloatTimeDomainData(dataArray);
+    analyser.getFloatTimeDomainData(dataArray);
 
-	// Calculate RMS (volume level)
-	let sum = 0;
-	for (let i = 0; i < dataArray.length; i++) {
-		sum += dataArray[i] * dataArray[i];
-	}
-	const rms = Math.sqrt(sum / dataArray.length);
-	const db = 20 * Math.log10(rms);
+    // Calculate RMS (volume level)
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i] * dataArray[i];
+    }
+    const rms = Math.sqrt(sum / dataArray.length);
+    const db = 20 * Math.log10(rms);
 
-	// Create simple volume bar
-	const bars = Math.max(0, Math.min(50, Math.floor((db + 60) / 60 * 50)));
-	const volumeBar = '█'.repeat(bars) + '░'.repeat(50 - bars);
+    // Create simple volume bar
+    const bars = Math.max(0, Math.min(50, Math.floor((db + 60) / 60 * 50)));
+    const volumeBar = '█'.repeat(bars) + '░'.repeat(50 - bars);
 
-	process.stdout.write(`\r📊 Level: [${volumeBar}] ${db.toFixed(1)} dB  `);
+    process.stdout.write(`\r📊 Level: [${volumeBar}] ${db.toFixed(1)} dB  `);
 
-	updateCount++;
-	if (updateCount >= 100) {  // Run for ~10 seconds
-		clearInterval(monitorInterval);
-		console.log('\n\n⏹️  Stopping microphone capture...');
-		micSource.stop();
-		console.log('✅ Done!\n');
-		process.exit(0);
-	}
+    updateCount++;
+    if (updateCount >= 100) {  // Run for ~10 seconds
+        clearInterval(monitorInterval);
+        console.log('\n\n⏹️  Stopping microphone capture...');
+        micSource.stop();
+        console.log('✅ Done!\n');
+        process.exit(0);
+    }
 }, 100);

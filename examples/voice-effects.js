@@ -8,13 +8,13 @@ const ctx = new AudioContext({ sampleRate: 48000, channels: 2 });
 // List available input devices
 const devices = await ctx.getInputDevices();
 if (devices.length === 0) {
-	console.log('❌ No input devices found!');
-	process.exit(1);
+    console.log('❌ No input devices found!');
+    process.exit(1);
 }
 
 console.log('📋 Available microphones:');
 devices.forEach(device => {
-	console.log(`   [${device.id}] ${device.name}`);
+    console.log(`   [${device.id}] ${device.name}`);
 });
 console.log('');
 
@@ -68,8 +68,8 @@ console.log('   → Speakers\n');
 // Start capture
 const started = await micSource.start();
 if (!started) {
-	console.log('❌ Failed to start capture');
-	process.exit(1);
+    console.log('❌ Failed to start capture');
+    process.exit(1);
 }
 
 await ctx.resume();
@@ -86,25 +86,25 @@ compressor.connect(analyser);
 const dataArray = new Float32Array(analyser.fftSize);
 
 const monitorInterval = setInterval(() => {
-	analyser.getFloatTimeDomainData(dataArray);
+    analyser.getFloatTimeDomainData(dataArray);
 
-	let sum = 0;
-	for (let i = 0; i < dataArray.length; i++) {
-		sum += dataArray[i] * dataArray[i];
-	}
-	const rms = Math.sqrt(sum / dataArray.length);
-	const db = 20 * Math.log10(rms);
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i] * dataArray[i];
+    }
+    const rms = Math.sqrt(sum / dataArray.length);
+    const db = 20 * Math.log10(rms);
 
-	const bars = Math.max(0, Math.min(50, Math.floor((db + 60) / 60 * 50)));
-	const volumeBar = '█'.repeat(bars) + '░'.repeat(50 - bars);
+    const bars = Math.max(0, Math.min(50, Math.floor((db + 60) / 60 * 50)));
+    const volumeBar = '█'.repeat(bars) + '░'.repeat(50 - bars);
 
-	process.stdout.write(`\r🔊 Output: [${volumeBar}] ${db.toFixed(1)} dB  `);
+    process.stdout.write(`\r🔊 Output: [${volumeBar}] ${db.toFixed(1)} dB  `);
 }, 100);
 
 setTimeout(() => {
-	clearInterval(monitorInterval);
-	console.log('\n\n⏹️  Stopping...');
-	micSource.stop();
-	console.log('✅ Done!\n');
-	process.exit(0);
+    clearInterval(monitorInterval);
+    console.log('\n\n⏹️  Stopping...');
+    micSource.stop();
+    console.log('✅ Done!\n');
+    process.exit(0);
 }, 10000);

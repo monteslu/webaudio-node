@@ -1,0 +1,8 @@
+node_modules/
+build/
+coverage/
+*.wasm
+*.min.js
+tmp/
+sdl/
+package-lock.json

@@ -59,8 +59,8 @@ console.log('✓ DynamicsCompressorNode');
 const shaper = context.createWaveShaper();
 const curve = new Float32Array(256);
 for (let i = 0; i < 256; i++) {
-	const x = (i / 128) - 1;
-	curve[i] = Math.tanh(x * 2); // Soft clipping
+    const x = (i / 128) - 1;
+    curve[i] = Math.tanh(x * 2); // Soft clipping
 }
 shaper.curve = curve;
 console.log('✓ WaveShaperNode (soft clipper)');
@@ -173,10 +173,10 @@ console.log('\nFFT Analysis:');
 let peak = -Infinity;
 let peakBin = 0;
 for (let i = 0; i < freqData.length; i++) {
-	if (freqData[i] > peak) {
-		peak = freqData[i];
-		peakBin = i;
-	}
+    if (freqData[i] > peak) {
+        peak = freqData[i];
+        peakBin = i;
+    }
 }
 const peakFreq = peakBin * context.sampleRate / analyser.fftSize;
 console.log(`  Peak frequency: ${Math.round(peakFreq)} Hz at ${peak.toFixed(1)} dB`);

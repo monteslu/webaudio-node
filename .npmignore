@@ -1,2 +1,44 @@
-node_modules
-test
+# Development files
+node_modules/
+test/
+coverage/
+.nyc_output/
+.github/
+.vscode/
+
+# Build artifacts (native C++ - excluded)
+# Note: dist/ is NOT excluded - WASM files MUST be published to npm
+build/
+*.o
+*.a
+*.node
+
+# Source files (keep only dist)
+src/wasm/*.cpp
+src/wasm/*.h
+scripts/
+
+# Documentation (keep only essential)
+docs/CHANGELOG.md
+docs/COMPARISON.md
+docs/COMPLETED_TASKS.md
+docs/IMPLEMENTATION_*.md
+docs/OPTIMIZATION_LOG_*.md
+docs/PERFORMANCE_ANALYSIS.md
+docs/PHASE_*.md
+docs/QUICK_WINS_*.md
+docs/SIMD_*.md
+docs/development_plan.md
+docs/future_fft_optimization_plan.md
+docs/wasm_migration_plan.md
+docs/wasm_phase*.md
+
+# Temporary files
+tmp/
+*.log
+.DS_Store
+.sdl-env
+
+# Lock files
+package-lock.json
+yarn.lock

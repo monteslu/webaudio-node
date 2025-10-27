@@ -11,7 +11,7 @@ async function testBasicRendering() {
     const context = new WasmOfflineAudioContext({
         numberOfChannels: 2,
         length: 44100,
-        sampleRate: 44100,
+        sampleRate: 44100
     });
 
     console.log('✅ Created WasmOfflineAudioContext');
@@ -41,9 +41,9 @@ async function testBasicRendering() {
     oscillator.type = 'sine';
 
     console.log('✅ Configured parameters:');
-    console.log(`   Oscillator frequency: 440 Hz (A4)`);
-    console.log(`   Oscillator type: sine`);
-    console.log(`   Gain: 0.5 (50%)`);
+    console.log('   Oscillator frequency: 440 Hz (A4)');
+    console.log('   Oscillator type: sine');
+    console.log('   Gain: 0.5 (50%)');
     console.log('');
 
     // Start oscillator
@@ -91,8 +91,8 @@ async function testBasicRendering() {
         console.log('📈 Audio Analysis:');
         console.log(`   RMS Level: ${rms.toFixed(4)}`);
         console.log(`   Peak Level: ${peak.toFixed(4)}`);
-        console.log(`   Expected RMS: ~0.354 (sine wave at 50%)`);
-        console.log(`   Expected Peak: ~0.5 (50% gain)`);
+        console.log('   Expected RMS: ~0.354 (sine wave at 50%)');
+        console.log('   Expected Peak: ~0.5 (50% gain)');
         console.log('');
 
         // Verify audio is not silent
@@ -100,7 +100,7 @@ async function testBasicRendering() {
             console.log('✅ PASS: Audio levels match expected values!');
         } else {
             console.log('⚠️  WARNING: Audio levels outside expected range');
-            console.log(`   This might indicate a problem with the rendering`);
+            console.log('   This might indicate a problem with the rendering');
         }
 
         // Check stereo consistency

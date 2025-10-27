@@ -28,8 +28,8 @@ rightChannel[echo2Delay] = 0.25;
 
 console.log('Created impulse response:');
 console.log(`  Length: ${impulseLength} samples (${impulseLength / 44100}s)`);
-console.log(`  Channels: 2 (stereo)`);
-console.log(`  Echoes: 0.5s (50%), 0.75s (25%)`);
+console.log('  Channels: 2 (stereo)');
+console.log('  Echoes: 0.5s (50%), 0.75s (25%)');
 
 // Create convolver node
 const convolver = context.createConvolver();

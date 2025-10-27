@@ -15,3 +15,14 @@ package-lock.json
 # Test files (user-generated)
 test/reference-data/
 test/samples/
+
+# Benchmark results
+test/benchmarks/node_modules/
+test/benchmarks/package*.json
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Build artifacts (built during npm publish, not tracked in git)
+dist/

@@ -22,8 +22,8 @@ import { MediaStreamSourceNode } from './nodes/MediaStreamSourceNode.js';
 import { AudioBuffer } from './AudioBuffer.js';
 import { PeriodicWave } from './PeriodicWave.js';
 import { AudioListener } from './AudioListener.js';
-import ffmpeg from 'fluent-ffmpeg';
-import { Readable } from 'stream';
+import sdl from '@kmamal/sdl';
+import { WasmAudioDecoders } from '../wasm-integration/WasmAudioDecoders.js';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,207 +32,223 @@ const rootDir = path.join(__dirname, '..', '..');
 // Load native addon
 let native;
 try {
-	native = require(path.join(rootDir, 'build', 'Release', 'webaudio_native.node'));
+    native = require(path.join(rootDir, 'build', 'Release', 'webaudio_native.node'));
 } catch (error) {
-	throw new Error(`Failed to load native addon: ${error.message}`);
+    throw new Error(`Failed to load native addon: ${error.message}`);
+}
+
+// Simple hash function for generating stable device IDs
+function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(16).padStart(8, '0');
 }
 
 export class AudioContext {
-	constructor(options = {}) {
-		const {
-			sampleRate = 44100,
-			channels = 2,
-			bufferSize = 512
-		} = options;
+    constructor(options = {}) {
+        const {
+            sampleRate = 44100,
+            channels = 2,
+            bufferSize = 512
+        } = options;
 
-		// Create native audio engine
-		this._engine = new native.AudioEngine({
-			sampleRate,
-			channels,
-			bufferSize
-		});
+        // Create native audio engine
+        this._engine = new native.AudioEngine({
+            sampleRate,
+            channels,
+            bufferSize
+        });
 
-		this.sampleRate = this._engine.getSampleRate();
-		this._channels = channels;
-		this._format = 'f32';
+        this.sampleRate = this._engine.getSampleRate();
+        this._channels = channels;
+        this._format = 'f32';
 
-		// Create destination node
-		const destNodeId = this._engine.createNode('destination');
-		this.destination = new AudioDestinationNode(this, destNodeId);
+        // Create destination node
+        const destNodeId = this._engine.createNode('destination');
+        this.destination = new AudioDestinationNode(this, destNodeId);
 
-		// Create audio listener for spatial audio
-		this.listener = new AudioListener(this);
+        // Create audio listener for spatial audio
+        this.listener = new AudioListener(this);
 
-		this.state = 'suspended';
-	}
+        this.state = 'suspended';
+        this._sinkId = ''; // Empty string means default device (browser-compatible)
+    }
 
-	get currentTime() {
-		return this._engine.getCurrentTime();
-	}
+    // Browser-compatible sinkId property
+    get sinkId() {
+        return this._sinkId;
+    }
 
-	async resume() {
-		this._engine.resume();
-		this.state = 'running';
-		return Promise.resolve();
-	}
+    // Static method to enumerate audio devices (browser-compatible API)
+    // Returns both audioinput and audiooutput devices
+    static enumerateDevices() {
+        try {
+            const devices = sdl.audio.devices || [];
+            return devices.map(device => ({
+                deviceId: hashString(device.name),
+                kind: device.type === 'recording' ? 'audioinput' : 'audiooutput',
+                label: device.name,
+                groupId: '' // SDL doesn't provide group information
+            }));
+        } catch (error) {
+            console.warn('Failed to enumerate audio devices:', error);
+            return [];
+        }
+    }
 
-	async suspend() {
-		this._engine.suspend();
-		this.state = 'suspended';
-		return Promise.resolve();
-	}
+    // Browser-compatible setSinkId method
+    async setSinkId(sinkId) {
+        // Note: The native C++ AudioContext doesn't support device switching yet
+        // This method is provided for API compatibility but will warn if used
+        console.warn('AudioContext.setSinkId() is not yet implemented for native C++ backend');
+        console.warn('Device switching is only supported in WASM-based AudioContext');
+        this._sinkId = sinkId;
+        // TODO: Implement device switching in native C++ backend
+    }
 
-	async close() {
-		this._engine.close();
-		this.state = 'closed';
-		return Promise.resolve();
-	}
+    get currentTime() {
+        return this._engine.getCurrentTime();
+    }
 
-	createOscillator() {
-		return new OscillatorNode(this);
-	}
+    async resume() {
+        this._engine.resume();
+        this.state = 'running';
+        return Promise.resolve();
+    }
 
-	createGain() {
-		return new GainNode(this);
-	}
+    async suspend() {
+        this._engine.suspend();
+        this.state = 'suspended';
+        return Promise.resolve();
+    }
 
-	createBufferSource() {
-		return new AudioBufferSourceNode(this);
-	}
+    async close() {
+        this._engine.close();
+        this.state = 'closed';
+        return Promise.resolve();
+    }
 
-	createBiquadFilter() {
-		return new BiquadFilterNode(this);
-	}
+    createOscillator() {
+        return new OscillatorNode(this);
+    }
 
-	createDelay(maxDelayTime = 1.0) {
-		return new DelayNode(this, maxDelayTime);
-	}
+    createGain() {
+        return new GainNode(this);
+    }
 
-	createStereoPanner() {
-		return new StereoPannerNode(this);
-	}
+    createBufferSource() {
+        return new AudioBufferSourceNode(this);
+    }
 
-	createConstantSource() {
-		return new ConstantSourceNode(this);
-	}
+    createBiquadFilter() {
+        return new BiquadFilterNode(this);
+    }
 
-	createChannelSplitter(numberOfOutputs) {
-		return new ChannelSplitterNode(this, { numberOfOutputs });
-	}
+    createDelay(maxDelayTime = 1.0) {
+        return new DelayNode(this, maxDelayTime);
+    }
 
-	createChannelMerger(numberOfInputs) {
-		return new ChannelMergerNode(this, { numberOfInputs });
-	}
+    createStereoPanner() {
+        return new StereoPannerNode(this);
+    }
 
-	createAnalyser() {
-		return new AnalyserNode(this);
-	}
+    createConstantSource() {
+        return new ConstantSourceNode(this);
+    }
 
-	createDynamicsCompressor() {
-		return new DynamicsCompressorNode(this);
-	}
+    createChannelSplitter(numberOfOutputs) {
+        return new ChannelSplitterNode(this, { numberOfOutputs });
+    }
 
-	createWaveShaper() {
-		return new WaveShaperNode(this);
-	}
+    createChannelMerger(numberOfInputs) {
+        return new ChannelMergerNode(this, { numberOfInputs });
+    }
 
-	createIIRFilter(feedforward, feedback) {
-		return new IIRFilterNode(this, { feedforward, feedback });
-	}
+    createAnalyser() {
+        return new AnalyserNode(this);
+    }
 
-	createConvolver(options) {
-		return new ConvolverNode(this, options);
-	}
+    createDynamicsCompressor() {
+        return new DynamicsCompressorNode(this);
+    }
 
-	createPanner() {
-		return new PannerNode(this);
-	}
+    createWaveShaper() {
+        return new WaveShaperNode(this);
+    }
 
-	createAudioWorklet(processorName, options) {
-		return new AudioWorkletNode(this, processorName, options);
-	}
+    createIIRFilter(feedforward, feedback) {
+        return new IIRFilterNode(this, { feedforward, feedback });
+    }
 
-	createMediaStreamSource(options) {
-		return new MediaStreamSourceNode(this, options);
-	}
+    createConvolver(options) {
+        return new ConvolverNode(this, options);
+    }
 
-	async getInputDevices() {
-		return MediaStreamSourceNode.getInputDevices(this);
-	}
+    createPanner() {
+        return new PannerNode(this);
+    }
 
-	createBuffer(numberOfChannels, length, sampleRate) {
-		return new AudioBuffer({
-			length,
-			numberOfChannels,
-			sampleRate: sampleRate || this.sampleRate
-		});
-	}
+    createAudioWorklet(processorName, options) {
+        return new AudioWorkletNode(this, processorName, options);
+    }
 
-	createPeriodicWave(real, imag, options = {}) {
-		return new PeriodicWave(this, { real, imag, ...options });
-	}
+    createMediaStreamSource(options) {
+        return new MediaStreamSourceNode(this, options);
+    }
 
-	async decodeAudioData(audioData, successCallback, errorCallback) {
-		try {
-			// Create input stream
-			const inputStream = new Readable();
-			inputStream.push(Buffer.from(audioData));
-			inputStream.push(null);
+    async getInputDevices() {
+        return MediaStreamSourceNode.getInputDevices(this);
+    }
 
-			// Decode directly to memory using ffmpeg with fast decode options
-			const chunks = [];
-			await new Promise((resolve, reject) => {
-				const stream = ffmpeg(inputStream)
-					.inputOptions([
-						'-threads 1',           // Single thread for small files (less overhead)
-						'-analyzeduration 0',   // Skip analysis phase
-						'-probesize 32'         // Minimal probing
-					])
-					.toFormat('f32le')
-					.audioChannels(this._channels)
-					.audioFrequency(this.sampleRate)
-					.on('error', reject)
-					.stream();
+    createBuffer(numberOfChannels, length, sampleRate) {
+        return new AudioBuffer({
+            length,
+            numberOfChannels,
+            sampleRate: sampleRate || this.sampleRate
+        });
+    }
 
-				stream.on('data', chunk => chunks.push(chunk));
-				stream.on('end', resolve);
-				stream.on('error', reject);
-			});
+    createPeriodicWave(real, imag, options = {}) {
+        return new PeriodicWave(this, { real, imag, ...options });
+    }
 
-			// Combine chunks and create float array
-			const buffer = Buffer.concat(chunks);
-			const numSamples = (buffer.length / this._channels) / 4;
+    async decodeAudioData(audioData, successCallback, errorCallback) {
+        try {
+            // Decode using WASM decoders (MP3, WAV, FLAC, OGG, AAC)
+            const decoded = await WasmAudioDecoders.decode(audioData);
 
-			const audioBuffer = new AudioBuffer({
-				length: numSamples,
-				numberOfChannels: this._channels,
-				sampleRate: this.sampleRate
-			});
+            // Create AudioBuffer with decoded data
+            const audioBuffer = new AudioBuffer({
+                length: decoded.length,
+                numberOfChannels: decoded.channels,
+                sampleRate: decoded.sampleRate
+            });
 
-			// Fast de-interleaving using TypedArray view (10-100x faster than readFloatLE)
-			const floatView = new Float32Array(buffer.buffer, buffer.byteOffset, buffer.length / 4);
+            // De-interleave audio data into separate channels
+            for (let ch = 0; ch < decoded.channels; ch++) {
+                const channelData = audioBuffer._channels[ch];
+                for (let frame = 0; frame < decoded.length; frame++) {
+                    channelData[frame] = decoded.audioData[frame * decoded.channels + ch];
+                }
+            }
 
-			for (let ch = 0; ch < this._channels; ch++) {
-				const channelData = audioBuffer._channels[ch];
-				for (let frame = 0; frame < numSamples; frame++) {
-					channelData[frame] = floatView[frame * this._channels + ch];
-				}
-			}
+            // Regenerate interleaved buffer from channels
+            audioBuffer._updateInternalBuffer();
 
-			// Regenerate interleaved buffer from channels
-			// This ensures the buffer is in the exact format expected by the engine
-			audioBuffer._updateInternalBuffer();
+            if (successCallback) {
+                successCallback(audioBuffer);
+            }
+            return audioBuffer;
 
-			if (successCallback) {
-				successCallback(audioBuffer);
-			}
-			return audioBuffer;
-
-		} catch (error) {
-			if (errorCallback) {
-				errorCallback(error);
-			}
-			throw error;
-		}
-	}
+        } catch (error) {
+            if (errorCallback) {
+                errorCallback(error);
+            }
+            throw error;
+        }
+    }
 }

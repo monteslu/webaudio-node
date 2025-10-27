@@ -1,5 +1,5 @@
 // WASM AudioGraph Implementation
-// Ports audio_graph.cpp to WebAssembly
+// Simplified version without complex C++ node hierarchy
 
 #include <emscripten.h>
 #include <cstring>
@@ -9,25 +9,124 @@
 #include <algorithm>
 #include <cmath>
 
-// Audio Node base classes and implementations
-#include "../native/nodes/audio_node.h"
-#include "../native/nodes/destination_node.h"
-#include "../native/nodes/buffer_source_node.h"
-#include "../native/nodes/gain_node.h"
-#include "../native/nodes/oscillator_node.h"
-#include "../native/nodes/biquad_filter_node.h"
-#include "../native/nodes/delay_node.h"
-#include "../native/nodes/stereo_panner_node.h"
-#include "../native/nodes/constant_source_node.h"
-#include "../native/nodes/channel_splitter_node.h"
-#include "../native/nodes/channel_merger_node.h"
-#include "../native/nodes/analyser_node.h"
-#include "../native/nodes/dynamics_compressor_node.h"
-#include "../native/nodes/wave_shaper_node.h"
-#include "../native/nodes/convolver_node.h"
-#include "../native/nodes/panner_node.h"
+// Minimal stub classes for basic graph functionality
+// Full node implementations are handled in JavaScript layer
 
-using namespace webaudio;
+// Forward declaration
+class AudioParam;
+
+class AudioNode {
+public:
+    virtual ~AudioNode() = default;
+    virtual void Process(float* output, int frame_count, int output_index = 0) {}
+    virtual void Start(double when) {}
+    virtual void Stop(double when) {}
+    virtual void SetParameter(const char* name, float value) {}
+    virtual void SetCurrentTime(double time) {}
+    virtual bool IsActive() const { return true; }
+    virtual void AddOutput(AudioNode* node) {}
+    virtual void RemoveOutput(AudioNode* node) {}
+    virtual void AddInput(AudioNode* node, uint32_t output_idx, uint32_t input_idx) {}
+    virtual void RemoveInput(AudioNode* node) {}
+    virtual AudioParam* GetAudioParam(const char* name) { return nullptr; }
+    virtual void ScheduleParameterValue(const char* param, float value, double time) {}
+    virtual void ScheduleParameterRamp(const char* param, float value, double time, bool exponential) {}
+};
+
+class DestinationNode : public AudioNode {
+public:
+    DestinationNode(int sample_rate, int channels) : sample_rate_(sample_rate), channels_(channels) {}
+private:
+    int sample_rate_;
+    int channels_;
+};
+
+// Stub implementations for other node types (minimal - actual processing done in JavaScript)
+class BufferSourceNode : public AudioNode {
+public:
+    BufferSourceNode(int sr, int ch) {}
+    void SetBuffer(float* data, int length, int channels) {}
+    void SetSharedBuffer(std::shared_ptr<std::vector<float>> data, int length, int channels) {}
+};
+
+class GainNode : public AudioNode {
+public:
+    GainNode(int sr, int ch) {}
+};
+
+class OscillatorNode : public AudioNode {
+public:
+    OscillatorNode(int sr, int ch, const char* type) {}
+    void SetPeriodicWave(float* wavetable, int length) {}
+};
+
+class BiquadFilterNode : public AudioNode {
+public:
+    BiquadFilterNode(int sr, int ch, const char* type) {}
+};
+
+class DelayNode : public AudioNode {
+public:
+    DelayNode(int sr, int ch, float maxDelay) {}
+};
+
+class StereoPannerNode : public AudioNode {
+public:
+    StereoPannerNode(int sr, int ch) {}
+};
+
+class ConstantSourceNode : public AudioNode {
+public:
+    ConstantSourceNode(int sr, int ch) {}
+};
+
+class ChannelSplitterNode : public AudioNode {
+public:
+    ChannelSplitterNode(int sr, int ch, int outputs) {}
+    void SetOutputChannelMapping(AudioNode* node, uint32_t output_idx) {}
+};
+
+class ChannelMergerNode : public AudioNode {
+public:
+    ChannelMergerNode(int sr, int ch, int inputs) {}
+    void SetInputChannelMapping(AudioNode* node, uint32_t input_idx) {}
+};
+
+class AnalyserNode : public AudioNode {
+public:
+    AnalyserNode(int sr, int ch) {}
+};
+
+class DynamicsCompressorNode : public AudioNode {
+public:
+    DynamicsCompressorNode(int sr, int ch) {}
+};
+
+class WaveShaperNode : public AudioNode {
+public:
+    WaveShaperNode(int sr, int ch) {}
+    void SetCurve(float* curve, int length) {}
+};
+
+class ConvolverNode : public AudioNode {
+public:
+    ConvolverNode(int sr, int ch) {}
+    void SetBuffer(float* data, int length, int channels) {}
+};
+
+class PannerNode : public AudioNode {
+public:
+    PannerNode(int sr, int ch) {}
+    void SetDistanceModel(const std::string& model) {}
+    void SetPanningModel(const std::string& model) {}
+};
+
+// Stub AudioParam
+class AudioParam {
+public:
+    void ClearModulationInputs() {}
+    void AddModulationInput(float* data, int frame_count) {}
+};
 
 struct Connection {
     uint32_t source_id;
@@ -578,6 +677,171 @@ void setNodePeriodicWave(uint32_t graph_id, uint32_t node_id, float* wavetable, 
     auto it = graphs_.find(graph_id);
     if (it != graphs_.end()) {
         it->second->SetNodePeriodicWave(node_id, wavetable, length);
+    }
+}
+
+// ============================================================================
+// MediaStreamSourceNode - Audio input capture
+// ============================================================================
+
+#include "utils/RingBuffer.h"
+
+struct MediaStreamSourceNodeState {
+    int sample_rate;
+    int channels;
+    bool is_active;
+    RingBuffer* ring_buffer;
+    size_t buffer_capacity; // in samples
+};
+
+EMSCRIPTEN_KEEPALIVE
+MediaStreamSourceNodeState* createMediaStreamSourceNode(int sample_rate, int channels, float buffer_duration_seconds) {
+    MediaStreamSourceNodeState* state = new MediaStreamSourceNodeState();
+    state->sample_rate = sample_rate;
+    state->channels = channels;
+    state->is_active = false;
+
+    // Create ring buffer with capacity for buffer_duration_seconds of audio
+    state->buffer_capacity = static_cast<size_t>(sample_rate * buffer_duration_seconds * channels);
+    state->ring_buffer = new RingBuffer(state->buffer_capacity);
+
+    return state;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void destroyMediaStreamSourceNode(MediaStreamSourceNodeState* state) {
+    if (!state) return;
+    if (state->ring_buffer) {
+        delete state->ring_buffer;
+    }
+    delete state;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void startMediaStreamSource(MediaStreamSourceNodeState* state) {
+    if (!state) return;
+    state->is_active = true;
+    if (state->ring_buffer) {
+        state->ring_buffer->Clear();
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void stopMediaStreamSource(MediaStreamSourceNodeState* state) {
+    if (!state) return;
+    state->is_active = false;
+}
+
+// Write input data to ring buffer (called from JavaScript SDL callback)
+// Returns number of samples actually written
+EMSCRIPTEN_KEEPALIVE
+size_t writeInputData(MediaStreamSourceNodeState* state, const float* data, size_t sample_count) {
+    if (!state || !state->ring_buffer) return 0;
+    return state->ring_buffer->Write(data, sample_count);
+}
+
+// Get number of samples available in ring buffer
+EMSCRIPTEN_KEEPALIVE
+size_t getInputDataAvailable(MediaStreamSourceNodeState* state) {
+    if (!state || !state->ring_buffer) return 0;
+    return state->ring_buffer->GetAvailable();
+}
+
+// Process audio - reads from ring buffer
+EMSCRIPTEN_KEEPALIVE
+void processMediaStreamSourceNode(
+    MediaStreamSourceNodeState* state,
+    float* output,
+    int frame_count
+) {
+    if (!state) return;
+
+    const int sample_count = frame_count * state->channels;
+
+    if (!state->is_active || !state->ring_buffer) {
+        // Not active or no buffer - output silence
+        memset(output, 0, sample_count * sizeof(float));
+        return;
+    }
+
+    // Read from ring buffer
+    state->ring_buffer->Read(output, sample_count);
+}
+
+} // extern "C"
+
+// ============================================================================
+// Audio Decoders - MP3/WAV using dr_libs
+// ============================================================================
+
+#define DR_MP3_IMPLEMENTATION
+#include "../vendor/dr_mp3.h"
+
+#define DR_WAV_IMPLEMENTATION
+#include "../vendor/dr_wav.h"
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+int decodeMP3(const uint8_t* input, size_t inputSize, float** output, size_t* totalSamples, int* sampleRate) {
+    drmp3 mp3;
+    if (!drmp3_init_memory(&mp3, input, inputSize, NULL)) {
+        return -1;
+    }
+
+    drmp3_uint64 totalFrames = drmp3_get_pcm_frame_count(&mp3);
+    int channels = mp3.channels;
+    *sampleRate = mp3.sampleRate;
+    *totalSamples = totalFrames * channels;
+
+    *output = (float*)malloc(*totalSamples * sizeof(float));
+    if (!*output) {
+        drmp3_uninit(&mp3);
+        return -1;
+    }
+
+    drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(&mp3, totalFrames, *output);
+    drmp3_uninit(&mp3);
+
+    if (framesRead != totalFrames) {
+        free(*output);
+        return -1;
+    }
+    return channels;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int decodeWAV(const uint8_t* input, size_t inputSize, float** output, size_t* totalSamples, int* sampleRate) {
+    drwav wav;
+    if (!drwav_init_memory(&wav, input, inputSize, NULL)) {
+        return -1;
+    }
+
+    int channels = wav.channels;
+    *sampleRate = wav.sampleRate;
+    drwav_uint64 totalFrames = wav.totalPCMFrameCount;
+    *totalSamples = totalFrames * channels;
+
+    *output = (float*)malloc(*totalSamples * sizeof(float));
+    if (!*output) {
+        drwav_uninit(&wav);
+        return -1;
+    }
+
+    drwav_uint64 framesRead = drwav_read_pcm_frames_f32(&wav, totalFrames, *output);
+    drwav_uninit(&wav);
+
+    if (framesRead != totalFrames) {
+        free(*output);
+        return -1;
+    }
+    return channels;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void freeDecodedBuffer(float* buffer) {
+    if (buffer) {
+        free(buffer);
     }
 }
 

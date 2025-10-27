@@ -520,3 +520,177 @@ void processBufferSourceNode(
 }
 
 } // extern "C"
+
+// ============================================================================
+// MediaStreamSourceNode - Audio input capture
+// ============================================================================
+
+#include "utils/RingBuffer.h"
+
+struct MediaStreamSourceNodeState {
+    int sample_rate;
+    int channels;
+    bool is_active;
+    RingBuffer* ring_buffer;
+    size_t buffer_capacity; // in samples
+};
+
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+MediaStreamSourceNodeState* createMediaStreamSourceNode(int sample_rate, int channels, float buffer_duration_seconds) {
+    MediaStreamSourceNodeState* state = new MediaStreamSourceNodeState();
+    state->sample_rate = sample_rate;
+    state->channels = channels;
+    state->is_active = false;
+
+    // Create ring buffer with capacity for buffer_duration_seconds of audio
+    state->buffer_capacity = static_cast<size_t>(sample_rate * buffer_duration_seconds * channels);
+    state->ring_buffer = new RingBuffer(state->buffer_capacity);
+
+    return state;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void destroyMediaStreamSourceNode(MediaStreamSourceNodeState* state) {
+    if (!state) return;
+    if (state->ring_buffer) {
+        delete state->ring_buffer;
+    }
+    delete state;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void startMediaStreamSource(MediaStreamSourceNodeState* state) {
+    if (!state) return;
+    state->is_active = true;
+    if (state->ring_buffer) {
+        state->ring_buffer->Clear();
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void stopMediaStreamSource(MediaStreamSourceNodeState* state) {
+    if (!state) return;
+    state->is_active = false;
+}
+
+// Write input data to ring buffer (called from JavaScript SDL callback)
+// Returns number of samples actually written
+EMSCRIPTEN_KEEPALIVE
+size_t writeInputData(MediaStreamSourceNodeState* state, const float* data, size_t sample_count) {
+    if (!state || !state->ring_buffer) return 0;
+    return state->ring_buffer->Write(data, sample_count);
+}
+
+// Get number of samples available in ring buffer
+EMSCRIPTEN_KEEPALIVE
+size_t getInputDataAvailable(MediaStreamSourceNodeState* state) {
+    if (!state || !state->ring_buffer) return 0;
+    return state->ring_buffer->GetAvailable();
+}
+
+// Process audio - reads from ring buffer
+EMSCRIPTEN_KEEPALIVE
+void processMediaStreamSourceNode(
+    MediaStreamSourceNodeState* state,
+    float* output,
+    int frame_count
+) {
+    if (!state) return;
+
+    const int sample_count = frame_count * state->channels;
+
+    if (!state->is_active || !state->ring_buffer) {
+        // Not active or no buffer - output silence
+        memset(output, 0, sample_count * sizeof(float));
+        return;
+    }
+
+    // Read from ring buffer
+    state->ring_buffer->Read(output, sample_count);
+}
+
+} // extern "C"
+
+// ============================================================================
+// Audio Decoders - MP3/WAV using dr_libs
+// ============================================================================
+
+#define DR_MP3_IMPLEMENTATION
+#include "../vendor/dr_mp3.h"
+
+#define DR_WAV_IMPLEMENTATION
+#include "../vendor/dr_wav.h"
+
+extern "C" {
+
+// Decode MP3 file to interleaved float samples
+// Returns: number of channels (1 or 2), or -1 on error
+EMSCRIPTEN_KEEPALIVE
+int decodeMP3(const uint8_t* input, size_t inputSize, float** output, size_t* totalSamples, int* sampleRate) {
+    drmp3 mp3;
+    if (!drmp3_init_memory(&mp3, input, inputSize, NULL)) {
+        return -1;
+    }
+
+    drmp3_uint64 totalFrames = drmp3_get_pcm_frame_count(&mp3);
+    int channels = mp3.channels;
+    *sampleRate = mp3.sampleRate;
+    *totalSamples = totalFrames * channels;
+
+    *output = (float*)malloc(*totalSamples * sizeof(float));
+    if (!*output) {
+        drmp3_uninit(&mp3);
+        return -1;
+    }
+
+    drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(&mp3, totalFrames, *output);
+    drmp3_uninit(&mp3);
+
+    if (framesRead != totalFrames) {
+        free(*output);
+        return -1;
+    }
+    return channels;
+}
+
+// Decode WAV file to interleaved float samples
+// Returns: number of channels (1 or 2), or -1 on error
+EMSCRIPTEN_KEEPALIVE
+int decodeWAV(const uint8_t* input, size_t inputSize, float** output, size_t* totalSamples, int* sampleRate) {
+    drwav wav;
+    if (!drwav_init_memory(&wav, input, inputSize, NULL)) {
+        return -1;
+    }
+
+    int channels = wav.channels;
+    *sampleRate = wav.sampleRate;
+    drwav_uint64 totalFrames = wav.totalPCMFrameCount;
+    *totalSamples = totalFrames * channels;
+
+    *output = (float*)malloc(*totalSamples * sizeof(float));
+    if (!*output) {
+        drwav_uninit(&wav);
+        return -1;
+    }
+
+    drwav_uint64 framesRead = drwav_read_pcm_frames_f32(&wav, totalFrames, *output);
+    drwav_uninit(&wav);
+
+    if (framesRead != totalFrames) {
+        free(*output);
+        return -1;
+    }
+    return channels;
+}
+
+// Free memory allocated by decoders
+EMSCRIPTEN_KEEPALIVE
+void freeDecodedBuffer(float* buffer) {
+    if (buffer) {
+        free(buffer);
+    }
+}
+
+} // extern "C"

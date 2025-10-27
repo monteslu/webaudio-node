@@ -9,7 +9,7 @@ async function benchmarkWASM() {
     const context = new WasmOfflineAudioContext({
         numberOfChannels: 2,
         length: sampleRate * duration,
-        sampleRate: sampleRate,
+        sampleRate: sampleRate
     });
 
     const oscillator = await context.createOscillator();
@@ -43,7 +43,7 @@ async function benchmarkNative() {
     const context = new OfflineAudioContext({
         numberOfChannels: 2,
         length: sampleRate * duration,
-        sampleRate: sampleRate,
+        sampleRate: sampleRate
     });
 
     const oscillator = context.createOscillator();
@@ -75,9 +75,9 @@ async function main() {
     console.log('🏁 WebAudio Backend Performance Comparison\n');
     console.log('━'.repeat(60));
     console.log('Test: Oscillator → Gain → Destination');
-    console.log(`Duration: 10 seconds of audio`);
-    console.log(`Sample Rate: 44100 Hz`);
-    console.log(`Channels: 2 (stereo)`);
+    console.log('Duration: 10 seconds of audio');
+    console.log('Sample Rate: 44100 Hz');
+    console.log('Channels: 2 (stereo)');
     console.log('━'.repeat(60));
     console.log('');
 
@@ -91,14 +91,14 @@ async function main() {
     console.log('Running benchmarks...\n');
 
     const wasmResults = await benchmarkWASM();
-    console.log(`✅ WASM Backend:`);
+    console.log('✅ WASM Backend:');
     console.log(`   Render Time: ${wasmResults.elapsed}ms`);
     console.log(`   Throughput: ${(wasmResults.samplesPerSecond / 1e6).toFixed(2)}M samples/sec`);
     console.log(`   Realtime Factor: ${wasmResults.realtimeFactor.toFixed(1)}x`);
     console.log('');
 
     const nativeResults = await benchmarkNative();
-    console.log(`✅ Native C++ Backend:`);
+    console.log('✅ Native C++ Backend:');
     console.log(`   Render Time: ${nativeResults.elapsed}ms`);
     console.log(`   Throughput: ${(nativeResults.samplesPerSecond / 1e6).toFixed(2)}M samples/sec`);
     console.log(`   Realtime Factor: ${nativeResults.realtimeFactor.toFixed(1)}x`);

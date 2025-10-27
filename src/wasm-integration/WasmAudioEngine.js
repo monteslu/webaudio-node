@@ -26,7 +26,7 @@ export class WasmAudioEngine {
         this.initialized = true;
     }
 
-    createNode(type, options = {}) {
+    createNode(type, _options = {}) {
         // Just forward to WASM - no JavaScript graph management!
         // Allocate string in WASM memory
         const lengthBytes = wasmModule.lengthBytesUTF8(type) + 1;
@@ -63,7 +63,7 @@ export class WasmAudioEngine {
         wasmModule._free(paramNamePtr);
     }
 
-    disconnectNode(nodeId) {
+    disconnectNode(_nodeId) {
         // TODO: Implement disconnect in WASM
     }
 
@@ -200,19 +200,19 @@ export class WasmAudioEngine {
         this.setNodeProperty(nodeId, 'smoothingTimeConstant', smoothingTimeConstant);
     }
 
-    getFloatFrequencyData(nodeId, array) {
+    getFloatFrequencyData(_nodeId, _array) {
         // TODO: Implement in WASM
     }
 
-    getByteFrequencyData(nodeId, array) {
+    getByteFrequencyData(_nodeId, _array) {
         // TODO: Implement in WASM
     }
 
-    getFloatTimeDomainData(nodeId, array) {
+    getFloatTimeDomainData(_nodeId, _array) {
         // TODO: Implement in WASM
     }
 
-    getByteTimeDomainData(nodeId, array) {
+    getByteTimeDomainData(_nodeId, _array) {
         // TODO: Implement in WASM
     }
 

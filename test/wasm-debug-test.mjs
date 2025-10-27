@@ -8,7 +8,7 @@ async function debugTest() {
     const context = new WasmOfflineAudioContext({
         numberOfChannels: 2,
         length: 128,  // Just 1 block
-        sampleRate: 44100,
+        sampleRate: 44100
     });
 
     const oscillator = context.createOscillator();
@@ -56,7 +56,7 @@ async function debugTest() {
     }
 
     console.log(`\nPeak value: ${peak.toFixed(4)}`);
-    console.log(`Expected: ~0.5 (with 50% gain)`);
+    console.log('Expected: ~0.5 (with 50% gain)');
     console.log(`Actual is: ${peak > 0.9 ? 'WRONG (no gain applied!)' : 'correct'}`);
 
     context.close();

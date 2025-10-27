@@ -8,9 +8,20 @@ import { OscillatorNode } from '../javascript/nodes/OscillatorNode.js';
 import { AudioBufferSourceNode } from '../javascript/nodes/AudioBufferSourceNode.js';
 import { BiquadFilterNode } from '../javascript/nodes/BiquadFilterNode.js';
 import { AudioBuffer } from '../javascript/AudioBuffer.js';
+import { WasmAudioDecoders } from './WasmAudioDecoders.js';
+import { MediaStreamSourceNode } from './MediaStreamSourceNode.js';
 import sdl from '@kmamal/sdl';
-import ffmpeg from 'fluent-ffmpeg';
-import { Readable } from 'stream';
+
+// Simple hash function for generating stable device IDs
+function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(16).padStart(8, '0');
+}
 
 export class WasmAudioContext {
     constructor(options = {}) {
@@ -32,6 +43,93 @@ export class WasmAudioContext {
         this.state = 'suspended';
         this._audioDevice = null;
         this._startTime = null;
+        this._sinkId = ''; // Empty string means default device (browser-compatible)
+    }
+
+    // Browser-compatible sinkId property
+    get sinkId() {
+        return this._sinkId;
+    }
+
+    // Static method to enumerate audio devices (browser-compatible API)
+    // Returns both audioinput and audiooutput devices
+    static enumerateDevices() {
+        try {
+            const devices = sdl.audio.devices || [];
+            return devices.map(device => ({
+                deviceId: hashString(device.name),
+                kind: device.type === 'recording' ? 'audioinput' : 'audiooutput',
+                label: device.name,
+                groupId: '' // SDL doesn't provide group information
+            }));
+        } catch (error) {
+            console.warn('Failed to enumerate audio devices:', error);
+            return [];
+        }
+    }
+
+    // Helper method to find SDL device by deviceId
+    _findDeviceBySinkId(sinkId) {
+        if (!sinkId || sinkId === '') {
+            return null; // null means default device
+        }
+
+        try {
+            const devices = sdl.audio.devices || [];
+            for (const device of devices) {
+                if (hashString(device.name) === sinkId) {
+                    return device;
+                }
+            }
+            throw new Error(`Audio device not found: ${sinkId}`);
+        } catch (error) {
+            throw new Error(`Failed to find audio device: ${error.message}`);
+        }
+    }
+
+    // Browser-compatible setSinkId method
+    async setSinkId(sinkId) {
+        // Validate device exists
+        if (sinkId && sinkId !== '') {
+            this._findDeviceBySinkId(sinkId); // Will throw if not found
+        }
+
+        const wasRunning = this.state === 'running';
+
+        // If already running, we need to close and re-open with new device
+        if (wasRunning) {
+            // Save current time to maintain continuity
+            const savedTime = this.currentTime;
+
+            // Close old device
+            if (this._audioDevice) {
+                this._audioDevice.close();
+                this._audioDevice = null;
+            }
+
+            // Update sink ID
+            this._sinkId = sinkId;
+
+            // Re-open with new device
+            const device = this._findDeviceBySinkId(sinkId);
+            this._audioDevice = sdl.audio.openDevice(device, {
+                type: 'playback',
+                frequency: this.sampleRate,
+                channels: this._channels,
+                format: 'f32',
+                buffered: this.sampleRate * this._channels * 4 * 3 // 3 seconds of buffer
+            });
+
+            // Restore timing (approximate)
+            this._startTime = Date.now() - (savedTime * 1000);
+
+            // Pre-render and start playback
+            this._renderAndEnqueueChunk(this.sampleRate * 2);
+            this._audioDevice.play();
+        } else {
+            // Just update the sink ID for next resume()
+            this._sinkId = sinkId;
+        }
     }
 
     get currentTime() {
@@ -56,56 +154,79 @@ export class WasmAudioContext {
         return new BiquadFilterNode(this);
     }
 
+    createMediaStreamSource(options) {
+        return new MediaStreamSourceNode(this, options);
+    }
+
     async resume() {
         if (this.state === 'running') return;
 
-        console.log('[WASM AudioContext] Opening SDL audio device...');
-        console.log('  Sample rate:', this.sampleRate);
-        console.log('  Channels:', this._channels);
-        console.log('  Buffer size:', this._bufferSize);
+        // Get the device to use (null for default, or specific device from sinkId)
+        const device = this._findDeviceBySinkId(this._sinkId);
 
-        // Open SDL audio device
-        this._audioDevice = sdl.audio.openDevice({
+        // Open SDL audio device (queue-based, not callback-based)
+        this._audioDevice = sdl.audio.openDevice(device, {
             type: 'playback',
-            sampleRate: this.sampleRate,
+            frequency: this.sampleRate,
             channels: this._channels,
             format: 'f32',
-            buffered: this._bufferSize * 2, // Double buffer
-        }, (samples) => {
-            // SDL audio callback - fill the buffer with audio from WASM
-            const frameCount = samples.length / this._channels;
-
-            // Render audio using WASM engine
-            this._engine.renderBlock(samples, frameCount);
-
-            // Log peak amplitude every 0.5 seconds
-            if (!this._lastLogTime || Date.now() - this._lastLogTime > 500) {
-                let peak = 0;
-                for (let i = 0; i < samples.length; i++) {
-                    peak = Math.max(peak, Math.abs(samples[i]));
-                }
-                console.log(`[WASM Audio Callback] Time: ${this.currentTime.toFixed(2)}s, Peak: ${peak.toFixed(6)}`);
-                this._lastLogTime = Date.now();
-            }
+            buffered: this.sampleRate * this._channels * 4 * 3 // 3 seconds of buffer
         });
 
-        console.log('[WASM AudioContext] SDL device opened, starting playback...');
-        this._audioDevice.play();
         this._startTime = Date.now();
         this.state = 'running';
-        console.log('[WASM AudioContext] Playback started');
+
+        // Pre-render initial chunk (2 seconds) before starting playback
+        this._renderAndEnqueueChunk(this.sampleRate * 2);
+
+        // Start playback
+        this._audioDevice.play();
+
+        // Start monitoring loop to render more chunks as needed
+        this._monitorLoop();
+    }
+
+    _renderAndEnqueueChunk(numFrames) {
+        const floatBuffer = new Float32Array(numFrames * this._channels);
+
+        // Render audio using WASM engine
+        this._engine.renderBlock(floatBuffer, numFrames);
+
+        // Convert Float32Array to Buffer for SDL
+        const buffer = Buffer.from(floatBuffer.buffer);
+
+        // Enqueue audio data to SDL
+        this._audioDevice.enqueue(buffer);
+    }
+
+    _monitorLoop() {
+        if (this.state !== 'running') return;
+
+        // Check how much audio is queued
+        const queuedBytes = this._audioDevice.queued;
+        const queuedSeconds = queuedBytes / (this.sampleRate * this._channels * 4);
+
+        // If less than 1 second queued, render another 2 seconds
+        if (queuedSeconds < 1.0) {
+            this._renderAndEnqueueChunk(this.sampleRate * 2);
+        }
+
+        // Check again in 500ms
+        setTimeout(() => this._monitorLoop(), 500);
     }
 
     async suspend() {
         if (this.state === 'suspended') return;
 
+        this.state = 'suspended';
         if (this._audioDevice) {
             this._audioDevice.pause();
         }
-        this.state = 'suspended';
     }
 
     async close() {
+        this.state = 'closed';
+
         if (this._audioDevice) {
             this._audioDevice.close();
             this._audioDevice = null;
@@ -114,8 +235,6 @@ export class WasmAudioContext {
         if (this._engine) {
             this._engine.destroy();
         }
-
-        this.state = 'closed';
     }
 
     createBuffer(numberOfChannels, length, sampleRate) {
@@ -128,53 +247,25 @@ export class WasmAudioContext {
 
     async decodeAudioData(audioData, successCallback, errorCallback) {
         try {
-            // Create input stream
-            const inputStream = new Readable();
-            inputStream.push(Buffer.from(audioData));
-            inputStream.push(null);
+            // Decode using WASM decoders (MP3/WAV only)
+            const decoded = await WasmAudioDecoders.decode(audioData);
 
-            // Decode directly to memory using ffmpeg with fast decode options
-            const chunks = [];
-            await new Promise((resolve, reject) => {
-                const stream = ffmpeg(inputStream)
-                    .inputOptions([
-                        '-threads 1',           // Single thread for small files (less overhead)
-                        '-analyzeduration 0',   // Skip analysis phase
-                        '-probesize 32'         // Minimal probing
-                    ])
-                    .toFormat('f32le')
-                    .audioChannels(this._channels)
-                    .audioFrequency(this.sampleRate)
-                    .on('error', reject)
-                    .stream();
-
-                stream.on('data', chunk => chunks.push(chunk));
-                stream.on('end', resolve);
-                stream.on('error', reject);
-            });
-
-            // Combine chunks and create float array
-            const buffer = Buffer.concat(chunks);
-            const numSamples = (buffer.length / this._channels) / 4;
-
+            // Create AudioBuffer with decoded data
             const audioBuffer = new AudioBuffer({
-                length: numSamples,
-                numberOfChannels: this._channels,
-                sampleRate: this.sampleRate
+                length: decoded.length,
+                numberOfChannels: decoded.channels,
+                sampleRate: decoded.sampleRate
             });
 
-            // Fast de-interleaving using TypedArray view (10-100x faster than readFloatLE)
-            const floatView = new Float32Array(buffer.buffer, buffer.byteOffset, buffer.length / 4);
-
-            for (let ch = 0; ch < this._channels; ch++) {
+            // De-interleave audio data into separate channels
+            for (let ch = 0; ch < decoded.channels; ch++) {
                 const channelData = audioBuffer._channels[ch];
-                for (let frame = 0; frame < numSamples; frame++) {
-                    channelData[frame] = floatView[frame * this._channels + ch];
+                for (let frame = 0; frame < decoded.length; frame++) {
+                    channelData[frame] = decoded.audioData[frame * decoded.channels + ch];
                 }
             }
 
             // Regenerate interleaved buffer from channels
-            // This ensures the buffer is in the exact format expected by the engine
             audioBuffer._updateInternalBuffer();
 
             if (successCallback) {
