@@ -70,12 +70,19 @@ export class WasmAudioContext {
 
     // Helper method to find SDL device by deviceId
     _findDeviceBySinkId(sinkId) {
-        if (!sinkId || sinkId === '') {
-            return null; // null means default device
-        }
-
         try {
             const devices = sdl.audio.devices || [];
+
+            // If no sinkId specified, return the first playback device (default)
+            if (!sinkId || sinkId === '') {
+                const playbackDevice = devices.find(d => d.type === 'playback');
+                if (!playbackDevice) {
+                    throw new Error('No audio playback devices found');
+                }
+                return playbackDevice;
+            }
+
+            // Find device by sinkId
             for (const device of devices) {
                 if (hashString(device.name) === sinkId) {
                     return device;
@@ -117,7 +124,7 @@ export class WasmAudioContext {
                 frequency: this.sampleRate,
                 channels: this._channels,
                 format: 'f32',
-                buffered: this.sampleRate * this._channels * 4 * 3 // 3 seconds of buffer
+                buffered: 65536 // Power of 2 buffer size (2^16 bytes)
             });
 
             // Restore timing (approximate)
@@ -165,12 +172,13 @@ export class WasmAudioContext {
         const device = this._findDeviceBySinkId(this._sinkId);
 
         // Open SDL audio device (queue-based, not callback-based)
+        // Note: buffered must be a power of 2
         this._audioDevice = sdl.audio.openDevice(device, {
             type: 'playback',
             frequency: this.sampleRate,
             channels: this._channels,
             format: 'f32',
-            buffered: this.sampleRate * this._channels * 4 * 3 // 3 seconds of buffer
+            buffered: 65536 // Power of 2 buffer size (2^16 bytes)
         });
 
         this._startTime = Date.now();
