@@ -20,7 +20,14 @@ export class AudioBufferSourceNode extends AudioNode {
         } = options;
 
         this.buffer = buffer;
-        this.playbackRate = new AudioParam(context, nodeId, 'playbackRate', playbackRate, 0.0, 100.0);
+        this.playbackRate = new AudioParam(
+            context,
+            nodeId,
+            'playbackRate',
+            playbackRate,
+            0.0,
+            100.0
+        );
         this.detune = new AudioParam(context, nodeId, 'detune', detune, -1200.0, 1200.0);
         this.loop = loop;
         this.loopStart = loopStart;

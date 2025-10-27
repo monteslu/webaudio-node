@@ -5,7 +5,12 @@ export class AnalyserNode extends AudioNode {
         const nodeId = context._engine.createNode('analyser', options);
         super(context, nodeId);
 
-        const { fftSize = 2048, minDecibels = -100, maxDecibels = -30, smoothingTimeConstant = 0.8 } = options;
+        const {
+            fftSize = 2048,
+            minDecibels = -100,
+            maxDecibels = -30,
+            smoothingTimeConstant = 0.8
+        } = options;
         this._fftSize = fftSize;
         this._minDecibels = minDecibels;
         this._maxDecibels = maxDecibels;

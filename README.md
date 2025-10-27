@@ -186,24 +186,24 @@ const buffer = await offlineCtx.startRendering();
 
 **16/17 applicable Web Audio API nodes implemented (94% coverage)**
 
-| Node                     | AudioContext | OfflineAudioContext |
-| ------------------------ | ------------ | ------------------- |
-| AudioDestinationNode     | ✅           | ✅                  |
-| AudioBufferSourceNode    | ✅           | ✅                  |
-| OscillatorNode           | ✅           | ✅                  |
-| ConstantSourceNode       | ✅           | ✅                  |
-| GainNode                 | ✅           | ✅                  |
-| BiquadFilterNode         | ✅           | ✅                  |
-| IIRFilterNode            | ✅           | ✅                  |
-| DelayNode                | ✅           | ✅                  |
-| WaveShaperNode           | ✅           | ✅                  |
-| ConvolverNode            | ✅           | ✅                  |
-| DynamicsCompressorNode   | ✅           | ✅                  |
-| PannerNode               | ✅           | ✅                  |
-| StereoPannerNode         | ✅           | ✅                  |
-| ChannelSplitterNode      | ✅           | ✅                  |
-| ChannelMergerNode        | ✅           | ✅                  |
-| AnalyserNode             | ✅           | ✅                  |
+| Node                   | AudioContext | OfflineAudioContext |
+| ---------------------- | ------------ | ------------------- |
+| AudioDestinationNode   | ✅           | ✅                  |
+| AudioBufferSourceNode  | ✅           | ✅                  |
+| OscillatorNode         | ✅           | ✅                  |
+| ConstantSourceNode     | ✅           | ✅                  |
+| GainNode               | ✅           | ✅                  |
+| BiquadFilterNode       | ✅           | ✅                  |
+| IIRFilterNode          | ✅           | ✅                  |
+| DelayNode              | ✅           | ✅                  |
+| WaveShaperNode         | ✅           | ✅                  |
+| ConvolverNode          | ✅           | ✅                  |
+| DynamicsCompressorNode | ✅           | ✅                  |
+| PannerNode             | ✅           | ✅                  |
+| StereoPannerNode       | ✅           | ✅                  |
+| ChannelSplitterNode    | ✅           | ✅                  |
+| ChannelMergerNode      | ✅           | ✅                  |
+| AnalyserNode           | ✅           | ✅                  |
 
 **Not applicable to Node.js:** MediaElement/MediaStream nodes (browser-only), ScriptProcessorNode (deprecated)
 

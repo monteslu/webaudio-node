@@ -15,7 +15,7 @@ Comparative performance benchmarks between **webaudio-node** (WASM + C++ impleme
 - **webaudio-node Wins:** 27 (93.1%)
 - **node-web-audio-api Wins:** 2 (6.9%)
 - **Similar Performance (within 1%):** 0 (0.0%)
-- **Average Speedup (when faster):** 2248.3%
+- **Average Speedup (when faster):** 2176.7%
 
 ## Detailed Results
 
@@ -23,35 +23,35 @@ The table below shows render time in milliseconds (lower is better) and realtime
 
 | Benchmark | webaudio-node<br/>(ms) | node-web-audio-api<br/>(ms) | Realtime Multiplier<br/>(WASM / Rust) | Faster | Speedup |
 |-----------|----------:|------------:|----------------:|---------|--------:|
-| Node Creation (150 nodes per iteration) | 0.06 | 6.10 | 2445.0x / 24.6x | 🟢 WASM | 10066.7% |
-| 3D Panner (8 sources with HRTF positioning) | 0.40 | 38.00 | 2491.0x / 26.0x | 🟢 WASM | 9400.0% |
-| Convolver (Reverb with 1s impulse response) | 0.31 | 26.46 | 3249.0x / 38.0x | 🟢 WASM | 8435.5% |
-| AudioListener (8 sources, 50 position/orientation changes) | 0.44 | 36.41 | 2295.0x / 27.0x | 🟢 WASM | 8175.0% |
-| Heavy Processing (Full mixing/mastering chain) | 0.23 | 15.87 | 4255.0x / 63.0x | 🟢 WASM | 6800.0% |
-| Stress Test (100 sources, 400 total nodes) | 1.79 | 56.07 | 559.0x / 18.0x | 🟢 WASM | 3032.4% |
-| Filter Modulation (4 oscillators with auto-wah) | 0.28 | 7.71 | 3521.0x / 130.0x | 🟢 WASM | 2653.6% |
-| Analyser (FFT with 2048 fftSize) | 0.17 | 3.13 | 5728.0x / 320.0x | 🟢 WASM | 1741.2% |
-| Complex Graph (4 parallel chains) | 0.10 | 1.77 | 4899.0x / 283.0x | 🟢 WASM | 1670.0% |
-| Dynamics Compressor (4 sources with aggressive settings) | 0.14 | 2.30 | 6979.0x / 436.0x | 🟢 WASM | 1542.9% |
-| Filter Types (8 filter types) | 0.49 | 7.10 | 2021.0x / 141.0x | 🟢 WASM | 1349.0% |
-| Filter Chain (5 cascaded filters) | 0.15 | 1.38 | 6476.0x / 727.0x | 🟢 WASM | 820.0% |
-| Delay Modulation (4 sources with chorus effect) | 0.72 | 5.75 | 1386.0x / 174.0x | 🟢 WASM | 698.6% |
-| Multichannel (5.1 surround) | 0.55 | 4.27 | 1827.0x / 234.0x | 🟢 WASM | 676.4% |
-| Channel Operations (split/process/merge) | 0.16 | 1.17 | 6327.0x / 852.0x | 🟢 WASM | 631.2% |
-| WaveShaper (1 second with 2x oversampling) | 0.16 | 1.15 | 6175.0x / 872.0x | 🟢 WASM | 618.7% |
-| Stereo Panner (16 sources across stereo field) | 0.80 | 5.36 | 1255.0x / 187.0x | 🟢 WASM | 570.0% |
-| Gain Ramping (20 crossfades) | 0.27 | 1.20 | 3712.0x / 834.0x | 🟢 WASM | 344.4% |
-| Ring Modulation (8 voices) | 1.39 | 5.73 | 719.0x / 175.0x | 🟢 WASM | 312.2% |
-| Delay Node (1 second with feedback) | 0.17 | 0.65 | 5767.0x / 1527.0x | 🟢 WASM | 282.4% |
-| ConstantSource (16 oscillators with LFO modulation) | 2.33 | 8.19 | 429.0x / 122.0x | 🟢 WASM | 251.5% |
-| Oscillators (16 oscillators, 4 waveform types) | 2.19 | 6.95 | 457.0x / 144.0x | 🟢 WASM | 217.4% |
-| PeriodicWave (8 custom waveforms, 32 harmonics) | 1.15 | 3.43 | 866.0x / 292.0x | 🟢 WASM | 198.3% |
-| Envelope Generator (16 notes with ADSR) | 1.17 | 2.18 | 852.0x / 458.0x | 🟢 WASM | 86.3% |
-| AudioParam Automation (1000 events) | 0.29 | 0.51 | 0.7x / 2.1x | 🟢 WASM | 75.9% |
-| Offline Rendering (1 second of audio) | 0.52 | 0.69 | 1937.0x / 1445.0x | 🟢 WASM | 32.7% |
-| Mixing Performance (100 simultaneous sources) | 4.77 | 5.79 | 10.1x / 8.3x | 🟢 WASM | 21.4% |
-| Granular Synthesis (100 grains) | 16.04 | 5.68 | 62.0x / 176.0x | 🔴 Rust | 182.4% |
-| Buffer Playback (50 sound effects) | 4.15 | 3.56 | 241.0x / 281.0x | 🔴 Rust | 16.6% |
+| AudioListener (8 sources, 50 position/orientation changes) | 0.43 | 39.59 | 2312.0x / 25.0x | 🟢 WASM | 9107.0% |
+| Node Creation (150 nodes per iteration) | 0.07 | 6.06 | 2214.8x / 24.7x | 🟢 WASM | 8557.1% |
+| Convolver (Reverb with 1s impulse response) | 0.31 | 26.65 | 3269.0x / 38.0x | 🟢 WASM | 8496.8% |
+| Heavy Processing (Full mixing/mastering chain) | 0.20 | 16.10 | 4929.0x / 62.0x | 🟢 WASM | 7950.0% |
+| 3D Panner (8 sources with HRTF positioning) | 0.60 | 38.81 | 1670.0x / 26.0x | 🟢 WASM | 6368.3% |
+| Stress Test (100 sources, 400 total nodes) | 1.65 | 56.48 | 605.0x / 18.0x | 🟢 WASM | 3323.0% |
+| Filter Modulation (4 oscillators with auto-wah) | 0.26 | 7.62 | 3798.0x / 131.0x | 🟢 WASM | 2830.8% |
+| Dynamics Compressor (4 sources with aggressive settings) | 0.15 | 3.29 | 6528.0x / 304.0x | 🟢 WASM | 2093.3% |
+| Analyser (FFT with 2048 fftSize) | 0.15 | 3.10 | 6883.0x / 323.0x | 🟢 WASM | 1966.7% |
+| Complex Graph (4 parallel chains) | 0.12 | 2.10 | 4212.0x / 239.0x | 🟢 WASM | 1650.0% |
+| Multichannel (5.1 surround) | 0.57 | 6.66 | 1756.0x / 150.0x | 🟢 WASM | 1068.4% |
+| Filter Chain (5 cascaded filters) | 0.16 | 1.38 | 6440.0x / 727.0x | 🟢 WASM | 762.5% |
+| Delay Modulation (4 sources with chorus effect) | 0.71 | 5.92 | 1407.0x / 169.0x | 🟢 WASM | 733.8% |
+| Channel Operations (split/process/merge) | 0.16 | 1.21 | 6362.0x / 826.0x | 🟢 WASM | 656.3% |
+| Filter Types (8 filter types) | 0.54 | 3.96 | 1840.0x / 252.0x | 🟢 WASM | 633.3% |
+| WaveShaper (1 second with 2x oversampling) | 0.20 | 1.22 | 4956.0x / 820.0x | 🟢 WASM | 510.0% |
+| Stereo Panner (16 sources across stereo field) | 1.15 | 5.42 | 872.0x / 184.0x | 🟢 WASM | 371.3% |
+| Gain Ramping (20 crossfades) | 0.28 | 1.18 | 3575.0x / 851.0x | 🟢 WASM | 321.4% |
+| Ring Modulation (8 voices) | 1.44 | 5.60 | 692.0x / 179.0x | 🟢 WASM | 288.9% |
+| ConstantSource (16 oscillators with LFO modulation) | 2.26 | 7.59 | 442.0x / 132.0x | 🟢 WASM | 235.8% |
+| Offline Rendering (1 second of audio) | 0.22 | 0.63 | 4532.0x / 1598.0x | 🟢 WASM | 186.4% |
+| PeriodicWave (8 custom waveforms, 32 harmonics) | 1.13 | 3.19 | 881.0x / 314.0x | 🟢 WASM | 182.3% |
+| Delay Node (1 second with feedback) | 0.24 | 0.63 | 4146.0x / 1575.0x | 🟢 WASM | 162.5% |
+| Envelope Generator (16 notes with ADSR) | 1.13 | 2.57 | 882.0x / 389.0x | 🟢 WASM | 127.4% |
+| Oscillators (16 oscillators, 4 waveform types) | 2.12 | 4.80 | 471.0x / 208.0x | 🟢 WASM | 126.4% |
+| AudioParam Automation (1000 events) | 0.28 | 0.41 | 0.7x / 2.0x | 🟢 WASM | 46.4% |
+| Mixing Performance (100 simultaneous sources) | 4.71 | 5.46 | 10.2x / 8.8x | 🟢 WASM | 15.9% |
+| Granular Synthesis (100 grains) | 17.13 | 5.62 | 58.0x / 178.0x | 🔴 Rust | 204.8% |
+| Buffer Playback (50 sound effects) | 4.19 | 3.43 | 239.0x / 292.0x | 🔴 Rust | 22.2% |
 
 ## Interpretation
 

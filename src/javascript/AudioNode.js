@@ -61,10 +61,7 @@ export class AudioNode {
                 );
             } else {
                 // Disconnecting from AudioNode
-                this.context._engine.disconnectNodes(
-                    this._nodeId,
-                    destinationOrOutput._nodeId
-                );
+                this.context._engine.disconnectNodes(this._nodeId, destinationOrOutput._nodeId);
             }
             return;
         }

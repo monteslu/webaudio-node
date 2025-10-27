@@ -20,7 +20,14 @@ export class OscillatorNode extends AudioNode {
         this.numberOfInputs = 0;
         this.numberOfOutputs = 1;
 
-        this.frequency = new AudioParam(context, nodeId, 'frequency', frequency, 0.0, context.sampleRate / 2);
+        this.frequency = new AudioParam(
+            context,
+            nodeId,
+            'frequency',
+            frequency,
+            0.0,
+            context.sampleRate / 2
+        );
         this.detune = new AudioParam(context, nodeId, 'detune', detune, -4800.0, 4800.0);
 
         this._type = type;

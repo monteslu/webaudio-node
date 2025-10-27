@@ -11,9 +11,21 @@ export class BiquadFilterNode extends AudioNode {
         this.numberOfOutputs = 1;
 
         // Apply options for AudioParams
-        const { frequency: freq = 350.0, Q: q = 1.0, gain: gainValue = 0.0, detune: det = 0.0 } = options;
+        const {
+            frequency: freq = 350.0,
+            Q: q = 1.0,
+            gain: gainValue = 0.0,
+            detune: det = 0.0
+        } = options;
 
-        this.frequency = new AudioParam(context, nodeId, 'frequency', freq, 10.0, context.sampleRate / 2);
+        this.frequency = new AudioParam(
+            context,
+            nodeId,
+            'frequency',
+            freq,
+            10.0,
+            context.sampleRate / 2
+        );
         this.Q = new AudioParam(context, nodeId, 'Q', q, 0.0001, 1000.0);
         this.gain = new AudioParam(context, nodeId, 'gain', gainValue, -40.0, 40.0);
         this.detune = new AudioParam(context, nodeId, 'detune', det, -1200, 1200);
@@ -22,7 +34,8 @@ export class BiquadFilterNode extends AudioNode {
 
         // Apply channel config from options
         if (options.channelCount !== undefined) this.channelCount = options.channelCount;
-        if (options.channelCountMode !== undefined) this.channelCountMode = options.channelCountMode;
+        if (options.channelCountMode !== undefined)
+            this.channelCountMode = options.channelCountMode;
         if (options.channelInterpretation !== undefined)
             this.channelInterpretation = options.channelInterpretation;
     }

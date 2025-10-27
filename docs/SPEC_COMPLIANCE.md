@@ -33,39 +33,39 @@ The current implementation provides **near-complete Web Audio API 1.1 compliance
 #### Source Nodes
 
 1. **AudioBufferSourceNode** - Play audio buffers
-   - Status: ✅ Complete
-   - Features: loop, playbackRate, detune
+    - Status: ✅ Complete
+    - Features: loop, playbackRate, detune
 
 2. **OscillatorNode** - Generate periodic waveforms
-   - Status: ✅ Complete
-   - Features: sine, square, sawtooth, triangle, custom waves
+    - Status: ✅ Complete
+    - Features: sine, square, sawtooth, triangle, custom waves
 
 3. **ConstantSourceNode** - Generate constant signal
-   - Status: ✅ Complete
+    - Status: ✅ Complete
 
 #### Processing Nodes
 
 4. **GainNode** - Volume control
-   - Status: ✅ Complete
+    - Status: ✅ Complete
 
 5. **BiquadFilterNode** - Common filters
-   - Status: ✅ Complete
-   - Features: lowpass, highpass, bandpass, notch, allpass, peaking, lowshelf, highshelf
+    - Status: ✅ Complete
+    - Features: lowpass, highpass, bandpass, notch, allpass, peaking, lowshelf, highshelf
 
 6. **IIRFilterNode** - General IIR filtering
-   - Status: ✅ Complete
+    - Status: ✅ Complete
 
 7. **DelayNode** - Variable delay
-   - Status: ✅ Complete
-   - Features: delayTime AudioParam
+    - Status: ✅ Complete
+    - Features: delayTime AudioParam
 
 8. **WaveShaperNode** - Non-linear distortion
-   - Status: ✅ Complete
-   - Features: curve, oversample (none/2x/4x)
+    - Status: ✅ Complete
+    - Features: curve, oversample (none/2x/4x)
 
 9. **ConvolverNode** - Reverb/convolution
-   - Status: ✅ Complete
-   - Features: buffer, normalize
+    - Status: ✅ Complete
+    - Features: buffer, normalize
 
 10. **DynamicsCompressorNode** - Audio compression
     - Status: ✅ Complete
@@ -142,35 +142,35 @@ These nodes are browser-specific and not relevant for Node.js:
 
 ### AudioNode
 
-| Feature                 | Status         | Notes                     |
-| ----------------------- | -------------- | ------------------------- |
-| context                 | ✅ Implemented | Correct                   |
-| numberOfInputs          | ✅ Implemented | Correct                   |
-| numberOfOutputs         | ✅ Implemented | Correct                   |
-| channelCount            | ✅ Implemented | Proper channel mixing     |
-| channelCountMode        | ✅ Implemented | max/clamped-max/explicit  |
-| channelInterpretation   | ✅ Implemented | speakers/discrete         |
-| connect(AudioNode)      | ✅ Implemented | Full graph connectivity   |
-| connect(AudioParam)     | ✅ Implemented | Parameter modulation      |
-| disconnect() overloads  | ✅ Implemented | All overloads supported   |
-| EventTarget inheritance | ⚠️ Partial     | Basic event support       |
+| Feature                 | Status         | Notes                    |
+| ----------------------- | -------------- | ------------------------ |
+| context                 | ✅ Implemented | Correct                  |
+| numberOfInputs          | ✅ Implemented | Correct                  |
+| numberOfOutputs         | ✅ Implemented | Correct                  |
+| channelCount            | ✅ Implemented | Proper channel mixing    |
+| channelCountMode        | ✅ Implemented | max/clamped-max/explicit |
+| channelInterpretation   | ✅ Implemented | speakers/discrete        |
+| connect(AudioNode)      | ✅ Implemented | Full graph connectivity  |
+| connect(AudioParam)     | ✅ Implemented | Parameter modulation     |
+| disconnect() overloads  | ✅ Implemented | All overloads supported  |
+| EventTarget inheritance | ⚠️ Partial     | Basic event support      |
 
 ### AudioParam
 
-| Feature                        | Status         | Notes                                 |
-| ------------------------------ | -------------- | ------------------------------------- |
-| value                          | ✅ Implemented | With proper clamping                  |
-| defaultValue                   | ✅ Implemented | Correct                               |
-| minValue                       | ✅ Implemented | Correct                               |
-| maxValue                       | ✅ Implemented | Correct                               |
-| setValueAtTime()               | ✅ Implemented | Instant change at time                |
-| linearRampToValueAtTime()      | ✅ Implemented | Linear interpolation                  |
-| exponentialRampToValueAtTime() | ✅ Implemented | Exponential curve                     |
-| setTargetAtTime()              | ✅ Implemented | Exponential approach to target        |
-| setValueCurveAtTime()          | ✅ Implemented | Custom curve array                    |
-| cancelScheduledValues()        | ✅ Implemented | Cancel events after time              |
-| cancelAndHoldAtTime()          | ✅ Implemented | Cancel and hold current value         |
-| automationRate                 | ✅ Implemented | a-rate and k-rate support             |
+| Feature                        | Status         | Notes                          |
+| ------------------------------ | -------------- | ------------------------------ |
+| value                          | ✅ Implemented | With proper clamping           |
+| defaultValue                   | ✅ Implemented | Correct                        |
+| minValue                       | ✅ Implemented | Correct                        |
+| maxValue                       | ✅ Implemented | Correct                        |
+| setValueAtTime()               | ✅ Implemented | Instant change at time         |
+| linearRampToValueAtTime()      | ✅ Implemented | Linear interpolation           |
+| exponentialRampToValueAtTime() | ✅ Implemented | Exponential curve              |
+| setTargetAtTime()              | ✅ Implemented | Exponential approach to target |
+| setValueCurveAtTime()          | ✅ Implemented | Custom curve array             |
+| cancelScheduledValues()        | ✅ Implemented | Cancel events after time       |
+| cancelAndHoldAtTime()          | ✅ Implemented | Cancel and hold current value  |
+| automationRate                 | ✅ Implemented | a-rate and k-rate support      |
 
 ---
 
@@ -179,27 +179,30 @@ These nodes are browser-specific and not relevant for Node.js:
 ### Rendering Speed
 
 **Offline Rendering (OfflineAudioContext):**
+
 - ~2,600x faster than realtime for simple graphs
 - Up to 50,000x faster for complex processing
 
 **Real-time Playback (AudioContext):**
+
 - Chunk-ahead buffering (1-2 second latency)
 - Zero JavaScript overhead in audio callback
 - SIMD optimizations for 4-8x parallel processing
 
 ### Audio Decoding Performance
 
-| Format | Decoder    | Performance                    |
-| ------ | ---------- | ------------------------------ |
-| MP3    | dr_mp3     | ~10,000x realtime (WASM)       |
-| WAV    | dr_wav     | ~50,000x realtime (WASM)       |
-| FLAC   | dr_flac    | ~5,000x realtime (WASM)        |
-| OGG    | stb_vorbis | ~8,000x realtime (WASM)        |
-| AAC    | fdk-aac    | ~3,000x realtime (WASM)        |
+| Format | Decoder    | Performance              |
+| ------ | ---------- | ------------------------ |
+| MP3    | dr_mp3     | ~10,000x realtime (WASM) |
+| WAV    | dr_wav     | ~50,000x realtime (WASM) |
+| FLAC   | dr_flac    | ~5,000x realtime (WASM)  |
+| OGG    | stb_vorbis | ~8,000x realtime (WASM)  |
+| AAC    | fdk-aac    | ~3,000x realtime (WASM)  |
 
 ### Resampling Quality
 
 **Implementation:** Speex resampler (same as Firefox)
+
 - Quality level: 3 (desktop quality)
 - SIMD optimizations enabled
 - Performance: 130-350x realtime
@@ -222,15 +225,15 @@ These nodes are browser-specific and not relevant for Node.js:
 
 ### Feature Comparison
 
-| Feature                 | webaudio-node         | node-web-audio-api (Rust) |
-| ----------------------- | --------------------- | ------------------------- |
-| Node Coverage           | 16/17 nodes (94%)     | Unknown                   |
-| Resampling Quality      | Speex quality 3       | Basic linear interpolation|
-| Audio Format Decoders   | 5 (MP3/WAV/FLAC/OGG/AAC) | FFmpeg integration     |
-| Installation            | npm install (no build)| Requires Rust toolchain   |
-| SIMD Optimizations      | ✅ WASM SIMD          | ✅ Native SIMD            |
-| Real-time Playback      | ✅ SDL2               | ✅ cpal                   |
-| Sample Rate Detection   | ✅ Automatic          | ❌ Manual                 |
+| Feature               | webaudio-node            | node-web-audio-api (Rust)  |
+| --------------------- | ------------------------ | -------------------------- |
+| Node Coverage         | 16/17 nodes (94%)        | Unknown                    |
+| Resampling Quality    | Speex quality 3          | Basic linear interpolation |
+| Audio Format Decoders | 5 (MP3/WAV/FLAC/OGG/AAC) | FFmpeg integration         |
+| Installation          | npm install (no build)   | Requires Rust toolchain    |
+| SIMD Optimizations    | ✅ WASM SIMD             | ✅ Native SIMD             |
+| Real-time Playback    | ✅ SDL2                  | ✅ cpal                    |
+| Sample Rate Detection | ✅ Automatic             | ❌ Manual                  |
 
 ---
 
