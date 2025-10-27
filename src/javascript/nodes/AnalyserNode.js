@@ -5,11 +5,11 @@ export class AnalyserNode extends AudioNode {
         const nodeId = context._engine.createNode('analyser', options);
         super(context, nodeId);
 
-        this._fftSize = options.fftSize || 2048;
-        this._minDecibels = options.minDecibels !== undefined ? options.minDecibels : -100;
-        this._maxDecibels = options.maxDecibels !== undefined ? options.maxDecibels : -30;
-        this._smoothingTimeConstant =
-            options.smoothingTimeConstant !== undefined ? options.smoothingTimeConstant : 0.8;
+        const { fftSize = 2048, minDecibels = -100, maxDecibels = -30, smoothingTimeConstant = 0.8 } = options;
+        this._fftSize = fftSize;
+        this._minDecibels = minDecibels;
+        this._maxDecibels = maxDecibels;
+        this._smoothingTimeConstant = smoothingTimeConstant;
 
         // Apply channel config from options
         if (options.channelCount !== undefined) this.channelCount = options.channelCount;

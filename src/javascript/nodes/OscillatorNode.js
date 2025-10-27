@@ -3,19 +3,25 @@ import { AudioParam } from '../AudioParam.js';
 
 export class OscillatorNode extends AudioNode {
     constructor(context, options = {}) {
-        const type = options.type || 'sine';
+        // Apply options using destructuring defaults
+        const {
+            type = 'sine',
+            frequency = 440.0,
+            detune = 0.0,
+            periodicWave,
+            channelCount,
+            channelCountMode,
+            channelInterpretation
+        } = options;
+
         const nodeId = context._engine.createNode('oscillator', { ...options, type });
         super(context, nodeId);
 
         this.numberOfInputs = 0;
         this.numberOfOutputs = 1;
 
-        // Apply options for AudioParams
-        const freq = options.frequency !== undefined ? options.frequency : 440.0;
-        const det = options.detune !== undefined ? options.detune : 0.0;
-
-        this.frequency = new AudioParam(context, nodeId, 'frequency', freq, 0.0, context.sampleRate / 2);
-        this.detune = new AudioParam(context, nodeId, 'detune', det, -4800.0, 4800.0);
+        this.frequency = new AudioParam(context, nodeId, 'frequency', frequency, 0.0, context.sampleRate / 2);
+        this.detune = new AudioParam(context, nodeId, 'detune', detune, -4800.0, 4800.0);
 
         this._type = type;
         this._started = false;
@@ -23,15 +29,14 @@ export class OscillatorNode extends AudioNode {
         this.onended = null;
 
         // Apply periodicWave if provided
-        if (options.periodicWave) {
-            this.setPeriodicWave(options.periodicWave);
+        if (periodicWave) {
+            this.setPeriodicWave(periodicWave);
         }
 
         // Apply channel config from options
-        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
-        if (options.channelCountMode !== undefined) this.channelCountMode = options.channelCountMode;
-        if (options.channelInterpretation !== undefined)
-            this.channelInterpretation = options.channelInterpretation;
+        if (channelCount !== undefined) this.channelCount = channelCount;
+        if (channelCountMode !== undefined) this.channelCountMode = channelCountMode;
+        if (channelInterpretation !== undefined) this.channelInterpretation = channelInterpretation;
     }
 
     get type() {

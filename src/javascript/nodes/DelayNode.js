@@ -3,8 +3,7 @@ import { AudioParam } from '../AudioParam.js';
 
 export class DelayNode extends AudioNode {
     constructor(context, options = {}) {
-        const maxDelayTime = options.maxDelayTime !== undefined ? options.maxDelayTime : 1.0;
-        const delayTime = options.delayTime !== undefined ? options.delayTime : 0.0;
+        const { maxDelayTime = 1.0, delayTime = 0.0 } = options;
 
         const nodeId = context._engine.createNode('delay', { ...options, maxDelayTime });
         super(context, nodeId);

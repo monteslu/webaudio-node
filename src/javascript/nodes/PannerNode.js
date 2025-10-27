@@ -6,59 +6,47 @@ export class PannerNode extends AudioNode {
         const nodeId = context._engine.createNode('panner', options);
         super(context, nodeId);
 
+        // Extract all options with defaults
+        const {
+            positionX = 0,
+            positionY = 0,
+            positionZ = 0,
+            orientationX = 1,
+            orientationY = 0,
+            orientationZ = 0,
+            distanceModel = 'inverse',
+            refDistance = 1,
+            maxDistance = 10000,
+            rolloffFactor = 1,
+            coneInnerAngle = 360,
+            coneOuterAngle = 360,
+            coneOuterGain = 0,
+            panningModel = 'equalpower'
+        } = options;
+
         // Position as AudioParams (Web Audio API spec)
-        this.positionX = new AudioParam(
-            context,
-            nodeId,
-            'positionX',
-            options.positionX !== undefined ? options.positionX : 0
-        );
-        this.positionY = new AudioParam(
-            context,
-            nodeId,
-            'positionY',
-            options.positionY !== undefined ? options.positionY : 0
-        );
-        this.positionZ = new AudioParam(
-            context,
-            nodeId,
-            'positionZ',
-            options.positionZ !== undefined ? options.positionZ : 0
-        );
+        this.positionX = new AudioParam(context, nodeId, 'positionX', positionX);
+        this.positionY = new AudioParam(context, nodeId, 'positionY', positionY);
+        this.positionZ = new AudioParam(context, nodeId, 'positionZ', positionZ);
 
         // Orientation as AudioParams (Web Audio API spec)
-        this.orientationX = new AudioParam(
-            context,
-            nodeId,
-            'orientationX',
-            options.orientationX !== undefined ? options.orientationX : 1
-        );
-        this.orientationY = new AudioParam(
-            context,
-            nodeId,
-            'orientationY',
-            options.orientationY !== undefined ? options.orientationY : 0
-        );
-        this.orientationZ = new AudioParam(
-            context,
-            nodeId,
-            'orientationZ',
-            options.orientationZ !== undefined ? options.orientationZ : 0
-        );
+        this.orientationX = new AudioParam(context, nodeId, 'orientationX', orientationX);
+        this.orientationY = new AudioParam(context, nodeId, 'orientationY', orientationY);
+        this.orientationZ = new AudioParam(context, nodeId, 'orientationZ', orientationZ);
 
         // Distance model
-        this._distanceModel = options.distanceModel || 'inverse';
-        this._refDistance = options.refDistance !== undefined ? options.refDistance : 1;
-        this._maxDistance = options.maxDistance !== undefined ? options.maxDistance : 10000;
-        this._rolloffFactor = options.rolloffFactor !== undefined ? options.rolloffFactor : 1;
+        this._distanceModel = distanceModel;
+        this._refDistance = refDistance;
+        this._maxDistance = maxDistance;
+        this._rolloffFactor = rolloffFactor;
 
         // Cone
-        this._coneInnerAngle = options.coneInnerAngle !== undefined ? options.coneInnerAngle : 360;
-        this._coneOuterAngle = options.coneOuterAngle !== undefined ? options.coneOuterAngle : 360;
-        this._coneOuterGain = options.coneOuterGain !== undefined ? options.coneOuterGain : 0;
+        this._coneInnerAngle = coneInnerAngle;
+        this._coneOuterAngle = coneOuterAngle;
+        this._coneOuterGain = coneOuterGain;
 
         // Panning model
-        this._panningModel = options.panningModel || 'equalpower';
+        this._panningModel = panningModel;
 
         // Apply channel config from options
         if (options.channelCount !== undefined) this.channelCount = options.channelCount;

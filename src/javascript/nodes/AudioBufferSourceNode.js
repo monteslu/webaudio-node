@@ -6,28 +6,34 @@ export class AudioBufferSourceNode extends AudioNode {
         const nodeId = context._engine.createNode('bufferSource', options);
         super(context, nodeId);
 
-        // Apply options
-        this.buffer = options.buffer !== undefined ? options.buffer : null;
+        // Apply options using destructuring defaults
+        const {
+            buffer = null,
+            playbackRate = 1.0,
+            detune = 0.0,
+            loop = false,
+            loopStart = 0,
+            loopEnd = 0,
+            channelCount,
+            channelCountMode,
+            channelInterpretation
+        } = options;
 
-        const playbackRate = options.playbackRate !== undefined ? options.playbackRate : 1.0;
-        const detune = options.detune !== undefined ? options.detune : 0.0;
-
+        this.buffer = buffer;
         this.playbackRate = new AudioParam(context, nodeId, 'playbackRate', playbackRate, 0.0, 100.0);
         this.detune = new AudioParam(context, nodeId, 'detune', detune, -1200.0, 1200.0);
-
-        this.loop = options.loop !== undefined ? options.loop : false;
-        this.loopStart = options.loopStart !== undefined ? options.loopStart : 0;
-        this.loopEnd = options.loopEnd !== undefined ? options.loopEnd : 0;
+        this.loop = loop;
+        this.loopStart = loopStart;
+        this.loopEnd = loopEnd;
         this.onended = null;
 
         this._started = false;
         this._stopped = false;
 
         // Apply channel config from options
-        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
-        if (options.channelCountMode !== undefined) this.channelCountMode = options.channelCountMode;
-        if (options.channelInterpretation !== undefined)
-            this.channelInterpretation = options.channelInterpretation;
+        if (channelCount !== undefined) this.channelCount = channelCount;
+        if (channelCountMode !== undefined) this.channelCountMode = channelCountMode;
+        if (channelInterpretation !== undefined) this.channelInterpretation = channelInterpretation;
     }
 
     start(when = 0, offset = 0, duration) {

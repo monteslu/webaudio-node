@@ -11,10 +11,7 @@ export class BiquadFilterNode extends AudioNode {
         this.numberOfOutputs = 1;
 
         // Apply options for AudioParams
-        const freq = options.frequency !== undefined ? options.frequency : 350.0;
-        const q = options.Q !== undefined ? options.Q : 1.0;
-        const gainValue = options.gain !== undefined ? options.gain : 0.0;
-        const det = options.detune !== undefined ? options.detune : 0.0;
+        const { frequency: freq = 350.0, Q: q = 1.0, gain: gainValue = 0.0, detune: det = 0.0 } = options;
 
         this.frequency = new AudioParam(context, nodeId, 'frequency', freq, 10.0, context.sampleRate / 2);
         this.Q = new AudioParam(context, nodeId, 'Q', q, 0.0001, 1000.0);

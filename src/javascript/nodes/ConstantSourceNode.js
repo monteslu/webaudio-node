@@ -6,7 +6,7 @@ export class ConstantSourceNode extends AudioNode {
         const nodeId = context._engine.createNode('constantSource', options);
         super(context, nodeId);
 
-        const offset = options.offset !== undefined ? options.offset : 1.0;
+        const { offset = 1.0 } = options;
         this.offset = new AudioParam(context, nodeId, 'offset', offset, -3.4e38, 3.4e38);
 
         this._started = false;
