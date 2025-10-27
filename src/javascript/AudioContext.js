@@ -128,64 +128,77 @@ export class AudioContext {
         return Promise.resolve();
     }
 
-    createOscillator() {
-        return new OscillatorNode(this);
+    createOscillator(options) {
+        return new OscillatorNode(this, options);
     }
 
-    createGain() {
-        return new GainNode(this);
+    createGain(options) {
+        return new GainNode(this, options);
     }
 
-    createBufferSource() {
-        return new AudioBufferSourceNode(this);
+    createBufferSource(options) {
+        return new AudioBufferSourceNode(this, options);
     }
 
-    createBiquadFilter() {
-        return new BiquadFilterNode(this);
+    createBiquadFilter(options) {
+        return new BiquadFilterNode(this, options);
     }
 
-    createDelay(maxDelayTime = 1.0) {
-        return new DelayNode(this, maxDelayTime);
+    createDelay(options) {
+        // Support legacy parameter for backward compatibility
+        if (typeof options === 'number') {
+            options = { maxDelayTime: options };
+        }
+        return new DelayNode(this, options);
     }
 
-    createStereoPanner() {
-        return new StereoPannerNode(this);
+    createStereoPanner(options) {
+        return new StereoPannerNode(this, options);
     }
 
-    createConstantSource() {
-        return new ConstantSourceNode(this);
+    createConstantSource(options) {
+        return new ConstantSourceNode(this, options);
     }
 
-    createChannelSplitter(numberOfOutputs) {
-        return new ChannelSplitterNode(this, { numberOfOutputs });
+    createChannelSplitter(options) {
+        // Support legacy parameter for backward compatibility
+        if (typeof options === 'number') {
+            options = { numberOfOutputs: options };
+        }
+        return new ChannelSplitterNode(this, options);
     }
 
-    createChannelMerger(numberOfInputs) {
-        return new ChannelMergerNode(this, { numberOfInputs });
+    createChannelMerger(options) {
+        // Support legacy parameter for backward compatibility
+        if (typeof options === 'number') {
+            options = { numberOfInputs: options };
+        }
+        return new ChannelMergerNode(this, options);
     }
 
-    createAnalyser() {
-        return new AnalyserNode(this);
+    createAnalyser(options) {
+        return new AnalyserNode(this, options);
     }
 
-    createDynamicsCompressor() {
-        return new DynamicsCompressorNode(this);
+    createDynamicsCompressor(options) {
+        return new DynamicsCompressorNode(this, options);
     }
 
-    createWaveShaper() {
-        return new WaveShaperNode(this);
+    createWaveShaper(options) {
+        return new WaveShaperNode(this, options);
     }
 
-    createIIRFilter(feedforward, feedback) {
-        return new IIRFilterNode(this, { feedforward, feedback });
+    createIIRFilter(options) {
+        // IIRFilter already requires options with feedforward/feedback
+        return new IIRFilterNode(this, options);
     }
 
     createConvolver(options) {
         return new ConvolverNode(this, options);
     }
 
-    createPanner() {
-        return new PannerNode(this);
+    createPanner(options) {
+        return new PannerNode(this, options);
     }
 
     createAudioWorklet(processorName, options) {

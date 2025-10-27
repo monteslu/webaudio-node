@@ -37,11 +37,55 @@ export class AudioNode {
         return destination;
     }
 
-    disconnect(destination) {
-        if (destination) {
-            this.context._engine.disconnectNodes(this._nodeId, destination._nodeId);
-        } else {
+    disconnect(destinationOrOutput, output, input) {
+        // Case 1: disconnect() - disconnect all
+        if (destinationOrOutput === undefined) {
             this.context._engine.disconnectNodes(this._nodeId);
+            return;
+        }
+
+        // Case 2: disconnect(output) - disconnect specific output index
+        if (typeof destinationOrOutput === 'number') {
+            this.context._engine.disconnectOutput(this._nodeId, destinationOrOutput);
+            return;
+        }
+
+        // Case 3: disconnect(destination) - disconnect from node/param
+        if (output === undefined) {
+            if (destinationOrOutput._paramName) {
+                // Disconnecting from AudioParam
+                this.context._engine.disconnectFromParam(
+                    this._nodeId,
+                    destinationOrOutput._nodeId,
+                    destinationOrOutput._paramName
+                );
+            } else {
+                // Disconnecting from AudioNode
+                this.context._engine.disconnectNodes(
+                    this._nodeId,
+                    destinationOrOutput._nodeId
+                );
+            }
+            return;
+        }
+
+        // Case 4: disconnect(destination, output) or disconnect(destination, output, input)
+        if (destinationOrOutput._paramName) {
+            // AudioParam doesn't support input parameter
+            this.context._engine.disconnectFromParam(
+                this._nodeId,
+                destinationOrOutput._nodeId,
+                destinationOrOutput._paramName,
+                output
+            );
+        } else {
+            // AudioNode with optional input
+            this.context._engine.disconnectNodes(
+                this._nodeId,
+                destinationOrOutput._nodeId,
+                output,
+                input
+            );
         }
     }
 }

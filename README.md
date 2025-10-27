@@ -355,22 +355,9 @@ const sounds = await Promise.all(
 
 ## ⚡ Performance
 
-### WASM vs Rust (node-web-audio-api)
+webaudio-node delivers excellent performance for audio workloads. See [detailed benchmarks](./docs/automated_benchmarks.md) for comprehensive comparisons.
 
-**webaudio-node wins 5/6 core benchmarks** (83% win rate) against the high-performance Rust implementation.
-
-Core benchmark results:
-
-- **Offline Rendering**: 1.8x faster (250.87M vs 139.68M samples/sec)
-- **Filter Chain**: 5.4x faster (164.40M vs 30.35M samples/sec)
-- **Channel Operations**: 5.3x faster (195.56M vs 37.16M samples/sec)
-- **Node Creation**: 76x faster (2561.9K vs 33.7K nodes/sec)
-- **Automation**: 1.1x faster (2.24ms vs 2.53ms total)
-- **Mixing (100 sources)**: 0.86x (7.48M vs 6.43M samples/sec) - _Rust wins this one_
-
-Run benchmarks yourself: `node test/benchmarks/run-core-benchmarks.js`
-
-### Offline Rendering Speed
+**Offline Rendering Speed:**
 
 | Duration | Render Time | Speed vs Realtime |
 | -------- | ----------- | ----------------- |
@@ -493,15 +480,20 @@ webaudio-node/
 
 ## 🔄 Comparison with Other Libraries
 
-**vs node-web-audio-api (Rust):**
+### vs node-web-audio-api (Rust)
 
-- ✅ 83% win rate in benchmarks (5/6 core benchmarks)
-- ✅ 1.8-76x faster in winning benchmarks with WASM + SIMD
-- ✅ **Higher quality resampling** - Speex quality 3 vs basic linear interpolation
-- ✅ **94% Web Audio API node coverage** - 16/17 applicable nodes implemented
-- ✅ Simpler installation (no Rust toolchain)
+**node-web-audio-api** is an excellent, well-maintained Rust implementation. Both libraries offer high-performance audio processing for Node.js.
 
-**vs web-audio-engine:**
+**Key differences:**
+
+- **Performance**: webaudio-node is faster overall in most workloads (see [detailed benchmarks](./docs/automated_benchmarks.md))
+- **Resampling**: Speex quality 3 (production-grade) vs basic linear interpolation
+- **Node Coverage**: 16/17 applicable nodes (94%) implemented
+- **Installation**: Pre-compiled WASM (no build toolchain required)
+
+Both libraries are production-ready - choose based on your specific needs!
+
+### vs web-audio-engine
 
 - ✅ Much faster (WASM vs pure JS)
 - ✅ Better Web Audio API compliance

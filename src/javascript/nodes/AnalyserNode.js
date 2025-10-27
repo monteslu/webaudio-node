@@ -10,6 +10,13 @@ export class AnalyserNode extends AudioNode {
         this._maxDecibels = options.maxDecibels !== undefined ? options.maxDecibels : -30;
         this._smoothingTimeConstant =
             options.smoothingTimeConstant !== undefined ? options.smoothingTimeConstant : 0.8;
+
+        // Apply channel config from options
+        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
+        if (options.channelCountMode !== undefined)
+            this.channelCountMode = options.channelCountMode;
+        if (options.channelInterpretation !== undefined)
+            this.channelInterpretation = options.channelInterpretation;
     }
 
     get fftSize() {

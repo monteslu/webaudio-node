@@ -19,6 +19,7 @@ export class IIRFilterNode extends AudioNode {
         }
 
         const nodeId = context._engine.createNode('IIRFilter', {
+            ...options,
             feedforward: Array.from(options.feedforward),
             feedback: Array.from(options.feedback)
         });
@@ -26,6 +27,12 @@ export class IIRFilterNode extends AudioNode {
 
         this._feedforward = Array.from(options.feedforward);
         this._feedback = Array.from(options.feedback);
+
+        // Apply channel config from options
+        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
+        if (options.channelCountMode !== undefined) this.channelCountMode = options.channelCountMode;
+        if (options.channelInterpretation !== undefined)
+            this.channelInterpretation = options.channelInterpretation;
     }
 
     getFrequencyResponse(frequencyHz, magResponse, phaseResponse) {

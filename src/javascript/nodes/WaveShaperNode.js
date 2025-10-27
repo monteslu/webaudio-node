@@ -11,6 +11,13 @@ export class WaveShaperNode extends AudioNode {
         if (options.curve) {
             this.curve = options.curve;
         }
+
+        // Apply channel config from options
+        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
+        if (options.channelCountMode !== undefined)
+            this.channelCountMode = options.channelCountMode;
+        if (options.channelInterpretation !== undefined)
+            this.channelInterpretation = options.channelInterpretation;
     }
 
     get curve() {

@@ -2,20 +2,32 @@ import { AudioNode } from '../AudioNode.js';
 import { AudioParam } from '../AudioParam.js';
 
 export class AudioBufferSourceNode extends AudioNode {
-    constructor(context) {
-        const nodeId = context._engine.createNode('bufferSource');
+    constructor(context, options = {}) {
+        const nodeId = context._engine.createNode('bufferSource', options);
         super(context, nodeId);
 
-        this.buffer = null;
-        this.playbackRate = new AudioParam(context, nodeId, 'playbackRate', 1.0, 0.0, 100.0);
-        this.detune = new AudioParam(context, nodeId, 'detune', 0.0, -1200.0, 1200.0);
-        this.loop = false;
-        this.loopStart = 0;
-        this.loopEnd = 0;
+        // Apply options
+        this.buffer = options.buffer !== undefined ? options.buffer : null;
+
+        const playbackRate = options.playbackRate !== undefined ? options.playbackRate : 1.0;
+        const detune = options.detune !== undefined ? options.detune : 0.0;
+
+        this.playbackRate = new AudioParam(context, nodeId, 'playbackRate', playbackRate, 0.0, 100.0);
+        this.detune = new AudioParam(context, nodeId, 'detune', detune, -1200.0, 1200.0);
+
+        this.loop = options.loop !== undefined ? options.loop : false;
+        this.loopStart = options.loopStart !== undefined ? options.loopStart : 0;
+        this.loopEnd = options.loopEnd !== undefined ? options.loopEnd : 0;
         this.onended = null;
 
         this._started = false;
         this._stopped = false;
+
+        // Apply channel config from options
+        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
+        if (options.channelCountMode !== undefined) this.channelCountMode = options.channelCountMode;
+        if (options.channelInterpretation !== undefined)
+            this.channelInterpretation = options.channelInterpretation;
     }
 
     start(when = 0, offset = 0, duration) {

@@ -2,25 +2,32 @@ import { AudioNode } from '../AudioNode.js';
 import { AudioParam } from '../AudioParam.js';
 
 export class BiquadFilterNode extends AudioNode {
-    constructor(context) {
-        const nodeId = context._engine.createNode('biquadFilter', { type: 'lowpass' });
+    constructor(context, options = {}) {
+        const type = options.type || 'lowpass';
+        const nodeId = context._engine.createNode('biquadFilter', { ...options, type });
         super(context, nodeId);
 
         this.numberOfInputs = 1;
         this.numberOfOutputs = 1;
 
-        this.frequency = new AudioParam(
-            context,
-            nodeId,
-            'frequency',
-            350.0,
-            10.0,
-            context.sampleRate / 2
-        );
-        this.Q = new AudioParam(context, nodeId, 'Q', 1.0, 0.0001, 1000.0);
-        this.gain = new AudioParam(context, nodeId, 'gain', 0.0, -40.0, 40.0);
+        // Apply options for AudioParams
+        const freq = options.frequency !== undefined ? options.frequency : 350.0;
+        const q = options.Q !== undefined ? options.Q : 1.0;
+        const gainValue = options.gain !== undefined ? options.gain : 0.0;
+        const det = options.detune !== undefined ? options.detune : 0.0;
 
-        this._type = 'lowpass';
+        this.frequency = new AudioParam(context, nodeId, 'frequency', freq, 10.0, context.sampleRate / 2);
+        this.Q = new AudioParam(context, nodeId, 'Q', q, 0.0001, 1000.0);
+        this.gain = new AudioParam(context, nodeId, 'gain', gainValue, -40.0, 40.0);
+        this.detune = new AudioParam(context, nodeId, 'detune', det, -1200, 1200);
+
+        this._type = type;
+
+        // Apply channel config from options
+        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
+        if (options.channelCountMode !== undefined) this.channelCountMode = options.channelCountMode;
+        if (options.channelInterpretation !== undefined)
+            this.channelInterpretation = options.channelInterpretation;
     }
 
     get type() {

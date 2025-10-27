@@ -7,6 +7,13 @@ export class ConvolverNode extends AudioNode {
 
         this._buffer = null;
         this._normalize = options.normalize !== undefined ? options.normalize : true;
+
+        // Apply channel config from options
+        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
+        if (options.channelCountMode !== undefined)
+            this.channelCountMode = options.channelCountMode;
+        if (options.channelInterpretation !== undefined)
+            this.channelInterpretation = options.channelInterpretation;
     }
 
     get buffer() {

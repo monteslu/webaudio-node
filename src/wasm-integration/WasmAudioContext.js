@@ -159,20 +159,20 @@ export class WasmAudioContext {
     }
 
     // Node creation methods (synchronous - per WebAudio spec)
-    createOscillator() {
-        return new OscillatorNode(this);
+    createOscillator(options) {
+        return new OscillatorNode(this, options);
     }
 
-    createGain() {
-        return new GainNode(this);
+    createGain(options) {
+        return new GainNode(this, options);
     }
 
-    createBufferSource() {
-        return new AudioBufferSourceNode(this);
+    createBufferSource(options) {
+        return new AudioBufferSourceNode(this, options);
     }
 
-    createBiquadFilter() {
-        return new BiquadFilterNode(this);
+    createBiquadFilter(options) {
+        return new BiquadFilterNode(this, options);
     }
 
     createMediaStreamSource(options) {

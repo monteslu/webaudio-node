@@ -59,6 +59,13 @@ export class PannerNode extends AudioNode {
 
         // Panning model
         this._panningModel = options.panningModel || 'equalpower';
+
+        // Apply channel config from options
+        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
+        if (options.channelCountMode !== undefined)
+            this.channelCountMode = options.channelCountMode;
+        if (options.channelInterpretation !== undefined)
+            this.channelInterpretation = options.channelInterpretation;
     }
 
     // Distance model

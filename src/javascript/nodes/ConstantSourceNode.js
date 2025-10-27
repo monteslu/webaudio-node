@@ -2,14 +2,21 @@ import { AudioNode } from '../AudioNode.js';
 import { AudioParam } from '../AudioParam.js';
 
 export class ConstantSourceNode extends AudioNode {
-    constructor(context) {
-        const nodeId = context._engine.createNode('constantSource');
+    constructor(context, options = {}) {
+        const nodeId = context._engine.createNode('constantSource', options);
         super(context, nodeId);
 
-        this.offset = new AudioParam(context, nodeId, 'offset', 1.0, -3.4e38, 3.4e38);
+        const offset = options.offset !== undefined ? options.offset : 1.0;
+        this.offset = new AudioParam(context, nodeId, 'offset', offset, -3.4e38, 3.4e38);
 
         this._started = false;
         this._stopped = false;
+
+        // Apply channel config from options
+        if (options.channelCount !== undefined) this.channelCount = options.channelCount;
+        if (options.channelCountMode !== undefined) this.channelCountMode = options.channelCountMode;
+        if (options.channelInterpretation !== undefined)
+            this.channelInterpretation = options.channelInterpretation;
     }
 
     start(when = 0) {
