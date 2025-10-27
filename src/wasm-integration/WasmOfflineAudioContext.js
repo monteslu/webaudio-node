@@ -180,14 +180,15 @@ export class WasmOfflineAudioContext {
 
     async decodeAudioData(audioData, successCallback, errorCallback) {
         try {
-            // Decode using WASM decoders (MP3/WAV only)
-            const decoded = await WasmAudioDecoders.decode(audioData);
+            // Decode using WASM decoders and resample to context's sample rate
+            // This matches Web Audio API spec behavior
+            const decoded = await WasmAudioDecoders.decode(audioData, this.sampleRate);
 
-            // Create AudioBuffer with decoded data
+            // Create AudioBuffer with decoded data at context's sample rate
             const audioBuffer = new AudioBuffer({
                 length: decoded.length,
                 numberOfChannels: decoded.channels,
-                sampleRate: decoded.sampleRate
+                sampleRate: this.sampleRate
             });
 
             // De-interleave audio data into separate channels

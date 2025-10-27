@@ -25,7 +25,21 @@ function hashString(str) {
 
 export class WasmAudioContext {
     constructor(options = {}) {
-        this.sampleRate = options.sampleRate || 44100;
+        // Detect system default sample rate if not specified (matches browser behavior)
+        let defaultSampleRate = 44100; // Fallback default
+        if (!options.sampleRate) {
+            try {
+                // Open a temporary device to detect system sample rate
+                const tempDevice = sdl.audio.openDevice({ type: 'playback' });
+                defaultSampleRate = tempDevice.frequency || 44100;
+                tempDevice.close();
+            } catch (err) {
+                // Fallback to 44100 if detection fails
+                console.warn('Could not detect system sample rate, using 44100 Hz:', err.message);
+            }
+        }
+
+        this.sampleRate = options.sampleRate || defaultSampleRate;
         this._channels = options.numberOfChannels || 2;
         this._bufferSize = options.bufferSize || 128; // Web Audio quantum size
 
@@ -255,14 +269,15 @@ export class WasmAudioContext {
 
     async decodeAudioData(audioData, successCallback, errorCallback) {
         try {
-            // Decode using WASM decoders (MP3/WAV only)
-            const decoded = await WasmAudioDecoders.decode(audioData);
+            // Decode using WASM decoders and resample to context's sample rate
+            // This matches Web Audio API spec behavior
+            const decoded = await WasmAudioDecoders.decode(audioData, this.sampleRate);
 
-            // Create AudioBuffer with decoded data
+            // Create AudioBuffer with decoded data at context's sample rate
             const audioBuffer = new AudioBuffer({
                 length: decoded.length,
                 numberOfChannels: decoded.channels,
-                sampleRate: decoded.sampleRate
+                sampleRate: this.sampleRate
             });
 
             // De-interleave audio data into separate channels

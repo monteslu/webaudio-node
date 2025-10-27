@@ -12,6 +12,13 @@
 
 #include "../vendor/stb_vorbis.c"
 
+// Speex resampler (BSD license)
+#define OUTSIDE_SPEEX
+#define RANDOM_PREFIX webaudio
+#define FLOATING_POINT  // Use floating point (not fixed point)
+#define EXPORT
+#include "../vendor/resample.c"
+
 // Stub out POSIX file I/O functions for uaac.h MP4 parsing (which we don't use)
 // These are only needed for compilation; they won't be called since we decode raw AAC data
 extern "C" {
@@ -292,6 +299,76 @@ int decodeAAC(const uint8_t* input, size_t inputSize, float** output, size_t* to
     }
 
     return channels;
+}
+
+// Resample audio using Speex resampler (high quality, SIMD-optimized)
+// Returns: resampled buffer (caller must free), or NULL on error
+// Output format: interleaved float32 samples at target sample rate
+EMSCRIPTEN_KEEPALIVE
+float* resampleAudio(const float* input, size_t inputFrames, int channels,
+                     int sourceSampleRate, int targetSampleRate, size_t* outputFrames) {
+    // No resampling needed
+    if (sourceSampleRate == targetSampleRate) {
+        *outputFrames = inputFrames;
+        size_t totalSamples = inputFrames * channels;
+        float* output = (float*)malloc(totalSamples * sizeof(float));
+        if (output) {
+            memcpy(output, input, totalSamples * sizeof(float));
+        }
+        return output;
+    }
+
+    // Initialize Speex resampler
+    // Quality 3 = desktop quality (good balance of speed and quality)
+    // This is what Firefox uses for Web Audio API resampling
+    int err = 0;
+    SpeexResamplerState* resampler = speex_resampler_init(
+        channels,
+        sourceSampleRate,
+        targetSampleRate,
+        3,  // quality: 0=worst/fastest, 10=best/slowest, 3=desktop default
+        &err
+    );
+
+    if (!resampler || err != RESAMPLER_ERR_SUCCESS) {
+        if (resampler) {
+            speex_resampler_destroy(resampler);
+        }
+        return NULL;
+    }
+
+    // Calculate approximate output size
+    // Speex will tell us the exact output size during processing
+    double ratio = (double)targetSampleRate / (double)sourceSampleRate;
+    size_t estimatedOutputFrames = (size_t)((double)inputFrames * ratio + 1.0);
+
+    float* output = (float*)malloc(estimatedOutputFrames * channels * sizeof(float));
+    if (!output) {
+        speex_resampler_destroy(resampler);
+        return NULL;
+    }
+
+    // Speex processes interleaved data
+    spx_uint32_t inLen = inputFrames;
+    spx_uint32_t outLen = estimatedOutputFrames;
+
+    err = speex_resampler_process_interleaved_float(
+        resampler,
+        input,
+        &inLen,
+        output,
+        &outLen
+    );
+
+    speex_resampler_destroy(resampler);
+
+    if (err != RESAMPLER_ERR_SUCCESS) {
+        free(output);
+        return NULL;
+    }
+
+    *outputFrames = outLen;
+    return output;
 }
 
 // Free memory allocated by decoders

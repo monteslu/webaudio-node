@@ -30,7 +30,8 @@ OUTPUT_DIR="dist"
 mkdir -p "$OUTPUT_DIR"
 
 # Compiler flags
-CXXFLAGS="-O3 -std=c++17 -D__i386__ -Wno-narrowing"
+# Enable SIMD for Speex resampler (SSE on x86, NEON on ARM)
+CXXFLAGS="-O3 -std=c++17 -D__i386__ -Wno-narrowing -msimd128"
 
 # Include directories
 INCLUDES="-I. -Isrc/vendor"
@@ -43,6 +44,7 @@ EXPORTED_FUNCTIONS='[
     "_decodeVorbis",
     "_decodeAAC",
     "_decodeAudio",
+    "_resampleAudio",
     "_freeDecodedBuffer",
     "_malloc",
     "_free"

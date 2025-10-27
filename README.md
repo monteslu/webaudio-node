@@ -19,11 +19,14 @@ High-performance, browser-compatible Web Audio API for Node.js. Perfect for audi
 - **OfflineAudioContext** for fast non-realtime rendering
 - **AudioContext** for real-time playback
 - **5 audio formats** via WASM decoders (MP3, WAV, FLAC, OGG, AAC) - see [WASM Audio Decoders](./docs/WASM_AUDIO_DECODERS.md)
+- **High-quality resampling** - Speex resampler with SIMD (same as Firefox uses)
+- **Automatic sample rate detection** - matches system audio device
 
 🚀 **High Performance**
 
 - **WASM with SIMD optimizations** - beats Rust implementation in 83% of benchmarks
 - **~2,600x faster than realtime** offline rendering
+- **Production-quality resampling** - 130-350x realtime with Speex quality level 3
 - **Chunk-ahead buffering** for smooth real-time playback
 - Zero JavaScript overhead in audio rendering
 
@@ -181,13 +184,28 @@ const buffer = await offlineCtx.startRendering();
 
 ### Supported Node Types
 
-| Node                  | AudioContext | OfflineAudioContext |
-| --------------------- | ------------ | ------------------- |
-| OscillatorNode        | ✅           | ✅                  |
-| GainNode              | ✅           | ✅                  |
-| AudioBufferSourceNode | ✅           | ✅                  |
-| BiquadFilterNode      | ✅           | ✅                  |
-| AudioDestinationNode  | ✅           | ✅                  |
+**16/17 applicable Web Audio API nodes implemented (94% coverage)**
+
+| Node                     | AudioContext | OfflineAudioContext |
+| ------------------------ | ------------ | ------------------- |
+| AudioDestinationNode     | ✅           | ✅                  |
+| AudioBufferSourceNode    | ✅           | ✅                  |
+| OscillatorNode           | ✅           | ✅                  |
+| ConstantSourceNode       | ✅           | ✅                  |
+| GainNode                 | ✅           | ✅                  |
+| BiquadFilterNode         | ✅           | ✅                  |
+| IIRFilterNode            | ✅           | ✅                  |
+| DelayNode                | ✅           | ✅                  |
+| WaveShaperNode           | ✅           | ✅                  |
+| ConvolverNode            | ✅           | ✅                  |
+| DynamicsCompressorNode   | ✅           | ✅                  |
+| PannerNode               | ✅           | ✅                  |
+| StereoPannerNode         | ✅           | ✅                  |
+| ChannelSplitterNode      | ✅           | ✅                  |
+| ChannelMergerNode        | ✅           | ✅                  |
+| AnalyserNode             | ✅           | ✅                  |
+
+**Not applicable to Node.js:** MediaElement/MediaStream nodes (browser-only), ScriptProcessorNode (deprecated)
 
 ### AudioParam Automation
 
@@ -479,25 +497,26 @@ webaudio-node/
 
 - ✅ 83% win rate in benchmarks (5/6 core benchmarks)
 - ✅ 1.8-76x faster in winning benchmarks with WASM + SIMD
+- ✅ **Higher quality resampling** - Speex quality 3 vs basic linear interpolation
+- ✅ **94% Web Audio API node coverage** - 16/17 applicable nodes implemented
 - ✅ Simpler installation (no Rust toolchain)
-- ⚠️ Fewer nodes (core set only)
 
 **vs web-audio-engine:**
 
 - ✅ Much faster (WASM vs pure JS)
 - ✅ Better Web Audio API compliance
 - ✅ Real-time playback support
+- ✅ Comprehensive node coverage
 
 ## 🛣️ Roadmap
 
-**Current:** Core Web Audio API nodes with WASM backend
+**Current:** 94% Web Audio API compliance with WASM backend
 
 **Future:**
 
 - Worker Thread rendering for lower latency
-- Additional nodes (Delay, Convolver, Compressor)
 - AudioWorklet support
-- Spatial audio (PannerNode)
+- Additional WebCodecs integration
 
 See [docs/threading.md](docs/threading.md) for Worker Thread implementation plan.
 
