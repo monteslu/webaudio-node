@@ -13,6 +13,7 @@ When using `AudioBufferSourceNode` as input to `BiquadFilterNode` or `DynamicsCo
 ### Working Configurations
 
 ✅ **These work correctly:**
+
 - BufferSource → destination
 - BufferSource → GainNode → destination
 - OscillatorNode → BiquadFilterNode → destination
@@ -20,6 +21,7 @@ When using `AudioBufferSourceNode` as input to `BiquadFilterNode` or `DynamicsCo
 - All nodes work correctly in regular `AudioContext` (non-offline)
 
 ❌ **These produce silence:**
+
 - BufferSource → BiquadFilterNode → destination (offline only)
 - BufferSource → DynamicsCompressorNode → destination (offline only)
 
@@ -36,15 +38,15 @@ await ctx.close();
 
 // Try to process in offline context
 const offline = new OfflineAudioContext({
-  numberOfChannels: 2,
-  length: 48000,
-  sampleRate: 48000
+    numberOfChannels: 2,
+    length: 48000,
+    sampleRate: 48000
 });
 
 // Copy buffer to offline context
 const buffer = offline.createBuffer(2, 48000, 48000);
 for (let ch = 0; ch < 2; ch++) {
-  buffer.copyToChannel(decoded.getChannelData(ch), ch);
+    buffer.copyToChannel(decoded.getChannelData(ch), ch);
 }
 
 const source = offline.createBufferSource();

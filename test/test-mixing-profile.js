@@ -13,7 +13,7 @@ const buffer = ctx.createBuffer(2, 48000, 48000);
 for (let ch = 0; ch < 2; ch++) {
     const data = buffer.getChannelData(ch);
     for (let i = 0; i < data.length; i++) {
-        data[i] = Math.sin(2 * Math.PI * 440 * i / 48000) * 0.3;
+        data[i] = Math.sin((2 * Math.PI * 440 * i) / 48000) * 0.3;
     }
 }
 
@@ -38,7 +38,7 @@ const rendered = await ctx.startRendering();
 const renderTime = performance.now() - renderStart;
 
 console.log(`\n✅ Rendered in ${renderTime.toFixed(2)}ms`);
-console.log(`Samples/sec: ${(48000 * 2 / (renderTime / 1000) / 1000000).toFixed(2)}M`);
+console.log(`Samples/sec: ${((48000 * 2) / (renderTime / 1000) / 1000000).toFixed(2)}M`);
 
 // Check output
 const data = rendered.getChannelData(0);

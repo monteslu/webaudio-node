@@ -9,7 +9,14 @@ export class BiquadFilterNode extends AudioNode {
         this.numberOfInputs = 1;
         this.numberOfOutputs = 1;
 
-        this.frequency = new AudioParam(context, nodeId, 'frequency', 350.0, 10.0, context.sampleRate / 2);
+        this.frequency = new AudioParam(
+            context,
+            nodeId,
+            'frequency',
+            350.0,
+            10.0,
+            context.sampleRate / 2
+        );
         this.Q = new AudioParam(context, nodeId, 'Q', 1.0, 0.0001, 1000.0);
         this.gain = new AudioParam(context, nodeId, 'gain', 0.0, -40.0, 40.0);
 
@@ -21,7 +28,16 @@ export class BiquadFilterNode extends AudioNode {
     }
 
     set type(value) {
-        const validTypes = ['lowpass', 'highpass', 'bandpass', 'lowshelf', 'highshelf', 'peaking', 'notch', 'allpass'];
+        const validTypes = [
+            'lowpass',
+            'highpass',
+            'bandpass',
+            'lowshelf',
+            'highshelf',
+            'peaking',
+            'notch',
+            'allpass'
+        ];
         if (!validTypes.includes(value)) {
             throw new Error(`Invalid filter type: ${value}`);
         }

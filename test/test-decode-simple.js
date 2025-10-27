@@ -36,7 +36,6 @@ try {
     console.log('Max amplitude:', max);
     console.log('Non-zero samples:', nonZeroCount, '/', ch0.length);
     console.log('\n' + (max > 0.0001 ? '✅ HAS AUDIO' : '❌ SILENT!'));
-
 } catch (error) {
     console.error('\n❌ Decode failed:', error.message);
     console.error(error.stack);

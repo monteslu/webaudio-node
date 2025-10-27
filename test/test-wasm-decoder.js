@@ -18,9 +18,15 @@ async function test() {
     console.log(`✓ Decoded successfully in ${decodeTime}ms`);
     console.log(`  Sample rate: ${result.sampleRate} Hz`);
     console.log(`  Channels: ${result.channels}`);
-    console.log(`  Length: ${result.length} frames (${(result.length / result.sampleRate).toFixed(2)}s)`);
+    console.log(
+        `  Length: ${result.length} frames (${(result.length / result.sampleRate).toFixed(2)}s)`
+    );
     console.log(`  Total samples: ${result.audioData.length}`);
-    console.log(`  First 10 samples: [${Array.from(result.audioData.slice(0, 10)).map(v => v.toFixed(4)).join(', ')}]`);
+    console.log(
+        `  First 10 samples: [${Array.from(result.audioData.slice(0, 10))
+            .map(v => v.toFixed(4))
+            .join(', ')}]`
+    );
 }
 
 test().catch(err => {

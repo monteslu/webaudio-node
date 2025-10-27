@@ -98,10 +98,22 @@ async function testAgainstReference() {
         analyser.getByteTimeDomainData(byteTimeData);
 
         // Debug: Check if we're getting real audio data
-        const timeRMS = Math.sqrt(floatTimeData.reduce((sum, val) => sum + val * val, 0) / floatTimeData.length);
+        const timeRMS = Math.sqrt(
+            floatTimeData.reduce((sum, val) => sum + val * val, 0) / floatTimeData.length
+        );
         console.log(`  Time domain RMS: ${timeRMS.toFixed(6)} (should be > 0 for real audio)`);
-        console.log(`  First 10 freq values: [${floatFreqData.slice(0, 10).map(v => v.toFixed(2)).join(', ')}]`);
-        console.log(`  Expected (Chrome):    [${refTest.floatFrequencyData.slice(0, 10).map(v => v.toFixed(2)).join(', ')}]`);
+        console.log(
+            `  First 10 freq values: [${floatFreqData
+                .slice(0, 10)
+                .map(v => v.toFixed(2))
+                .join(', ')}]`
+        );
+        console.log(
+            `  Expected (Chrome):    [${refTest.floatFrequencyData
+                .slice(0, 10)
+                .map(v => v.toFixed(2))
+                .join(', ')}]`
+        );
 
         source.stop();
         await context.suspend();
@@ -115,11 +127,15 @@ async function testAgainstReference() {
                 peakFreqBin = i;
             }
         }
-        const peakFrequency = peakFreqBin * context.sampleRate / fftSize;
+        const peakFrequency = (peakFreqBin * context.sampleRate) / fftSize;
 
-        console.log(`  Node.js Peak: bin ${peakFreqBin} = ${Math.round(peakFrequency * 10) / 10} Hz (${Math.round(peakMagnitude * 100) / 100} dB)`);
+        console.log(
+            `  Node.js Peak: bin ${peakFreqBin} = ${Math.round(peakFrequency * 10) / 10} Hz (${Math.round(peakMagnitude * 100) / 100} dB)`
+        );
         if (refTest.peakFreqBin !== undefined) {
-            console.log(`  Chrome Peak:  bin ${refTest.peakFreqBin} = ${refTest.peakFrequency} Hz (${refTest.peakMagnitude} dB)`);
+            console.log(
+                `  Chrome Peak:  bin ${refTest.peakFreqBin} = ${refTest.peakFrequency} Hz (${refTest.peakMagnitude} dB)`
+            );
         }
 
         // Compare results
@@ -132,21 +148,26 @@ async function testAgainstReference() {
         };
 
         // Check if all comparisons passed
-        const allPassed = testResult.floatFreq.passed &&
-		                  testResult.byteFreq.passed &&
-		                  testResult.floatTime.passed &&
-		                  testResult.byteTime.passed;
+        const allPassed =
+            testResult.floatFreq.passed &&
+            testResult.byteFreq.passed &&
+            testResult.floatTime.passed &&
+            testResult.byteTime.passed;
 
         if (allPassed) {
             results.passed++;
             console.log('  ✓ All data types match within tolerance');
         } else {
             results.failed++;
-            console.log('  ✗ Some data types don\'t match:');
-            if (!testResult.floatFreq.passed) console.log(`    - Float frequency: ${testResult.floatFreq.reason}`);
-            if (!testResult.byteFreq.passed) console.log(`    - Byte frequency: ${testResult.byteFreq.reason}`);
-            if (!testResult.floatTime.passed) console.log(`    - Float time: ${testResult.floatTime.reason}`);
-            if (!testResult.byteTime.passed) console.log(`    - Byte time: ${testResult.byteTime.reason}`);
+            console.log("  ✗ Some data types don't match:");
+            if (!testResult.floatFreq.passed)
+                console.log(`    - Float frequency: ${testResult.floatFreq.reason}`);
+            if (!testResult.byteFreq.passed)
+                console.log(`    - Byte frequency: ${testResult.byteFreq.reason}`);
+            if (!testResult.floatTime.passed)
+                console.log(`    - Float time: ${testResult.floatTime.reason}`);
+            if (!testResult.byteTime.passed)
+                console.log(`    - Byte time: ${testResult.byteTime.reason}`);
         }
 
         results.details.push(testResult);

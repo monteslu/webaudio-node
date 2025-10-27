@@ -7,20 +7,44 @@ export class PannerNode extends AudioNode {
         super(context, nodeId);
 
         // Position as AudioParams (Web Audio API spec)
-        this.positionX = new AudioParam(context, nodeId, 'positionX',
-            options.positionX !== undefined ? options.positionX : 0);
-        this.positionY = new AudioParam(context, nodeId, 'positionY',
-            options.positionY !== undefined ? options.positionY : 0);
-        this.positionZ = new AudioParam(context, nodeId, 'positionZ',
-            options.positionZ !== undefined ? options.positionZ : 0);
+        this.positionX = new AudioParam(
+            context,
+            nodeId,
+            'positionX',
+            options.positionX !== undefined ? options.positionX : 0
+        );
+        this.positionY = new AudioParam(
+            context,
+            nodeId,
+            'positionY',
+            options.positionY !== undefined ? options.positionY : 0
+        );
+        this.positionZ = new AudioParam(
+            context,
+            nodeId,
+            'positionZ',
+            options.positionZ !== undefined ? options.positionZ : 0
+        );
 
         // Orientation as AudioParams (Web Audio API spec)
-        this.orientationX = new AudioParam(context, nodeId, 'orientationX',
-            options.orientationX !== undefined ? options.orientationX : 1);
-        this.orientationY = new AudioParam(context, nodeId, 'orientationY',
-            options.orientationY !== undefined ? options.orientationY : 0);
-        this.orientationZ = new AudioParam(context, nodeId, 'orientationZ',
-            options.orientationZ !== undefined ? options.orientationZ : 0);
+        this.orientationX = new AudioParam(
+            context,
+            nodeId,
+            'orientationX',
+            options.orientationX !== undefined ? options.orientationX : 1
+        );
+        this.orientationY = new AudioParam(
+            context,
+            nodeId,
+            'orientationY',
+            options.orientationY !== undefined ? options.orientationY : 0
+        );
+        this.orientationZ = new AudioParam(
+            context,
+            nodeId,
+            'orientationZ',
+            options.orientationZ !== undefined ? options.orientationZ : 0
+        );
 
         // Distance model
         this._distanceModel = options.distanceModel || 'inverse';

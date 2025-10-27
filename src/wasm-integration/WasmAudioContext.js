@@ -17,7 +17,7 @@ function hashString(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
+        hash = (hash << 5) - hash + char;
         hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(16).padStart(8, '0');
@@ -121,7 +121,7 @@ export class WasmAudioContext {
             });
 
             // Restore timing (approximate)
-            this._startTime = Date.now() - (savedTime * 1000);
+            this._startTime = Date.now() - savedTime * 1000;
 
             // Pre-render and start playback
             this._renderAndEnqueueChunk(this.sampleRate * 2);
@@ -272,7 +272,6 @@ export class WasmAudioContext {
                 successCallback(audioBuffer);
             }
             return audioBuffer;
-
         } catch (error) {
             if (errorCallback) {
                 errorCallback(error);

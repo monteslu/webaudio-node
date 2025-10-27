@@ -42,7 +42,7 @@ function hashString(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
+        hash = (hash << 5) - hash + char;
         hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(16).padStart(8, '0');
@@ -50,11 +50,7 @@ function hashString(str) {
 
 export class AudioContext {
     constructor(options = {}) {
-        const {
-            sampleRate = 44100,
-            channels = 2,
-            bufferSize = 512
-        } = options;
+        const { sampleRate = 44100, channels = 2, bufferSize = 512 } = options;
 
         // Create native audio engine
         this._engine = new native.AudioEngine({
@@ -243,7 +239,6 @@ export class AudioContext {
                 successCallback(audioBuffer);
             }
             return audioBuffer;
-
         } catch (error) {
             if (errorCallback) {
                 errorCallback(error);

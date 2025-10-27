@@ -7,10 +7,12 @@
 ## Why Games Need It
 
 ### 1. **Procedural Sound Generation**
+
 Generate sound effects on-the-fly and cache them:
+
 ```javascript
 // Generate laser sound once
-const offlineCtx = new OfflineAudioContext(2, 14400, 48000);  // 0.3s
+const offlineCtx = new OfflineAudioContext(2, 14400, 48000); // 0.3s
 const osc = offlineCtx.createOscillator();
 osc.frequency.setValueAtTime(800, 0);
 osc.frequency.exponentialRampToValueAtTime(200, 0.3);
@@ -20,19 +22,21 @@ gain.gain.exponentialRampToValueAtTime(0.01, 0.3);
 osc.connect(gain).connect(offlineCtx.destination);
 osc.start(0);
 
-const laserBuffer = await offlineCtx.startRendering();  // ~1ms!
+const laserBuffer = await offlineCtx.startRendering(); // ~1ms!
 
 // Reuse for 100+ shots
 for (let i = 0; i < 100; i++) {
     const source = realTimeCtx.createBufferSource();
-    source.buffer = laserBuffer;  // Same buffer!
+    source.buffer = laserBuffer; // Same buffer!
     source.connect(realTimeCtx.destination);
     source.start();
 }
 ```
 
 ### 2. **Audio Preprocessing**
+
 Apply expensive effects offline:
+
 ```javascript
 // Render reverb offline, save CPU in real-time
 const offlineCtx = new OfflineAudioContext(2, 96000, 48000);
@@ -43,11 +47,13 @@ convolver.buffer = impulseResponse;
 source.connect(convolver).connect(offlineCtx.destination);
 source.start(0);
 
-const wetBuffer = await offlineCtx.startRendering();  // Done!
+const wetBuffer = await offlineCtx.startRendering(); // Done!
 ```
 
 ### 3. **Dynamic Music Variations**
+
 Pre-render music stems:
+
 ```javascript
 // Render different intensity levels
 const calm = await renderMusic(offlineCtx, 0.3, 'calm');
@@ -58,7 +64,9 @@ const boss = await renderMusic(offlineCtx, 1.0, 'boss');
 ```
 
 ### 4. **Fast Batch Processing**
+
 Render 100 sound variations in seconds:
+
 ```javascript
 const variations = [];
 for (let i = 0; i < 100; i++) {
@@ -74,15 +82,16 @@ for (let i = 0; i < 100; i++) {
 
 **Rendering Speed: 10,000-24,000x faster than real-time!**
 
-| Test | Duration | Render Time | Speed |
-|------|----------|-------------|-------|
-| 1s sine wave | 1.0s | **2ms** | 24,000x faster |
-| 2s envelope | 2.0s | **4ms** | 24,000x faster |
-| 0.3s laser | 0.3s | **1ms** | 14,400x faster |
-| 1s chord | 1.0s | **4ms** | 12,000x faster |
-| 1s filter | 1.0s | **1ms** | 48,000x faster |
+| Test         | Duration | Render Time | Speed          |
+| ------------ | -------- | ----------- | -------------- |
+| 1s sine wave | 1.0s     | **2ms**     | 24,000x faster |
+| 2s envelope  | 2.0s     | **4ms**     | 24,000x faster |
+| 0.3s laser   | 0.3s     | **1ms**     | 14,400x faster |
+| 1s chord     | 1.0s     | **4ms**     | 12,000x faster |
+| 1s filter    | 1.0s     | **1ms**     | 48,000x faster |
 
 **Why so fast?**
+
 - No real-time scheduling overhead
 - No SDL audio device latency
 - Batch processing entire buffer
@@ -92,11 +101,12 @@ for (let i = 0; i < 100; i++) {
 ## API
 
 ### Constructor
+
 ```javascript
 // Object syntax
 const ctx = new OfflineAudioContext({
     numberOfChannels: 2,
-    length: 48000,  // samples
+    length: 48000, // samples
     sampleRate: 48000
 });
 
@@ -105,30 +115,33 @@ const ctx = new OfflineAudioContext(numberOfChannels, length, sampleRate);
 ```
 
 ### Properties
+
 ```javascript
-ctx.sampleRate      // Number - sample rate (read-only)
-ctx.length          // Number - buffer length in samples (read-only)
-ctx.state           // 'suspended' | 'running' | 'closed'
-ctx.currentTime     // Always 0 (no real-time playback)
-ctx.destination     // AudioDestinationNode
+ctx.sampleRate; // Number - sample rate (read-only)
+ctx.length; // Number - buffer length in samples (read-only)
+ctx.state; // 'suspended' | 'running' | 'closed'
+ctx.currentTime; // Always 0 (no real-time playback)
+ctx.destination; // AudioDestinationNode
 ```
 
 ### Methods
 
 **Node Creation** (same as AudioContext):
+
 ```javascript
-ctx.createOscillator()
-ctx.createGain()
-ctx.createBufferSource()
-ctx.createBiquadFilter()
-ctx.createDelay(maxDelayTime)
-ctx.createConvolver()
-ctx.createDynamicsCompressor()
-ctx.createAnalyser()
+ctx.createOscillator();
+ctx.createGain();
+ctx.createBufferSource();
+ctx.createBiquadFilter();
+ctx.createDelay(maxDelayTime);
+ctx.createConvolver();
+ctx.createDynamicsCompressor();
+ctx.createAnalyser();
 // ... all other nodes
 ```
 
 **Rendering:**
+
 ```javascript
 const buffer = await ctx.startRendering();
 // Returns Promise<AudioBuffer>
@@ -136,15 +149,17 @@ const buffer = await ctx.startRendering();
 ```
 
 **Not Supported:**
+
 ```javascript
-ctx.resume()   // Throws error
-ctx.suspend()  // Throws error
-ctx.close()    // No-op (happens after rendering)
+ctx.resume(); // Throws error
+ctx.suspend(); // Throws error
+ctx.close(); // No-op (happens after rendering)
 ```
 
 ## Use Cases
 
 ### ✅ Procedural Sound Effects
+
 ```javascript
 async function generateExplosion() {
     const ctx = new OfflineAudioContext(2, 48000, 48000);
@@ -170,6 +185,7 @@ async function generateExplosion() {
 ```
 
 ### ✅ Pre-render Ambience Loops
+
 ```javascript
 async function renderAmbience(duration) {
     const ctx = new OfflineAudioContext(2, duration * 48000, 48000);
@@ -192,6 +208,7 @@ async function renderAmbience(duration) {
 ```
 
 ### ✅ Generate Sound Assets at Build Time
+
 ```javascript
 // In build script
 import { OfflineAudioContext } from 'webaudio-node';
@@ -214,6 +231,7 @@ async function generateAssets() {
 ## Implementation Details
 
 ### Files Created
+
 ```
 src/native/offline_audio_engine.h         - Header
 src/native/offline_audio_engine.cpp       - Implementation
@@ -238,12 +256,14 @@ Nodes (BufferSource, Oscillator, Gain, etc.)
 ```
 
 **Key Differences from AudioContext:**
+
 - No SDL audio device
 - No real-time scheduling
 - Renders entire duration in one go
 - Returns AudioBuffer instead of playing
 
 ### Rendering Loop
+
 ```cpp
 Napi::Value OfflineAudioEngine::StartRendering() {
     // Allocate output buffer
@@ -270,6 +290,7 @@ Napi::Value OfflineAudioEngine::StartRendering() {
 ```
 
 **Benefits:**
+
 - ✅ No blocking - runs as fast as possible
 - ✅ Deterministic - same input = same output
 - ✅ Cacheable - render once, reuse many times
@@ -278,6 +299,7 @@ Napi::Value OfflineAudioEngine::StartRendering() {
 ## Test Results
 
 ### All Tests Passed ✅
+
 ```
 Test 1: Rendering 1 second of 440Hz sine wave
   ✅ Rendered in 2ms (24000x faster than real-time)
@@ -302,12 +324,14 @@ Test 5: Rendering with BiquadFilter
 ## Memory Impact
 
 **Minimal:**
+
 - No SDL buffers
 - No audio thread
 - Only temporary buffer during rendering
 - Result returned as AudioBuffer
 
 **Example:**
+
 - 1 second stereo @ 48kHz = 384 KB
 - 0.3 second laser sound = 115 KB
 - 100 variations = 11.5 MB (acceptable)
@@ -315,6 +339,7 @@ Test 5: Rendering with BiquadFilter
 ## Browser Compatibility
 
 This implementation matches the Web Audio API spec:
+
 - ✅ Same API as browser OfflineAudioContext
 - ✅ Same behavior (deterministic rendering)
 - ✅ Code can run in browser or Node.js
@@ -329,6 +354,7 @@ This implementation matches the Web Audio API spec:
 ## Future Enhancements
 
 ### Possible Improvements:
+
 1. **Export to WAV/MP3** - Save rendered audio to files
 2. **Progress callbacks** - Monitor long renders
 3. **Streaming output** - For very long renders
@@ -339,12 +365,14 @@ This implementation matches the Web Audio API spec:
 **OfflineAudioContext is production-ready! 🎉**
 
 **Perfect for:**
+
 - 🎮 Game sound effect generation
 - 🎵 Music preprocessing
 - 🔊 Audio asset creation
 - ✅ Unit testing audio code
 
 **Performance:**
+
 - ✅ 10,000-24,000x faster than real-time
 - ✅ SIMD optimizations apply
 - ✅ Minimal memory overhead

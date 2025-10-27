@@ -48,16 +48,24 @@ async function main() {
 
     // WASM decoder
     console.log('Testing WASM decoder...');
-    const wasmResults = await benchmarkDecoder('WASM', async (data) => {
-        return await WasmAudioDecoders.decodeMP3(data.buffer);
-    }, mp3Data);
+    const wasmResults = await benchmarkDecoder(
+        'WASM',
+        async data => {
+            return await WasmAudioDecoders.decodeMP3(data.buffer);
+        },
+        mp3Data
+    );
 
     // Rust decoder
     console.log('Testing Rust decoder...');
     const rustContext = new RustAudioContext({ sampleRate: 44100 });
-    const rustResults = await benchmarkDecoder('Rust', async (data) => {
-        return await rustContext.decodeAudioData(data.buffer);
-    }, mp3Data);
+    const rustResults = await benchmarkDecoder(
+        'Rust',
+        async data => {
+            return await rustContext.decodeAudioData(data.buffer);
+        },
+        mp3Data
+    );
 
     // Print results
     console.log('\nResults:');
@@ -76,18 +84,18 @@ async function main() {
     // Compare
     console.log('\nComparison:');
     console.log('-----------');
-    const speedup = (rustResults.median / wasmResults.median);
+    const speedup = rustResults.median / wasmResults.median;
     if (speedup > 1) {
         console.log(`WASM is ${speedup.toFixed(2)}x faster than Rust (median)`);
     } else {
-        console.log(`Rust is ${(1/speedup).toFixed(2)}x faster than WASM (median)`);
+        console.log(`Rust is ${(1 / speedup).toFixed(2)}x faster than WASM (median)`);
     }
 
-    const avgSpeedup = (rustResults.avg / wasmResults.avg);
+    const avgSpeedup = rustResults.avg / wasmResults.avg;
     if (avgSpeedup > 1) {
         console.log(`WASM is ${avgSpeedup.toFixed(2)}x faster than Rust (average)`);
     } else {
-        console.log(`Rust is ${(1/avgSpeedup).toFixed(2)}x faster than WASM (average)`);
+        console.log(`Rust is ${(1 / avgSpeedup).toFixed(2)}x faster than WASM (average)`);
     }
 
     rustContext.close();

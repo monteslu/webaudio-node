@@ -22,7 +22,9 @@ function assertApprox(actual, expected, tolerance, message) {
         console.log(`  ✅ ${message} (${actual.toFixed(6)} ≈ ${expected.toFixed(6)})`);
         passed++;
     } else {
-        console.error(`  ❌ ${message} (${actual.toFixed(6)} vs ${expected.toFixed(6)}, diff: ${diff.toFixed(6)})`);
+        console.error(
+            `  ❌ ${message} (${actual.toFixed(6)} vs ${expected.toFixed(6)}, diff: ${diff.toFixed(6)})`
+        );
         failed++;
     }
 }

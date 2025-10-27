@@ -29,7 +29,9 @@ async function main() {
 
     // Decode audio file
     const buffer = await decodeAudioFile(mp3Path, ctx.sampleRate);
-    console.log(`✅ Loaded: ${buffer.duration.toFixed(2)}s, ${buffer.sampleRate}Hz, ${buffer.numberOfChannels}ch\n`);
+    console.log(
+        `✅ Loaded: ${buffer.duration.toFixed(2)}s, ${buffer.sampleRate}Hz, ${buffer.numberOfChannels}ch\n`
+    );
 
     // Create source
     const source = ctx.createBufferSource();
@@ -40,25 +42,26 @@ async function main() {
     const lowBand = ctx.createBiquadFilter();
     lowBand.type = 'lowshelf';
     lowBand.frequency.value = 200;
-    lowBand.gain.value = 0;  // dB
+    lowBand.gain.value = 0; // dB
 
     const midBand = ctx.createBiquadFilter();
     midBand.type = 'peaking';
     midBand.frequency.value = 1000;
     midBand.Q.value = 1.0;
-    midBand.gain.value = 0;  // dB
+    midBand.gain.value = 0; // dB
 
     const highBand = ctx.createBiquadFilter();
     highBand.type = 'highshelf';
     highBand.frequency.value = 3000;
-    highBand.gain.value = 0;  // dB
+    highBand.gain.value = 0; // dB
 
     // Master volume
     const masterGain = ctx.createGain();
     masterGain.gain.value = 0.7;
 
     // Connect: source → EQ → master → output
-    source.connect(lowBand)
+    source
+        .connect(lowBand)
         .connect(midBand)
         .connect(highBand)
         .connect(masterGain)

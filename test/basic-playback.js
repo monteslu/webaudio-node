@@ -61,7 +61,7 @@ async function testMixing() {
     const context = new AudioContext();
 
     // Create chord (C major)
-    const frequencies = [261.63, 329.63, 392.00]; // C4, E4, G4
+    const frequencies = [261.63, 329.63, 392.0]; // C4, E4, G4
     const oscillators = [];
     const gainNode = context.createGain();
     gainNode.gain.value = 0.2; // Reduce volume for multiple oscillators

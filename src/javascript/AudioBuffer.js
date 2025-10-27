@@ -2,11 +2,7 @@ let nextBufferId = 1;
 
 export class AudioBuffer {
     constructor(options) {
-        const {
-            length,
-            numberOfChannels,
-            sampleRate
-        } = options;
+        const { length, numberOfChannels, sampleRate } = options;
 
         this.length = length;
         this.numberOfChannels = numberOfChannels;

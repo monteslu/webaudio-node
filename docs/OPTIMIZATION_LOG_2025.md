@@ -5,6 +5,7 @@
 **Goal**: Beat `node-web-audio-api` on all performance benchmarks
 
 **Results**:
+
 - ✅ **Channel Ops**: From **-28% slower** → **+129.6% faster** (2.3x speedup!)
 - ✅ **Filter Chain**: From **-3% slower** → **+30.7% faster**
 - ✅ **WaveShaper**: From **FAILED** → **+101.9% faster** (2x speedup!)
@@ -15,13 +16,16 @@
 ## Critical Fix #1: Channel Operations (2.3x Speedup)
 
 ### Problem
+
 Channel splitter/merger benchmark was **28% slower** than competition:
+
 - webaudio-node: 29.61M samples/sec
 - node-web-audio-api: 37.37M samples/sec
 
 ### Root Causes
 
 #### 1. **Filters Processing Stereo Instead of Mono**
+
 Per Web Audio spec, each output of `ChannelSplitter` should be **MONO** (1 channel), not stereo. When you split stereo → process filters → merge, the filters should only process 1 channel (2x faster).
 
 **Issue**: Filters were using static `channels_` member instead of computed channel count.
@@ -58,11 +62,13 @@ int AudioNode::GetChannels() const {
 ```
 
 **Files Changed**:
+
 - `src/native/nodes/audio_node.h` - Made GetChannels() virtual
 - `src/native/nodes/audio_node.cpp` - Implemented dynamic channel computation
 - `src/native/nodes/channel_splitter_node.h` - Override to return 1 (mono)
 
 #### 2. **BiquadFilterNode Using Hardcoded Channels**
+
 Filters were using `channels_` everywhere instead of calling `GetChannels()`.
 
 **Fix**: Added mono fast path to BiquadFilterNode:
@@ -109,9 +115,11 @@ void BiquadFilterNode::Process(float* output, int frame_count, int output_index)
 ```
 
 **Files Changed**:
+
 - `src/native/nodes/biquad_filter_node.cpp` - Use GetChannels(), add mono fast path
 
 #### 3. **Duplicate Processing of Upstream Chain**
+
 When `ChannelSplitter` has 2 outputs (filterL and filterR), each filter calls `splitter.Process()`, causing the upstream chain to be processed **twice per render quantum**.
 
 **Fix**: Added input caching to ChannelSplitterNode:
@@ -146,10 +154,12 @@ void ChannelSplitterNode::Process(float* output, int frame_count, int output_ind
 ```
 
 **Files Changed**:
+
 - `src/native/nodes/channel_splitter_node.h` - Add cache members
 - `src/native/nodes/channel_splitter_node.cpp` - Implement caching logic
 
 #### 4. **Output Port Index Support**
+
 To support ChannelSplitter properly, we needed to track which output port is being requested.
 
 **Fix**: Added `output_index` parameter throughout the processing chain:
@@ -173,7 +183,9 @@ done
 **Files Changed**: All node headers and implementations (20+ files)
 
 ### Result
+
 **Channel Operations: +129.6% faster!**
+
 - Before: 29.61M samples/sec (1.62ms) - **losing by -21%**
 - After: **83.68M samples/sec (0.57ms)** - **winning by +129.6%**
 
@@ -182,13 +194,17 @@ done
 ## Critical Fix #2: Filter Chain (+30.7% improvement)
 
 ### Problem
+
 5 cascaded biquad filters were **3% slower** than competition.
 
 ### Fix
+
 The GetChannels() and mono processing fixes from Channel Ops also improved filter chain performance since filters can now adapt to their input channel count.
 
 ### Result
+
 **Filter Chain: +30.7% faster!**
+
 - Before: ~38M samples/sec - **losing by -3%**
 - After: **39.62M samples/sec** - **winning by +30.7%**
 
@@ -197,15 +213,19 @@ The GetChannels() and mono processing fixes from Channel Ops also improved filte
 ## Critical Fix #3: WaveShaper Support
 
 ### Problem
+
 WaveShaper benchmark **FAILED** with error:
+
 ```
 this.context._engine.setWaveShaperCurve is not a function
 ```
 
 ### Root Cause
+
 The WaveShaper methods were implemented in `AudioEngine` (for real-time contexts) but **not in `OfflineAudioEngine`** (used by benchmarks).
 
 ### Fix
+
 Added WaveShaper support to OfflineAudioEngine:
 
 ```cpp
@@ -245,11 +265,14 @@ Napi::Value OfflineAudioEngine::SetWaveShaperCurve(const Napi::CallbackInfo& inf
 ```
 
 **Files Changed**:
+
 - `src/native/offline_audio_engine.h` - Add method declarations
 - `src/native/offline_audio_engine.cpp` - Implement methods, add include
 
 ### Result
+
 **WaveShaper: +101.9% faster!**
+
 - Before: **FAILED**
 - After: **77.63M samples/sec** - **winning by +101.9%** vs 38.44M
 
@@ -262,6 +285,7 @@ Napi::Value OfflineAudioEngine::SetWaveShaperCurve(const Napi::CallbackInfo& inf
 **Concept**: Per Web Audio spec, nodes compute their channel count based on inputs using `channelCountMode` (default: "max").
 
 **Implementation**:
+
 ```cpp
 class AudioNode {
 public:
@@ -287,6 +311,7 @@ public:
 **Concept**: Nodes with multiple outputs (like ChannelSplitter) need to know which output is being requested.
 
 **Implementation**:
+
 ```cpp
 // Connection tracking
 struct InputConnection {
@@ -308,6 +333,7 @@ virtual void Process(float* output, int frame_count, int output_index = 0) = 0;
 **Concept**: When a node has multiple outputs, each downstream node calls Process(). We should only process inputs once per render quantum.
 
 **Implementation**:
+
 ```cpp
 class ChannelSplitterNode {
 private:
@@ -333,6 +359,7 @@ private:
 ## Final Benchmark Results
 
 ### Core Benchmarks (run-core-benchmarks.js)
+
 ```
 ✅ Offline Rendering    Winner: webaudio-node  (+388.8%)
 ✅ Mixing               Winner: webaudio-node  (+178.7%)
@@ -342,6 +369,7 @@ private:
 ```
 
 ### Full Benchmarks (run-benchmarks.js)
+
 ```
 ✅ Mixing               Winner: webaudio-node  (+59.7%)
 ✅ Automation           Winner: webaudio-node  (+107.3%)
@@ -364,15 +392,19 @@ private:
 ## Key Lessons
 
 ### 1. Spec Compliance Matters for Performance
+
 Following the Web Audio spec (ChannelSplitter outputs are mono) actually **improves performance** because downstream nodes process fewer channels.
 
 ### 2. Avoid Duplicate Processing
+
 When nodes have multiple outputs, implement caching to avoid processing the same input multiple times per render quantum.
 
 ### 3. Dynamic vs Static Properties
+
 Channel count should be computed dynamically based on inputs, not stored statically, to match spec behavior and enable optimizations.
 
 ### 4. Offline != Realtime
+
 Both `AudioEngine` and `OfflineAudioEngine` need the same node control methods, even though offline rendering doesn't stream to hardware.
 
 ---
@@ -380,15 +412,18 @@ Both `AudioEngine` and `OfflineAudioEngine` need the same node control methods, 
 ## TODO: Remaining Optimizations
 
 ### High Priority
+
 - [ ] **Investigate Offline Rendering inconsistency**: Winning in core benchmarks (+388%), losing in full benchmarks (-36%)
 - [ ] **MP3 decoding optimization**: Currently 2x slower than competition
 
 ### Medium Priority
+
 - [ ] Apply GetChannels() fixes to other nodes (Delay, WaveShaper, etc.)
 - [ ] Add mono fast paths to other filter types (IIR, etc.)
 - [ ] Consider caching for other multi-output nodes
 
 ### Low Priority
+
 - [ ] Profile for remaining bottlenecks
 - [ ] Consider SIMD optimizations for specific nodes
 - [ ] Lock-free graph updates for lower latency
@@ -398,22 +433,27 @@ Both `AudioEngine` and `OfflineAudioEngine` need the same node control methods, 
 ## Files Modified
 
 ### Core Architecture
+
 - `src/native/nodes/audio_node.h` - Virtual GetChannels(), output_index parameter
 - `src/native/nodes/audio_node.cpp` - Dynamic channel computation, use computed channels in Mix/Clear
 
 ### Channel Operations
+
 - `src/native/nodes/channel_splitter_node.h` - Override GetChannels() to return 1, add cache members
 - `src/native/nodes/channel_splitter_node.cpp` - Implement input caching
 - `src/native/nodes/channel_merger_node.cpp` - Pass output_index when processing
 
 ### Filter Nodes
+
 - `src/native/nodes/biquad_filter_node.cpp` - Use GetChannels(), add mono fast path
 
 ### WaveShaper Support
+
 - `src/native/offline_audio_engine.h` - Add WaveShaper method declarations
 - `src/native/offline_audio_engine.cpp` - Implement WaveShaper methods
 
 ### All Nodes (Batch Update)
+
 - All `src/native/nodes/*.h` - Add output_index parameter to Process()
 - All `src/native/nodes/*.cpp` - Update Process() signature
 

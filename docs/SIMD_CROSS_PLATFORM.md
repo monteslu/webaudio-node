@@ -4,14 +4,14 @@
 
 SIMD instructions are **architecture-specific**:
 
-| Architecture | SIMD Instruction Set | Availability |
-|--------------|---------------------|--------------|
-| **ARM64** (Apple Silicon, Raspberry Pi 4+) | **NEON** | ✅ Built-in (mandatory in ARMv8) |
-| **ARM64** (newer) | **SVE** | ⚠️ Optional, rare |
-| **x86-64** (Intel/AMD) | **SSE/SSE2** | ✅ Always available (since 2001) |
-| **x86-64** (Intel/AMD) | **AVX/AVX2** | ⚠️ Need runtime detection |
-| **x86-64** (Intel/AMD) | **AVX-512** | ⚠️ Only newer chips |
-| **RISC-V** | **RVV** | ⚠️ Emerging |
+| Architecture                               | SIMD Instruction Set | Availability                     |
+| ------------------------------------------ | -------------------- | -------------------------------- |
+| **ARM64** (Apple Silicon, Raspberry Pi 4+) | **NEON**             | ✅ Built-in (mandatory in ARMv8) |
+| **ARM64** (newer)                          | **SVE**              | ⚠️ Optional, rare                |
+| **x86-64** (Intel/AMD)                     | **SSE/SSE2**         | ✅ Always available (since 2001) |
+| **x86-64** (Intel/AMD)                     | **AVX/AVX2**         | ⚠️ Need runtime detection        |
+| **x86-64** (Intel/AMD)                     | **AVX-512**          | ⚠️ Only newer chips              |
+| **RISC-V**                                 | **RVV**              | ⚠️ Emerging                      |
 
 ## Cross-Platform Strategy
 
@@ -180,6 +180,7 @@ void Mixer::MixBuffer(float* dest, const float* src, int count, float gain) {
 ```
 
 **Platforms where this works:**
+
 - ✅ Apple Silicon (M1/M2/M3) macOS
 - ✅ Apple Silicon Linux (Asahi Linux)
 - ✅ Raspberry Pi 4/5 (ARM64)
@@ -190,30 +191,39 @@ void Mixer::MixBuffer(float* dest, const float* src, int count, float gain) {
 ### Build Flags
 
 **CMake / node-gyp:**
+
 ```json
 // binding.gyp
 {
-  "targets": [{
-    "target_name": "webaudio_native",
-    "conditions": [
-      ["target_arch=='arm64'", {
-        "cflags": ["-march=armv8-a", "-mfpu=neon"],
-        "cflags_cc": ["-march=armv8-a", "-mfpu=neon"],
-        "xcode_settings": {
-          "OTHER_CFLAGS": ["-march=armv8-a"]
+    "targets": [
+        {
+            "target_name": "webaudio_native",
+            "conditions": [
+                [
+                    "target_arch=='arm64'",
+                    {
+                        "cflags": ["-march=armv8-a", "-mfpu=neon"],
+                        "cflags_cc": ["-march=armv8-a", "-mfpu=neon"],
+                        "xcode_settings": {
+                            "OTHER_CFLAGS": ["-march=armv8-a"]
+                        }
+                    }
+                ],
+                [
+                    "target_arch=='x64'",
+                    {
+                        "cflags": ["-msse", "-msse2"],
+                        "cflags_cc": ["-msse", "-msse2"],
+                        "msvs_settings": {
+                            "VCCLCompilerTool": {
+                                "EnableEnhancedInstructionSet": "2" // SSE2
+                            }
+                        }
+                    }
+                ]
+            ]
         }
-      }],
-      ["target_arch=='x64'", {
-        "cflags": ["-msse", "-msse2"],
-        "cflags_cc": ["-msse", "-msse2"],
-        "msvs_settings": {
-          "VCCLCompilerTool": {
-            "EnableEnhancedInstructionSet": "2"  // SSE2
-          }
-        }
-      }]
     ]
-  }]
 }
 ```
 
@@ -222,6 +232,7 @@ void Mixer::MixBuffer(float* dest, const float* src, int count, float gain) {
 Instead of writing CPU-specific code, use a library:
 
 ### Option 1: **Highway** (Google's portable SIMD)
+
 ```cpp
 #include "hwy/highway.h"
 
@@ -247,15 +258,18 @@ void MixBuffer_Highway(float* dest, const float* src, int count, float gain) {
 ```
 
 **Pros:**
+
 - ✅ One codebase, all platforms
 - ✅ Auto-detects best SIMD (AVX-512, AVX2, SSE, NEON)
 - ✅ Well-tested by Google
 
 **Cons:**
+
 - ❌ Extra dependency
 - ❌ Larger binary
 
 ### Option 2: **xsimd** (Lightweight)
+
 Similar to Highway but smaller.
 
 ## Testing SIMD on Different Platforms
@@ -293,6 +307,7 @@ flags : ... sse sse2 sse3 ssse3 sse4_1 sse4_2 avx avx2 ...
 ```
 
 **Why?**
+
 - ✅ No runtime overhead
 - ✅ Works on ARM64 Linux (NEON always available)
 - ✅ Works on x86-64 (SSE/SSE2 always available)
@@ -300,6 +315,7 @@ flags : ... sse sse2 sse3 ssse3 sse4_1 sse4_2 avx avx2 ...
 - ✅ No extra dependencies
 
 **Platforms covered:**
+
 - ✅ macOS (Intel/Apple Silicon)
 - ✅ Linux (x86-64/ARM64)
 - ✅ Windows (x86-64)
@@ -317,6 +333,7 @@ flags : ... sse sse2 sse3 ssse3 sse4_1 sse4_2 avx avx2 ...
 - Just compile with `-march=armv8-a` and use NEON intrinsics
 
 **Code works on:**
+
 - ✅ Raspberry Pi 4/5 (ARM64 Linux)
 - ✅ AWS Graviton servers
 - ✅ Any ARM64 Linux system

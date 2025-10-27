@@ -3,6 +3,7 @@
 ## ✅ Completed Implementation
 
 ### Phase 1: Project Setup & Infrastructure ✓
+
 - ✅ Created `binding.gyp` for native addon compilation
 - ✅ Set up N-API with node-addon-api for Node.js integration
 - ✅ Created build scripts: `install.mjs`, `download-sdl.mjs`, `build.mjs`
@@ -11,6 +12,7 @@
 - ✅ Configured `.gitignore` for native build artifacts
 
 ### Phase 2: Core Audio Engine ✓
+
 - ✅ Implemented `audio_engine.h/.cpp` with SDL2 audio callback
 - ✅ Single SDL audio device initialization
 - ✅ Audio callback running on dedicated audio thread
@@ -22,17 +24,19 @@
 - ✅ N-API bindings exposing engine to JavaScript
 
 ### Phase 3: Core Audio Nodes ✓
+
 - ✅ `AudioNode` - Base class with input/output management
 - ✅ `AudioDestinationNode` - Graph sink that writes to SDL buffer
 - ✅ `AudioBufferSourceNode` - Playback with loop support
 - ✅ `GainNode` - Volume control with automation
 - ✅ `OscillatorNode` - Sine, square, sawtooth, triangle waveforms
 - ✅ `AudioParam` - Full automation with scheduling support
-  - setValueAtTime
-  - linearRampToValueAtTime
-  - exponentialRampToValueAtTime
+    - setValueAtTime
+    - linearRampToValueAtTime
+    - exponentialRampToValueAtTime
 
 ### Phase 4: JavaScript API Layer ✓
+
 - ✅ Refactored `AudioContext.js` to use native engine
 - ✅ Removed multi-device hack
 - ✅ Implemented proper state management (suspended/running/closed)
@@ -43,12 +47,14 @@
 - ✅ Kept FFmpeg integration for `decodeAudioData`
 
 ### Phase 5: Advanced Nodes ✓
+
 - ✅ `BiquadFilterNode` - Lowpass, highpass, bandpass, notch filters
 - ✅ `DelayNode` - Delay line implementation with delay buffers
 - ✅ `PannerNode` - Stereo panning with equal-power law
 - ✅ Utility classes: `Mixer` and `Resampler`
 
 ### Phase 6: Testing & Documentation ✓
+
 - ✅ `test/basic-playback.js` - Oscillator, gain automation, mixing tests
 - ✅ `test/benchmark.js` - Performance testing with multiple oscillators
 - ✅ Updated `README.md` with comprehensive documentation
@@ -58,6 +64,7 @@
 ## Architecture Overview
 
 ### File Structure
+
 ```
 webaudio-node/
 ├── binding.gyp                          # Native build configuration
@@ -114,28 +121,33 @@ webaudio-node/
 ## Key Technical Achievements
 
 ### 1. **Single Audio Device Architecture**
+
 - Eliminated the multi-device hack from v0.x
 - All audio sources mix through a single SDL device
 - Unlimited simultaneous sources (CPU-bound, not device-bound)
 
 ### 2. **Native Audio Processing**
+
 - C++ implementation for performance-critical code
 - SDL audio callback runs on dedicated high-priority thread
 - Pull-based graph traversal (destination pulls from sources)
 - Zero-copy where possible
 
 ### 3. **Proper Mixing**
+
 - Native buffer mixing with gain control
 - Support for multiple inputs per node
 - Proper sample-accurate timing
 
 ### 4. **Web Audio API Compliance**
+
 - Familiar browser API works in Node.js
 - AudioParam automation with scheduling
 - Proper node graph with connect/disconnect
 - State management (suspended/running/closed)
 
 ### 5. **Multi-Platform Support**
+
 - macOS (x64, arm64)
 - Linux (x64, arm64)
 - Windows (x64)
@@ -144,16 +156,16 @@ webaudio-node/
 
 ## What's Different from v0.x
 
-| Aspect | v0.x | v1.x |
-|--------|------|------|
-| **Architecture** | Multiple SDL devices | Single native engine |
-| **Mixing** | Device-level hacks | Proper C++ mixing |
-| **Max Sources** | ~12 devices | Unlimited (CPU-bound) |
-| **Performance** | High overhead | Optimized native code |
-| **SDL Integration** | Via @kmamal/sdl | Direct SDL2 C++ API |
-| **Nodes Available** | 4 basic nodes | 7 nodes + advanced features |
-| **AudioParam** | Basic | Full automation support |
-| **Code Base** | Pure JavaScript | C++ + JavaScript |
+| Aspect              | v0.x                 | v1.x                        |
+| ------------------- | -------------------- | --------------------------- |
+| **Architecture**    | Multiple SDL devices | Single native engine        |
+| **Mixing**          | Device-level hacks   | Proper C++ mixing           |
+| **Max Sources**     | ~12 devices          | Unlimited (CPU-bound)       |
+| **Performance**     | High overhead        | Optimized native code       |
+| **SDL Integration** | Via @kmamal/sdl      | Direct SDL2 C++ API         |
+| **Nodes Available** | 4 basic nodes        | 7 nodes + advanced features |
+| **AudioParam**      | Basic                | Full automation support     |
+| **Code Base**       | Pure JavaScript      | C++ + JavaScript            |
 
 ## Next Steps
 
@@ -202,6 +214,7 @@ npm publish
 ## Future Enhancements
 
 ### Short Term
+
 - Implement AnalyserNode for FFT/waveform analysis
 - Add DynamicsCompressorNode
 - Improve error handling and validation
@@ -209,12 +222,14 @@ npm publish
 - Performance profiling and optimization
 
 ### Medium Term
+
 - ConvolverNode for reverb
 - ChannelSplitterNode and ChannelMergerNode
 - Better HRTF support in PannerNode
 - AudioWorklet-like extensibility
 
 ### Long Term
+
 - MIDI support
 - Real-time audio input (microphone)
 - Lower-level audio control

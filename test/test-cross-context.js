@@ -10,7 +10,7 @@ const buffer = ctx1.createBuffer(2, 48000, 48000);
 // Fill with sine wave
 const ch0 = buffer.getChannelData(0);
 for (let i = 0; i < ch0.length; i++) {
-    ch0[i] = Math.sin(2 * Math.PI * 440 * i / 48000) * 0.5;
+    ch0[i] = Math.sin((2 * Math.PI * 440 * i) / 48000) * 0.5;
 }
 buffer.copyToChannel(ch0, 1);
 

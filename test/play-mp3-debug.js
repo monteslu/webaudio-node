@@ -63,7 +63,9 @@ for (let i = 0; i < 10; i++) {
     }
     const rms = Math.sqrt(sum / timeData.length);
 
-    console.log(`[${(i * 0.5).toFixed(1)}s] RMS level: ${rms.toFixed(4)}, Time: ${context.currentTime.toFixed(2)}s`);
+    console.log(
+        `[${(i * 0.5).toFixed(1)}s] RMS level: ${rms.toFixed(4)}, Time: ${context.currentTime.toFixed(2)}s`
+    );
 }
 
 console.log('\nClosing context...');

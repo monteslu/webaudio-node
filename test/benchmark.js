@@ -13,7 +13,7 @@ async function benchmarkMixing(numOscillators) {
     // Create many oscillators
     for (let i = 0; i < numOscillators; i++) {
         const osc = context.createOscillator();
-        osc.frequency.value = 220 + (i * 10); // Spread frequencies
+        osc.frequency.value = 220 + i * 10; // Spread frequencies
         osc.type = 'sine';
         osc.connect(gainNode);
         oscillators.push(osc);

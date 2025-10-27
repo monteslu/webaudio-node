@@ -15,7 +15,7 @@ const channel1 = laserBuffer.getChannelData(1);
 
 for (let i = 0; i < laserLength; i++) {
     const t = i / context.sampleRate;
-    const freq = 800 - (600 * (i / laserLength)); // Frequency sweep
+    const freq = 800 - 600 * (i / laserLength); // Frequency sweep
     const sample = Math.sin(2 * Math.PI * freq * t) * Math.exp(-t * 5); // Exponential decay
     channel0[i] = sample;
     channel1[i] = sample;
@@ -24,7 +24,7 @@ for (let i = 0; i < laserLength; i++) {
 console.log('Laser sound buffer created:');
 console.log(`  Duration: ${laserDuration}s`);
 console.log(`  Samples: ${laserLength}`);
-console.log(`  Memory: ~${Math.round(laserLength * 2 * 4 / 1024)}KB\n`);
+console.log(`  Memory: ~${Math.round((laserLength * 2 * 4) / 1024)}KB\n`);
 
 // Create master gain
 const masterGain = context.createGain();

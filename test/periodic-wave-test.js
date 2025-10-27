@@ -12,7 +12,8 @@ console.log('  Square wave = sum of odd harmonics: sin(x) + 1/3*sin(3x) + 1/5*si
 const squareReal = new Float32Array(32).fill(0);
 const squareImag = new Float32Array(32);
 for (let i = 0; i < squareImag.length; i++) {
-    if (i % 2 === 1) { // Odd harmonics only
+    if (i % 2 === 1) {
+        // Odd harmonics only
         squareImag[i] = 1.0 / i;
     } else {
         squareImag[i] = 0;
@@ -72,12 +73,12 @@ console.log('  Using specific harmonics: fundamental + 2nd + 3rd + 5th');
 
 const organReal = new Float32Array([0, 0, 0, 0, 0, 0]); // No DC or cosine terms
 const organImag = new Float32Array([
-    0,    // DC (always 0)
-    1.0,  // Fundamental
-    0.5,  // 2nd harmonic
-    0.3,  // 3rd harmonic
-    0,    // 4th harmonic (skip)
-    0.2   // 5th harmonic
+    0, // DC (always 0)
+    1.0, // Fundamental
+    0.5, // 2nd harmonic
+    0.3, // 3rd harmonic
+    0, // 4th harmonic (skip)
+    0.2 // 5th harmonic
 ]);
 
 const organWave = context.createPeriodicWave(organReal, organImag);

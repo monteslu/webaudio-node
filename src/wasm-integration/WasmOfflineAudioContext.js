@@ -205,7 +205,6 @@ export class WasmOfflineAudioContext {
                 successCallback(audioBuffer);
             }
             return audioBuffer;
-
         } catch (error) {
             if (errorCallback) {
                 errorCallback(error);

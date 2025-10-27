@@ -10,6 +10,7 @@ std::memcpy(buffer_data_.data(), data, length * num_channels * sizeof(float));
 ```
 
 **Example**: 100 laser sounds (0.3s each)
+
 - ❌ **OLD**: 100 copies = ~5.8 MB
 - ✅ **NEW**: 1 shared buffer = ~58 KB
 - **Savings**: **100x less memory!**
@@ -17,6 +18,7 @@ std::memcpy(buffer_data_.data(), data, length * num_channels * sizeof(float));
 ## How It Works
 
 ### 1. **AudioBuffer gets a unique ID**
+
 ```javascript
 // Each AudioBuffer now has a unique _id
 const buffer = context.createBuffer(2, length, sampleRate);
@@ -24,6 +26,7 @@ const buffer = context.createBuffer(2, length, sampleRate);
 ```
 
 ### 2. **Buffer registered once with AudioGraph**
+
 ```javascript
 source1.buffer = buffer;
 source2.buffer = buffer;
@@ -32,6 +35,7 @@ source3.buffer = buffer;
 ```
 
 ### 3. **C++ stores buffer in shared_ptr**
+
 ```cpp
 // Single copy stored in AudioGraph
 std::map<uint32_t, SharedBuffer> shared_buffers_;
@@ -44,6 +48,7 @@ struct SharedBuffer {
 ```
 
 ### 4. **All BufferSourceNodes reference the same data**
+
 ```cpp
 // BufferSourceNode just holds a shared_ptr
 std::shared_ptr<std::vector<float>> shared_buffer_data_;
@@ -53,20 +58,22 @@ std::shared_ptr<std::vector<float>> shared_buffer_data_;
 ## API Changes
 
 ### JavaScript Side
+
 ```javascript
 // No changes to user code!
 const buffer = await context.decodeAudioData(audioData);
 
 const source1 = context.createBufferSource();
-source1.buffer = buffer;  // Automatically shared
+source1.buffer = buffer; // Automatically shared
 source1.start();
 
 const source2 = context.createBufferSource();
-source2.buffer = buffer;  // Reuses same buffer in C++
+source2.buffer = buffer; // Reuses same buffer in C++
 source2.start();
 ```
 
 ### C++ Side (New Methods)
+
 ```cpp
 // AudioGraph
 void RegisterBuffer(uint32_t buffer_id, float* data, int length, int channels);
@@ -79,21 +86,25 @@ void SetSharedBuffer(std::shared_ptr<std::vector<float>> data, int length, int n
 ## Performance Impact
 
 ### Memory
+
 - **Before**: O(n) copies where n = number of sources
 - **After**: O(1) - single shared copy
 - **Typical game** (1 music + 20 sounds):
-  - Music: 50 MB → still 50 MB (only 1 playing at once)
-  - 20 sound effects from 5 buffers: 10 MB → 2 MB
-  - **Total savings: 8 MB** ✅
+    - Music: 50 MB → still 50 MB (only 1 playing at once)
+    - 20 sound effects from 5 buffers: 10 MB → 2 MB
+    - **Total savings: 8 MB** ✅
 
 ### CPU
+
 - **Source creation**: ~3x faster (no memcpy)
-  - Before: ~0.1ms per source (with copy)
-  - After: ~0.03ms per source (no copy)
+    - Before: ~0.1ms per source (with copy)
+    - After: ~0.03ms per source (no copy)
 - **Playback**: No change (same mixing cost)
 
 ### Low-End Hardware Verdict
+
 ✅ **Perfect for low-end hardware!**
+
 - 100+ simultaneous sounds: Easy
 - Memory efficient like real browsers
 - Fast source creation for rapid fire effects

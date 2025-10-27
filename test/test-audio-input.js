@@ -94,7 +94,9 @@ const monitorInterval = setInterval(() => {
     const bars = Math.floor(normalizedLevel * barLength);
     const meter = '█'.repeat(bars) + '░'.repeat(barLength - bars);
 
-    console.log(`[${checks}] Buffer: ${available.toString().padStart(6)} samples | ${meter} ${db.toFixed(1)}dB`);
+    console.log(
+        `[${checks}] Buffer: ${available.toString().padStart(6)} samples | ${meter} ${db.toFixed(1)}dB`
+    );
 
     checks++;
     if (checks >= maxChecks) {

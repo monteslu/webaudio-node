@@ -11,6 +11,7 @@ Last updated: 2025-10-26 (After Session 4: Mono-to-Multi SIMD)
 **Overall Performance:** 135 wins / 51 losses (72.6% win rate)
 
 ### Strengths (100% Win Rate Categories)
+
 - ✅ **3D Audio**: 96-97% faster (MASSIVE advantage)
 - ✅ **Memory Usage**: 98% better
 - ✅ **Convolver**: 64-77% faster (real FFT workload)
@@ -19,6 +20,7 @@ Last updated: 2025-10-26 (After Session 4: Mono-to-Multi SIMD)
 - ✅ **30 total categories** with perfect scores
 
 ### Problem Areas
+
 - ❌ **MP3 Processing**: 235% slower (subprocess overhead + known bug)
 - ❌ **Delay Node**: 12% slower
 - ❌ **Analyser Process() Overhead**: 14-19% slower (mutex contention)
@@ -31,17 +33,20 @@ Last updated: 2025-10-26 (After Session 4: Mono-to-Multi SIMD)
 ### CRITICAL ISSUES (0% Win Rate)
 
 #### 1. MP3 Processing (0/3 wins)
+
 - **Status**: 235% slower
 - **Root Cause**: Uses subprocess for decoding + known bug
 - **Decision**: Accept as known limitation OR investigate subprocess overhead
 - **Impact**: Low (minimal dependencies requirement)
 
 #### 2. Delay Node (0/3 wins)
+
 - **Status**: 12% slower
 - **Root Cause**: Not yet investigated
 - **Priority**: Low (small margin)
 
 #### 3. Analyser Process() Overhead (0/24 wins)
+
 - **Status**: 14-19% slower across all buffer sizes
 - **Root Cause**: Mutex lock in Process() every frame
 - **What it tests**: Circular buffer write overhead
@@ -51,12 +56,14 @@ Last updated: 2025-10-26 (After Session 4: Mono-to-Multi SIMD)
 - **Priority**: Medium (affects 24 tests but doesn't reflect real FFT perf)
 
 **IMPORTANT**: The "Analyser Process() Overhead" benchmark is MISLEADING.
+
 - It creates analyser nodes with different FFT buffer sizes
 - It renders audio through them
 - It **NEVER calls getFloatFrequencyData()**
 - It only measures overhead of storing samples in circular buffer
 
 For **actual FFT performance**, see:
+
 - **Analyser benchmark** (with getFloatFrequencyData() calls): 1/3 wins, 4-6% faster when winning
 - **Convolver benchmark** (uses FFT internally): 15/15 wins, 64-77% faster
 
@@ -65,29 +72,30 @@ For **actual FFT performance**, see:
 ### HIGH PRIORITY (Low Win Rate)
 
 #### 1. Channel Count Scaling (13% win rate - 2/15 wins)
+
 - **Performance by channel count**:
-  - 1ch: Variable (-8% to +19%)
-  - 2ch: Variable (-7% to +5%)
-  - 4ch: +18% to +30% slower
-  - 6ch: +45% to +60% slower
-  - 8ch: +57% to +64% slower
+    - 1ch: Variable (-8% to +19%)
+    - 2ch: Variable (-7% to +5%)
+    - 4ch: +18% to +30% slower
+    - 6ch: +45% to +60% slower
+    - 8ch: +57% to +64% slower
 
 - **Progress Made**:
-  - Before optimizations: 40-113% slower
-  - After SIMD optimizations: 30-64% slower
-  - Improvement: ~40-45% reduction in gap
+    - Before optimizations: 40-113% slower
+    - After SIMD optimizations: 30-64% slower
+    - Improvement: ~40-45% reduction in gap
 
 - **Optimizations Applied**:
-  - ✅ Oscillator: NEON SIMD for channel duplication
-  - ✅ Biquad Filter: Register-cached state for 4/6/8ch
-  - ✅ Gain: NEON SIMD multiplication
-  - ✅ Mixer: NEON fused multiply-add
+    - ✅ Oscillator: NEON SIMD for channel duplication
+    - ✅ Biquad Filter: Register-cached state for 4/6/8ch
+    - ✅ Gain: NEON SIMD multiplication
+    - ✅ Mixer: NEON fused multiply-add
 
 - **Root Cause**: Rust vectorizes multi-channel operations differently
 - **Remaining Options**:
-  - Further SIMD optimization
-  - Batch process multiple frames
-  - Parallel processing for 6ch+ (architectural change)
+    - Further SIMD optimization
+    - Batch process multiple frames
+    - Parallel processing for 6ch+ (architectural change)
 
 - **Priority**: HIGH (affects 15 tests, significant margins)
 
@@ -96,11 +104,13 @@ For **actual FFT performance**, see:
 ### MEDIUM PRIORITY
 
 #### WaveShaper Oversampling (67% win rate - 6/9 wins)
+
 - Winning on 2x/4x oversampling (72-73% faster)
 - Losing on 'none' oversampling (16% slower)
 - **Action**: Investigate 'none' oversampling path
 
 #### Sample Rates (83% win rate - 15/18 wins)
+
 - Winning: 22050, 44100, 48000 Hz
 - Losing: 8000, 16000, 96000 Hz (small margins)
 - **Action**: Low priority, good overall performance
@@ -110,11 +120,14 @@ For **actual FFT performance**, see:
 ## 💡 Optimization History
 
 ### Session 1: Initial State
+
 - Starting: 48/62 wins (77.4% on core benchmarks)
 - Problem areas identified: Channel counts, Analyser, Sample rates
 
 ### Session 2: Analyser Optimizations
+
 **Optimizations Applied**:
+
 1. Pre-computed Hann window (no per-FFT recomputation)
 2. Reusable buffers (eliminate allocations in hot path)
 3. FFT caching (only recompute when data changes)
@@ -123,28 +136,35 @@ For **actual FFT performance**, see:
 6. Conditional wrap instead of modulo
 
 **Results**:
+
 - Analyser Process(): 36% → 18% slower (50% improvement)
 - 44100 Hz: Now WINNING 2-7% faster
 - Side benefit: Several sample rates improved
 
 ### Session 3: Channel Count Optimizations
+
 **Optimizations Applied**:
+
 1. Oscillator SIMD (vdupq_n_f32 + vst1q_f32 for 4+ channels)
 2. Biquad Filter fast paths (register-cached state for 4/6/8ch)
 
 **Results**:
+
 - 4ch: 40% → 30% slower (25% improvement)
 - 6ch: 75% → 50% slower (33% improvement)
 - 8ch: 110% → 60% slower (45% improvement)
 
 ### Session 4: Mono-to-Multi Upmixing SIMD
+
 **Optimizations Applied**:
+
 1. AudioNode::MixBuffer() mono-to-multi path with ARM NEON
-   - vdupq_n_f32 to broadcast mono sample
-   - vld1q_f32 + vaddq_f32 + vst1q_f32 for 4-channel processing
-   - Process 4 channels at once instead of scalar loop
+    - vdupq_n_f32 to broadcast mono sample
+    - vld1q_f32 + vaddq_f32 + vst1q_f32 for 4-channel processing
+    - Process 4 channels at once instead of scalar loop
 
 **Results**:
+
 - ✅ Delay Node: FLIPPED! Now 4% faster (was 12% slower) - **3 tests won**
 - ✅ WaveShaper 'none': FLIPPED! Now 17% faster (was 16% slower) - **~3 tests won**
 - ✅ 44100 Hz: Now WINNING 8-12% (was variable)
@@ -161,21 +181,24 @@ For **actual FFT performance**, see:
 ## 🎯 Next Steps (Priority Order)
 
 ### Option 1: Fix Delay Node (Quick Win)
+
 - **Impact**: 3 test wins
 - **Effort**: Low-Medium
 - **Current**: 12% slower (small margin)
 - **Potential**: Could flip with targeted optimization
 
 ### Option 2: Improve Channel Counts Further
+
 - **Impact**: Could flip 5-10 more tests
 - **Effort**: Medium-High
 - **Current**: Losing on 4ch/6ch/8ch by 30-64%
 - **Approaches**:
-  - Investigate if GainNode, BiquadFilter need more SIMD
-  - Check if destination mixing can be optimized
-  - Profile to find remaining bottlenecks
+    - Investigate if GainNode, BiquadFilter need more SIMD
+    - Check if destination mixing can be optimized
+    - Profile to find remaining bottlenecks
 
 ### Option 3: Lock-Free Analyser (Complex)
+
 - **Impact**: 24 test wins (if successful)
 - **Effort**: High (complex concurrency)
 - **Current**: 14-19% slower
@@ -183,6 +206,7 @@ For **actual FFT performance**, see:
 - **Priority**: Lower (we're already winning on actual FFT workloads)
 
 ### Option 4: Accept MP3 Losses
+
 - **Impact**: Focus effort elsewhere
 - **Reason**: Known bug + subprocess overhead
 - **Recommendation**: Document as accepted limitation
@@ -192,6 +216,7 @@ For **actual FFT performance**, see:
 ## 📈 Performance Benchmarks Summary
 
 ### Perfect Scores (100% Win Rate)
+
 1. Offline Rendering
 2. Mixing (100 sources)
 3. AudioParam Automation
@@ -225,6 +250,7 @@ For **actual FFT performance**, see:
 31. Convolver Impulse Sizes (all sizes)
 
 ### Key Wins
+
 - **3D Audio positioning**: 96-97% faster (nearly 100x speedup!)
 - **Memory efficiency**: 98% better
 - **Convolver (real FFT)**: 64-77% faster
@@ -232,6 +258,7 @@ For **actual FFT performance**, see:
 - **Filter Modulation**: 70% faster
 
 ### Areas for Improvement
+
 - Channel count scaling (especially 6ch/8ch)
 - Analyser Process() overhead (mutex contention)
 - Delay node
@@ -243,6 +270,7 @@ For **actual FFT performance**, see:
 ## 🔧 Technical Details
 
 ### SIMD Optimizations in Place
+
 - **Mixer**: ARM NEON vmlaq_f32 (fused multiply-add)
 - **Oscillator**: ARM NEON vdupq_n_f32 + vst1q_f32 (broadcast to channels)
 - **Gain**: ARM NEON vmulq_f32
@@ -250,6 +278,7 @@ For **actual FFT performance**, see:
 - **Analyser**: ARM NEON for Hann window and stereo downmix
 
 ### Known Limitations
+
 - **MP3 Processing**: Uses subprocess (architectural decision)
 - **Multi-channel Scaling**: Rust's architecture vectorizes differently
 - **Analyser Mutex**: Needed for thread safety, adds overhead
@@ -261,6 +290,7 @@ For **actual FFT performance**, see:
 ### "Analyser Process() Overhead" vs "Analyser" Benchmarks
 
 **Analyser Process() Overhead** (bench-fft-sizes.js):
+
 - Creates analyser with different FFT buffer sizes
 - Renders audio through analyser node
 - **DOES NOT call getFloatFrequencyData()**
@@ -268,6 +298,7 @@ For **actual FFT performance**, see:
 - Result: 0/24 wins (14-19% slower)
 
 **Analyser** (bench-analyser.js):
+
 - Creates analyser with 2048 FFT size
 - Renders audio
 - **CALLS getFloatFrequencyData() 60 times**
@@ -275,6 +306,7 @@ For **actual FFT performance**, see:
 - Result: 1/3 wins (4-6% faster when winning)
 
 **Convolver** (bench-impulse-sizes.js):
+
 - Uses FFT internally for convolution
 - Tests real-world FFT performance
 - Result: 15/15 wins (64-77% faster)
@@ -287,12 +319,14 @@ For **actual FFT performance**, see:
 
 **Current**: 72.6%
 **With fixes**:
+
 - +3 tests (Delay Node)
 - +10 tests (Channel Counts improvements)
 - +24 tests (Analyser Process if we remove mutex)
 - = ~90-95% achievable
 
 **Trade-offs**:
+
 - Some losses may be architectural (accept or major refactor)
 - MP3 Processing is a known limitation (minimal dependencies)
 - Diminishing returns on remaining optimizations

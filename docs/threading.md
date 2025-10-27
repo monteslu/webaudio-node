@@ -22,6 +22,7 @@ Browsers use a **true real-time audio architecture**:
 ```
 
 **Key features:**
+
 - **Separate real-time thread** with guaranteed CPU priority
 - **Pull-based rendering** - audio thread pulls frames from graph every ~3ms
 - **Native C++ implementation** - no JavaScript timing issues
@@ -42,6 +43,7 @@ The old `ScriptProcessorNode` tried to run callbacks on the **main JavaScript th
 ```
 
 **Why it failed:**
+
 - JavaScript event loop timing not precise enough for audio (need ~3ms precision)
 - Main thread blocking from UI/DOM events caused audio glitches
 - No CPU priority guarantees
@@ -63,6 +65,7 @@ void AudioContext::AudioCallback(void* userdata, uint8_t* stream, int len) {
 ```
 
 **Architecture:**
+
 ```
 ┌─────────────────────┐         ┌──────────────────────┐
 │   Node.js Thread    │         │  SDL Audio Thread    │
@@ -74,6 +77,7 @@ void AudioContext::AudioCallback(void* userdata, uint8_t* stream, int len) {
 ```
 
 **Benefits:**
+
 - ✅ True real-time audio thread
 - ✅ Guaranteed CPU priority
 - ✅ No JavaScript timing issues
@@ -104,12 +108,14 @@ void AudioContext::AudioCallback(void* userdata, uint8_t* stream, int len) {
 ```
 
 **Implementation details:**
+
 - Pre-render 2 seconds before playback starts
 - 3-second SDL buffer for smooth playback
 - Monitor every 500ms and render more chunks when queue < 1 second
 - Stays 1-2 seconds ahead of playback at all times
 
 **Code:**
+
 ```javascript
 async resume() {
     // 3-second buffer
@@ -136,15 +142,17 @@ _monitorLoop() {
 ```
 
 **Benefits:**
+
 - ✅ Simple implementation
 - ✅ No tight timing requirements
 - ✅ Standard pattern for games and Node.js audio
 - ✅ Works reliably
 
 **Tradeoffs:**
-- ⚠️  Higher latency (1-2 seconds)
-- ⚠️  Not suitable for interactive audio (games with immediate feedback)
-- ⚠️  Uses more memory (large pre-rendered buffers)
+
+- ⚠️ Higher latency (1-2 seconds)
+- ⚠️ Not suitable for interactive audio (games with immediate feedback)
+- ⚠️ Uses more memory (large pre-rendered buffers)
 
 ### @kmamal/node-sdl Limitations
 
@@ -152,7 +160,7 @@ The `@kmamal/sdl` binding only exposes **queue-based API**, not callbacks:
 
 ```javascript
 // ❌ Not available in @kmamal/sdl JavaScript binding
-audioDevice = sdl.audio.openDevice({}, (samples) => {
+audioDevice = sdl.audio.openDevice({}, samples => {
     // Callback never fires
 });
 
@@ -175,6 +183,7 @@ const buffer = await ctx.decodeAudioData(audioData.buffer);
 ```
 
 **Current behavior:**
+
 - Methods are marked `async` for API compatibility
 - WASM decoding functions are synchronous calls
 - Small files (< 5MB): Negligible blocking (< 10ms)
@@ -203,6 +212,7 @@ For lower latency and better architecture, we can use **Node.js Worker Threads**
 We'll use **[rawr](https://github.com/iceddev/rawr)** (battle-tested RPC library) to abstract Worker Thread communication instead of manual postMessage handling.
 
 **Worker Thread (wasm-audio-worker.js):**
+
 ```javascript
 import { Worker } from 'node:worker_threads';
 import rawr from 'rawr';
@@ -253,6 +263,7 @@ setInterval(() => {
 ```
 
 **Main Thread (WasmAudioContext.js):**
+
 ```javascript
 import { Worker } from 'node:worker_threads';
 import rawr from 'rawr';
@@ -308,56 +319,60 @@ createOscillator() {
 - ✅ **Bidirectional calls** - worker can call main thread methods easily
 - ✅ **Battle-tested** - rawr is production-proven in real-world applications
 - ✅ **SharedArrayBuffer support** - enables true zero-copy audio streaming via ring buffer
-  - No memory allocations during rendering
-  - No data copying between threads
-  - Optimal performance for continuous audio streaming
+    - No memory allocations during rendering
+    - No data copying between threads
+    - Optimal performance for continuous audio streaming
 
 ### Challenges
 
 1. **ES Module loading in workers** - need proper configuration
 2. **Async/sync bridging** - Web Audio API is synchronous, but RPC calls are async
-   - Solution: Cache node IDs and parameters on main thread, send commands async
+    - Solution: Cache node IDs and parameters on main thread, send commands async
 3. **Audio buffer streaming** - need efficient way to stream audio from worker to main thread
-   - rawr supports **SharedArrayBuffer** for true zero-copy memory sharing
-   - Alternative: Transferable ArrayBuffers (transfers ownership)
+    - rawr supports **SharedArrayBuffer** for true zero-copy memory sharing
+    - Alternative: Transferable ArrayBuffers (transfers ownership)
 
 ### Implementation Plan
 
 **Phase 1: Proof of Concept**
+
 - Install rawr as dependency
 - Create simple worker that renders sine wave using rawr RPC
 - Verify rawr communication and timing
 - Measure latency and performance vs chunk-ahead buffering
 
 **Phase 2: Full Integration**
+
 - Implement all node creation/connection methods via rawr
 - Handle AudioParam automation commands
 - Implement start/stop lifecycle management
 - Add proper error handling across RPC boundary
 
 **Phase 3: Optimization**
+
 - Tune chunk sizes for latency vs performance
 - Implement **SharedArrayBuffer ring buffer** for zero-copy audio streaming
-  - Worker writes audio to shared ring buffer
-  - Main thread reads from ring buffer and enqueues to SDL
-  - No memory copies or transfers needed
+    - Worker writes audio to shared ring buffer
+    - Main thread reads from ring buffer and enqueues to SDL
+    - No memory copies or transfers needed
 - Add monitoring and diagnostics
 - Compare performance with native C++ implementation
 
 **Phase 4: Audio Decoding (Optional)**
+
 - Offload `decodeAudioData()` to worker for non-blocking operation
 - Reuse rawr infrastructure for decode RPC calls
 
 ## Comparison Matrix
 
-| Feature | Native C++ | WASM Chunk-Ahead | WASM Worker Thread |
-|---------|-----------|------------------|-------------------|
-| **Latency** | ~3ms | 1-2s | ~100ms |
-| **Timing** | SDL RT thread | setTimeout(500ms) | setInterval(0) |
-| **Complexity** | Medium | Simple | High |
-| **CPU Priority** | Real-time | Normal | Normal |
-| **Use Cases** | All | Background music | Most audio |
-| **Status** | ✅ Production | ✅ Production | 🚧 Future |
+| Feature          | Native C++    | WASM Chunk-Ahead  | WASM Worker Thread |
+| ---------------- | ------------- | ----------------- | ------------------ |
+| **Latency**      | ~3ms          | 1-2s              | ~100ms             |
+| **Timing**       | SDL RT thread | setTimeout(500ms) | setInterval(0)     |
+| **Complexity**   | Medium        | Simple            | High               |
+| **CPU Priority** | Real-time     | Normal            | Normal             |
+| **Use Cases**    | All           | Background music  | Most audio         |
+| **Status**       | ✅ Production | ✅ Production     | 🚧 Future          |
 
 ## Why Games Use Chunk-Ahead Buffering
 

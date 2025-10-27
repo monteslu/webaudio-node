@@ -8,7 +8,8 @@ export class AnalyserNode extends AudioNode {
         this._fftSize = options.fftSize || 2048;
         this._minDecibels = options.minDecibels !== undefined ? options.minDecibels : -100;
         this._maxDecibels = options.maxDecibels !== undefined ? options.maxDecibels : -30;
-        this._smoothingTimeConstant = options.smoothingTimeConstant !== undefined ? options.smoothingTimeConstant : 0.8;
+        this._smoothingTimeConstant =
+            options.smoothingTimeConstant !== undefined ? options.smoothingTimeConstant : 0.8;
     }
 
     get fftSize() {

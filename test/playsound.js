@@ -7,7 +7,6 @@ const __dirname = new URL('.', import.meta.url).pathname;
 
 const audioContext = new AudioContext();
 
-
 export async function loadSound(url) {
     const soundBuffer = await readFile(url);
 

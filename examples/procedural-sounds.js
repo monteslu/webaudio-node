@@ -43,7 +43,7 @@ async function generateLaser(variation) {
 
 // Swoosh sound generator
 async function generateSwoosh(variation) {
-    const ctx = new OfflineAudioContext(2, 24000, 48000);  // 0.5s
+    const ctx = new OfflineAudioContext(2, 24000, 48000); // 0.5s
 
     const osc = ctx.createOscillator();
     osc.type = 'sine';
@@ -69,7 +69,7 @@ async function generateSwoosh(variation) {
 
 // Hit/impact sound generator
 async function generateHit(variation) {
-    const ctx = new OfflineAudioContext(2, 12000, 48000);  // 0.25s
+    const ctx = new OfflineAudioContext(2, 12000, 48000); // 0.25s
 
     const osc = ctx.createOscillator();
     osc.type = 'sawtooth';
@@ -92,9 +92,9 @@ async function generateHit(variation) {
 
 // Blip sound generator
 async function generateBlip(variation) {
-    const ctx = new OfflineAudioContext(2, 4800, 48000);  // 0.1s
+    const ctx = new OfflineAudioContext(2, 4800, 48000); // 0.1s
 
-    const freq = 400 + variation * 100;  // Ascending blips
+    const freq = 400 + variation * 100; // Ascending blips
 
     const osc = ctx.createOscillator();
     osc.type = 'square';

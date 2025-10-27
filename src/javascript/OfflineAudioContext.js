@@ -210,7 +210,6 @@ export class OfflineAudioContext {
                 successCallback(audioBuffer);
             }
             return audioBuffer;
-
         } catch (error) {
             if (errorCallback) {
                 errorCallback(error);

@@ -89,7 +89,9 @@ const interval = setInterval(() => {
     const sampleRateReduction = 0.3 + 0.4 * Math.sin(time);
     bitCrusher.parameters.get('sampleRateReduction').value = sampleRateReduction;
 
-    console.log(`⚙️  Bit depth: ${bitDepth.toFixed(0)} | Sample rate: ${(sampleRateReduction * 100).toFixed(0)}%`);
+    console.log(
+        `⚙️  Bit depth: ${bitDepth.toFixed(0)} | Sample rate: ${(sampleRateReduction * 100).toFixed(0)}%`
+    );
 
     if (time >= 3) {
         clearInterval(interval);

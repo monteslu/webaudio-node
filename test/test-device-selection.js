@@ -2,7 +2,7 @@
 import { AudioContext } from './index.js';
 
 console.log('Testing Audio Device Selection API\n');
-console.log('=' .repeat(60));
+console.log('='.repeat(60));
 
 // 1. Enumerate devices
 console.log('\n1. Enumerating audio devices:');
@@ -78,7 +78,6 @@ if (outputDevices.length > 1) {
 
         console.log('\n   Playing on default device for 2 seconds...');
         await new Promise(resolve => setTimeout(resolve, 2000));
-
     } catch (error) {
         console.error(`   ❌ Failed to switch device: ${error.message}`);
     }
@@ -105,7 +104,9 @@ console.log('\n' + '='.repeat(60));
 console.log('✅ Device selection API test complete!\n');
 
 console.log('Summary:');
-console.log(`  - Found ${devices.length} audio device(s) (${outputDevices.length} output, ${inputDevices.length} input)`);
+console.log(
+    `  - Found ${devices.length} audio device(s) (${outputDevices.length} output, ${inputDevices.length} input)`
+);
 console.log(`  - Default device playback: ✓`);
 if (outputDevices.length > 1) {
     console.log(`  - Device switching: ✓`);

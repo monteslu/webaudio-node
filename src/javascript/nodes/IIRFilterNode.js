@@ -39,7 +39,10 @@ export class IIRFilterNode extends AudioNode {
             throw new TypeError('phaseResponse must be a Float32Array');
         }
 
-        if (frequencyHz.length !== magResponse.length || frequencyHz.length !== phaseResponse.length) {
+        if (
+            frequencyHz.length !== magResponse.length ||
+            frequencyHz.length !== phaseResponse.length
+        ) {
             throw new Error('All arrays must have the same length');
         }
 

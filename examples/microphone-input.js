@@ -68,13 +68,14 @@ const monitorInterval = setInterval(() => {
     const db = 20 * Math.log10(rms);
 
     // Create simple volume bar
-    const bars = Math.max(0, Math.min(50, Math.floor((db + 60) / 60 * 50)));
+    const bars = Math.max(0, Math.min(50, Math.floor(((db + 60) / 60) * 50)));
     const volumeBar = '█'.repeat(bars) + '░'.repeat(50 - bars);
 
     process.stdout.write(`\r📊 Level: [${volumeBar}] ${db.toFixed(1)} dB  `);
 
     updateCount++;
-    if (updateCount >= 100) {  // Run for ~10 seconds
+    if (updateCount >= 100) {
+        // Run for ~10 seconds
         clearInterval(monitorInterval);
         console.log('\n\n⏹️  Stopping microphone capture...');
         micSource.stop();

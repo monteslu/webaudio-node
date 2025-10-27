@@ -9,7 +9,7 @@ const mp3Data = readFileSync('test/samples/rising_sun.mp3');
 // Create offline context for 5 seconds at 48kHz
 const ctx = new OfflineAudioContext({
     numberOfChannels: 2,
-    length: 48000 * 5,  // 5 seconds
+    length: 48000 * 5, // 5 seconds
     sampleRate: 48000
 });
 

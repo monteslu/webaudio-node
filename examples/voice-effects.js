@@ -23,7 +23,7 @@ const micSource = ctx.createMediaStreamSource({ deviceIndex: 0 });
 
 // Create effects chain
 const preGain = ctx.createGain();
-preGain.gain.value = 2.0;  // Boost input
+preGain.gain.value = 2.0; // Boost input
 
 // Low-cut filter (remove rumble)
 const lowCut = ctx.createBiquadFilter();
@@ -35,7 +35,7 @@ const presence = ctx.createBiquadFilter();
 presence.type = 'peaking';
 presence.frequency.value = 3000;
 presence.Q.value = 1.0;
-presence.gain.value = 3.0;  // +3dB boost
+presence.gain.value = 3.0; // +3dB boost
 
 // Compressor (even out volume)
 const compressor = ctx.createDynamicsCompressor();
@@ -95,7 +95,7 @@ const monitorInterval = setInterval(() => {
     const rms = Math.sqrt(sum / dataArray.length);
     const db = 20 * Math.log10(rms);
 
-    const bars = Math.max(0, Math.min(50, Math.floor((db + 60) / 60 * 50)));
+    const bars = Math.max(0, Math.min(50, Math.floor(((db + 60) / 60) * 50)));
     const volumeBar = '█'.repeat(bars) + '░'.repeat(50 - bars);
 
     process.stdout.write(`\r🔊 Output: [${volumeBar}] ${db.toFixed(1)} dB  `);

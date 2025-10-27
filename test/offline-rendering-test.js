@@ -9,13 +9,13 @@ async function testSimpleOscillator() {
 
     const offlineCtx = new OfflineAudioContext({
         numberOfChannels: 2,
-        length: 48000,  // 1 second at 48kHz
+        length: 48000, // 1 second at 48kHz
         sampleRate: 48000
     });
 
     // Create oscillator
     const osc = offlineCtx.createOscillator();
-    osc.frequency.value = 440;  // A4 note
+    osc.frequency.value = 440; // A4 note
     osc.type = 'sine';
     osc.connect(offlineCtx.destination);
     osc.start(0);
@@ -25,8 +25,12 @@ async function testSimpleOscillator() {
     const buffer = await offlineCtx.startRendering();
     const renderTime = Date.now() - startTime;
 
-    console.log(`  ✅ Rendered in ${renderTime}ms (${(48000 / renderTime).toFixed(1)}x faster than real-time)`);
-    console.log(`  Buffer: ${buffer.length} samples, ${buffer.numberOfChannels} channels, ${buffer.sampleRate}Hz`);
+    console.log(
+        `  ✅ Rendered in ${renderTime}ms (${(48000 / renderTime).toFixed(1)}x faster than real-time)`
+    );
+    console.log(
+        `  Buffer: ${buffer.length} samples, ${buffer.numberOfChannels} channels, ${buffer.sampleRate}Hz`
+    );
 
     // Verify buffer has audio data
     const leftChannel = buffer.getChannelData(0);
@@ -49,17 +53,17 @@ async function testSimpleOscillator() {
 async function testGainEnvelope() {
     console.log('Test 2: Rendering with gain envelope (fade in/out)...');
 
-    const offlineCtx = new OfflineAudioContext(2, 96000, 48000);  // 2 seconds
+    const offlineCtx = new OfflineAudioContext(2, 96000, 48000); // 2 seconds
 
     const osc = offlineCtx.createOscillator();
-    osc.frequency.value = 220;  // A3 note
+    osc.frequency.value = 220; // A3 note
     osc.type = 'sine';
 
     const gain = offlineCtx.createGain();
     gain.gain.setValueAtTime(0, 0);
-    gain.gain.linearRampToValueAtTime(1.0, 0.5);   // Fade in over 0.5s
-    gain.gain.setValueAtTime(1.0, 1.5);            // Hold
-    gain.gain.linearRampToValueAtTime(0, 2.0);     // Fade out over 0.5s
+    gain.gain.linearRampToValueAtTime(1.0, 0.5); // Fade in over 0.5s
+    gain.gain.setValueAtTime(1.0, 1.5); // Hold
+    gain.gain.linearRampToValueAtTime(0, 2.0); // Fade out over 0.5s
 
     osc.connect(gain);
     gain.connect(offlineCtx.destination);
@@ -70,7 +74,9 @@ async function testGainEnvelope() {
     const buffer = await offlineCtx.startRendering();
     const renderTime = Date.now() - startTime;
 
-    console.log(`  ✅ Rendered in ${renderTime}ms (${(96000 / renderTime).toFixed(1)}x faster than real-time)`);
+    console.log(
+        `  ✅ Rendered in ${renderTime}ms (${(96000 / renderTime).toFixed(1)}x faster than real-time)`
+    );
 
     // Check envelope worked
     const leftChannel = buffer.getChannelData(0);
@@ -95,7 +101,7 @@ async function testGainEnvelope() {
 async function testProceduralSound() {
     console.log('Test 3: Procedural laser sound generation...');
 
-    const offlineCtx = new OfflineAudioContext(2, 14400, 48000);  // 0.3 seconds
+    const offlineCtx = new OfflineAudioContext(2, 14400, 48000); // 0.3 seconds
 
     // Frequency sweep (laser effect)
     const osc = offlineCtx.createOscillator();
@@ -119,7 +125,9 @@ async function testProceduralSound() {
 
     console.log(`  ✅ Generated in ${renderTime}ms`);
     console.log('  This buffer could be reused for 100+ laser shots in a game!');
-    console.log(`  Memory: ~${(buffer.length * buffer.numberOfChannels * 4 / 1024).toFixed(1)} KB\n`);
+    console.log(
+        `  Memory: ~${((buffer.length * buffer.numberOfChannels * 4) / 1024).toFixed(1)} KB\n`
+    );
 
     return buffer;
 }
@@ -128,10 +136,10 @@ async function testProceduralSound() {
 async function testMixing() {
     console.log('Test 4: Mixing multiple oscillators...');
 
-    const offlineCtx = new OfflineAudioContext(2, 48000, 48000);  // 1 second
+    const offlineCtx = new OfflineAudioContext(2, 48000, 48000); // 1 second
 
     // Create chord (C major: C4, E4, G4)
-    const frequencies = [261.63, 329.63, 392.00];
+    const frequencies = [261.63, 329.63, 392.0];
 
     frequencies.forEach(freq => {
         const osc = offlineCtx.createOscillator();
@@ -139,7 +147,7 @@ async function testMixing() {
         osc.type = 'sine';
 
         const gain = offlineCtx.createGain();
-        gain.gain.value = 0.3;  // Reduce volume so they don't clip
+        gain.gain.value = 0.3; // Reduce volume so they don't clip
 
         osc.connect(gain);
         gain.connect(offlineCtx.destination);
@@ -216,7 +224,6 @@ async function runTests() {
         console.log('  - Perfect for procedural sound generation');
         console.log('  - Can pre-render complex sounds and cache them');
         console.log('  - Ready for game audio! 🎮');
-
     } catch (error) {
         console.error('❌ Test failed:', error);
         process.exit(1);

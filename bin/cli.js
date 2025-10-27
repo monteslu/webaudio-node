@@ -28,7 +28,9 @@ try {
     const ctx = new AudioContext({ sampleRate: 48000 });
     const buffer = await ctx.decodeAudioData(audioData.buffer);
 
-    console.log(`Playing: ${buffer.duration.toFixed(2)}s, ${buffer.numberOfChannels} channel(s), ${buffer.sampleRate}Hz`);
+    console.log(
+        `Playing: ${buffer.duration.toFixed(2)}s, ${buffer.numberOfChannels} channel(s), ${buffer.sampleRate}Hz`
+    );
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -42,7 +44,6 @@ try {
 
     source.start();
     await ctx.resume();
-
 } catch (error) {
     console.error('Error:', error.message);
     process.exit(1);

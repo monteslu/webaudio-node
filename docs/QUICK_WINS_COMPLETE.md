@@ -7,13 +7,16 @@ All "quick win" optimizations have been implemented and tested.
 ## What Was Changed
 
 ### 1. ✅ Pre-allocated param_buffer in AudioGraph
+
 **Before:**
+
 ```cpp
 // Created new vector every audio callback (malloc in hot path!)
 std::vector<float> param_buffer(frame_count * channels_, 0.0f);
 ```
 
 **After:**
+
 ```cpp
 // AudioGraph.h - Added member variable
 std::vector<float> param_buffer_;
@@ -28,6 +31,7 @@ if (param_buffer_.size() < static_cast<size_t>(param_buffer_size)) {
 ```
 
 **Impact:**
+
 - ❌ **Before**: Heap allocation every 10ms (audio callback)
 - ✅ **After**: Zero allocations in steady state
 - **Savings**: ~5-10% CPU
@@ -35,7 +39,9 @@ if (param_buffer_.size() < static_cast<size_t>(param_buffer_size)) {
 ---
 
 ### 2. ✅ Skip SetCurrentTime on Inactive Nodes
+
 **Before:**
+
 ```cpp
 // Updated ALL nodes every callback, even stopped ones
 for (auto& pair : nodes_) {
@@ -44,6 +50,7 @@ for (auto& pair : nodes_) {
 ```
 
 **After:**
+
 ```cpp
 // Only update active nodes + source nodes (for scheduled starts)
 for (auto& pair : nodes_) {
@@ -58,6 +65,7 @@ for (auto& pair : nodes_) {
 ```
 
 **Impact:**
+
 - ❌ **Before**: Wasted cache misses on inactive nodes
 - ✅ **After**: Skip ~80% of nodes in typical game
 - **Savings**: ~5-10% CPU (more with many nodes)
@@ -65,7 +73,9 @@ for (auto& pair : nodes_) {
 ---
 
 ### 3. ✅ Increased input_buffer Pre-allocation
+
 **Before:**
+
 ```cpp
 // AudioNode constructor
 input_buffer_(4096 * channels, 0.0f)
@@ -77,6 +87,7 @@ if (input_buffer_.size() < static_cast<size_t>(frame_count * channels_)) {
 ```
 
 **After:**
+
 ```cpp
 // AudioNode constructor - Double the pre-allocation
 input_buffer_(8192 * channels, 0.0f)
@@ -85,6 +96,7 @@ input_buffer_(8192 * channels, 0.0f)
 ```
 
 **Impact:**
+
 - ❌ **Before**: Branch misprediction possible
 - ✅ **After**: Branch almost always not taken
 - **Savings**: ~2-5% CPU
@@ -97,18 +109,19 @@ input_buffer_(8192 * channels, 0.0f)
 
 ### Typical Game Scenario (Music + 20 sounds)
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **Allocations/callback** | 1 malloc | 0 malloc | ✅ 100% fewer |
-| **Nodes updated** | All (~25) | Active (~5) | ✅ 80% fewer |
-| **Buffer resizes** | Occasional | Never | ✅ 100% fewer |
-| **CPU usage** | ~2.5% | **~1.9%** | **✅ 24% faster** |
+| Metric                   | Before     | After       | Improvement       |
+| ------------------------ | ---------- | ----------- | ----------------- |
+| **Allocations/callback** | 1 malloc   | 0 malloc    | ✅ 100% fewer     |
+| **Nodes updated**        | All (~25)  | Active (~5) | ✅ 80% fewer      |
+| **Buffer resizes**       | Occasional | Never       | ✅ 100% fewer     |
+| **CPU usage**            | ~2.5%      | **~1.9%**   | **✅ 24% faster** |
 
 ---
 
 ## Test Results
 
 ### ✅ 100 Simultaneous Laser Sounds
+
 ```
 ✅ Created 100 sources in 3.43ms (0.03ms each)
 ✅ Perfect playback, no stuttering
@@ -116,6 +129,7 @@ input_buffer_(8192 * channels, 0.0f)
 ```
 
 ### ✅ Layered MP3 Playback (5 instances)
+
 ```
 ✅ Smooth playback with 0.5s stagger
 ✅ No audio glitches
@@ -136,6 +150,7 @@ input_buffer_(8192 * channels, 0.0f)
 ## Next Steps
 
 **Phase 2: SIMD Mixing**
+
 - Implement cross-platform SIMD (NEON/SSE)
 - Expected 4-8x faster mixing
 - Enables 500+ simultaneous sounds
@@ -145,10 +160,12 @@ input_buffer_(8192 * channels, 0.0f)
 ## Memory Impact
 
 **Before Phase 1:**
+
 - Base memory: Same
 - Runtime allocations: 1 per callback
 
 **After Phase 1:**
+
 - Base memory: +64 KB (pre-allocated buffers)
 - Runtime allocations: 0 ✅
 
@@ -159,6 +176,7 @@ input_buffer_(8192 * channels, 0.0f)
 ## Low-End Hardware Verdict
 
 ✅ **Even Better Now!**
+
 - Fewer allocations = less GC pressure
 - Better cache locality = faster
 - Lower CPU = longer battery life

@@ -17,7 +17,7 @@ function hashString(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
+        hash = (hash << 5) - hash + char;
         hash = hash & hash;
     }
     return Math.abs(hash).toString(16).padStart(8, '0');
@@ -75,27 +75,35 @@ export class MediaStreamSourceNode {
         const device = this._findInputDevice();
 
         // Open SDL recording device with callback that writes to WASM ring buffer
-        this._inputDevice = sdl.audio.openDevice(device, {
-            type: 'recording',
-            frequency: this._sampleRate,
-            channels: this._channels,
-            format: 'f32',
-            buffered: 65536 // Must be power of 2 (~340ms at 48kHz mono)
-        }, audioData => {
-            // Audio callback - write directly to WASM ring buffer
-            const sampleCount = audioData.length;
+        this._inputDevice = sdl.audio.openDevice(
+            device,
+            {
+                type: 'recording',
+                frequency: this._sampleRate,
+                channels: this._channels,
+                format: 'f32',
+                buffered: 65536 // Must be power of 2 (~340ms at 48kHz mono)
+            },
+            audioData => {
+                // Audio callback - write directly to WASM ring buffer
+                const sampleCount = audioData.length;
 
-            // Allocate WASM memory for input data
-            const inputPtr = wasmModule._malloc(sampleCount * 4); // 4 bytes per float
-            const inputHeap = new Float32Array(wasmModule.HEAPF32.buffer, inputPtr, sampleCount);
-            inputHeap.set(audioData);
+                // Allocate WASM memory for input data
+                const inputPtr = wasmModule._malloc(sampleCount * 4); // 4 bytes per float
+                const inputHeap = new Float32Array(
+                    wasmModule.HEAPF32.buffer,
+                    inputPtr,
+                    sampleCount
+                );
+                inputHeap.set(audioData);
 
-            // Write to ring buffer
-            wasmModule._writeInputData(this._wasmState, inputPtr, sampleCount);
+                // Write to ring buffer
+                wasmModule._writeInputData(this._wasmState, inputPtr, sampleCount);
 
-            // Free input buffer
-            wasmModule._free(inputPtr);
-        });
+                // Free input buffer
+                wasmModule._free(inputPtr);
+            }
+        );
 
         // Start WASM node
         wasmModule._startMediaStreamSource(this._wasmState);
@@ -191,13 +199,15 @@ export class MediaStreamSourceNode {
         return {
             id: 'mediastream-' + this.nodeId,
             active: this._isCapturing,
-            getTracks: () => [{
-                kind: 'audio',
-                id: 'track-' + this.nodeId,
-                enabled: this._isCapturing,
-                label: this._deviceId || 'default',
-                readyState: this._isCapturing ? 'live' : 'ended'
-            }]
+            getTracks: () => [
+                {
+                    kind: 'audio',
+                    id: 'track-' + this.nodeId,
+                    enabled: this._isCapturing,
+                    label: this._deviceId || 'default',
+                    readyState: this._isCapturing ? 'live' : 'ended'
+                }
+            ]
         };
     }
 }

@@ -60,7 +60,6 @@ export default [
             'examples/**',
             'test-*.js',
             'test/**',
-            '!test/api-suite.js',
             'AudioBuffer.js',
             'AudioBufferSourceNode.js',
             'AudioContext.js',

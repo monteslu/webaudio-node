@@ -21,7 +21,7 @@ export class WasmAudioEngine {
         this.graphId = wasmModule._createAudioGraph(
             this.sampleRate,
             this.numberOfChannels,
-            128  // buffer size (standard Web Audio quantum)
+            128 // buffer size (standard Web Audio quantum)
         );
         this.initialized = true;
     }
@@ -39,13 +39,7 @@ export class WasmAudioEngine {
     }
 
     connectNodes(sourceId, destId, sourceOutput = 0, destInput = 0) {
-        wasmModule._connectNodes(
-            this.graphId,
-            sourceId,
-            destId,
-            sourceOutput,
-            destInput
-        );
+        wasmModule._connectNodes(this.graphId, sourceId, destId, sourceOutput, destInput);
     }
 
     connectToParam(sourceId, destId, paramName, sourceOutput = 0) {
@@ -53,13 +47,7 @@ export class WasmAudioEngine {
         const paramNamePtr = wasmModule._malloc(lengthBytes);
         wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
 
-        wasmModule._connectToParam(
-            this.graphId,
-            sourceId,
-            destId,
-            paramNamePtr,
-            sourceOutput
-        );
+        wasmModule._connectToParam(this.graphId, sourceId, destId, paramNamePtr, sourceOutput);
         wasmModule._free(paramNamePtr);
     }
 
@@ -80,11 +68,7 @@ export class WasmAudioEngine {
         // Allocate WASM memory for buffer data
         const totalSamples = length * channels;
         const bufferPtr = wasmModule._malloc(totalSamples * 4); // 4 bytes per float
-        const bufferHeap = new Float32Array(
-            wasmModule.HEAPF32.buffer,
-            bufferPtr,
-            totalSamples
-        );
+        const bufferHeap = new Float32Array(wasmModule.HEAPF32.buffer, bufferPtr, totalSamples);
         bufferHeap.set(bufferData);
 
         wasmModule._setNodeBuffer(this.graphId, nodeId, bufferPtr, length, channels);
@@ -107,7 +91,14 @@ export class WasmAudioEngine {
         const paramNamePtr = wasmModule._malloc(lengthBytes);
         wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
 
-        wasmModule._scheduleParameterRamp(this.graphId, nodeId, paramNamePtr, value, time, exponential);
+        wasmModule._scheduleParameterRamp(
+            this.graphId,
+            nodeId,
+            paramNamePtr,
+            value,
+            time,
+            exponential
+        );
         wasmModule._free(paramNamePtr);
     }
 
@@ -149,7 +140,11 @@ export class WasmAudioEngine {
 
     setNodePeriodicWave(nodeId, wavetable) {
         const wavetablePtr = wasmModule._malloc(wavetable.length * 4);
-        const wavetableHeap = new Float32Array(wasmModule.HEAPF32.buffer, wavetablePtr, wavetable.length);
+        const wavetableHeap = new Float32Array(
+            wasmModule.HEAPF32.buffer,
+            wavetablePtr,
+            wavetable.length
+        );
         wavetableHeap.set(wavetable);
 
         wasmModule._setNodePeriodicWave(this.graphId, nodeId, wavetablePtr, wavetable.length);
@@ -229,11 +224,7 @@ export class WasmAudioEngine {
         wasmModule._processGraph(this.graphId, outputPtr, frameCount);
 
         // Copy result to output array
-        const wasmBuffer = new Float32Array(
-            wasmModule.HEAPF32.buffer,
-            outputPtr,
-            totalSamples
-        );
+        const wasmBuffer = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
         outputArray.set(wasmBuffer);
 
         // Free temp buffer
@@ -244,11 +235,7 @@ export class WasmAudioEngine {
         // Allocate output buffer in WASM memory
         const totalSamples = this.length * this.numberOfChannels;
         const outputPtr = wasmModule._malloc(totalSamples * 4);
-        const outputBuffer = new Float32Array(
-            wasmModule.HEAPF32.buffer,
-            outputPtr,
-            totalSamples
-        );
+        const outputBuffer = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
 
         // Process in blocks (standard Web Audio quantum size)
         const blockSize = 128;
@@ -261,7 +248,7 @@ export class WasmAudioEngine {
             // Call WASM processGraph - ALL graph traversal and processing happens in WASM!
             wasmModule._processGraph(
                 this.graphId,
-                outputPtr + (startFrame * this.numberOfChannels * 4),
+                outputPtr + startFrame * this.numberOfChannels * 4,
                 framesToProcess
             );
         }

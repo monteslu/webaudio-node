@@ -1,59 +1,59 @@
 {
-  "name": "webaudio-node",
-  "version": "0.3.0",
-  "description": "Full-featured Web Audio API for Node.js with WASM and SIMD optimizations",
-  "main": "index.js",
-  "type": "module",
-  "bin": {
-    "webaudio-node": "./bin/cli.js"
-  },
-  "scripts": {
-    "build:wasm": "./scripts/build-wasm-unified.sh",
-    "test": "node test/api-suite.js",
-    "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov node test/api-suite.js",
-    "benchmark": "node test/benchmarks/run-benchmarks.js",
-    "benchmark:docs": "node test/benchmarks/generate-docs-benchmark.mjs",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write \"**/*.{js,json,md}\"",
-    "format:check": "prettier --check \"**/*.{js,json,md}\"",
-    "pretest": "npm run lint",
-    "prepublishOnly": "npm run build:wasm && npm run test:coverage"
-  },
-  "keywords": [
-    "Node",
-    "WebAudio",
-    "Audio",
-    "WASM",
-    "audio-processing",
-    "mp3",
-    "ogg",
-    "wav",
-    "flac",
-    "aac",
-    "cli",
-    "audio-player",
-    "sdl",
-    "high-performance",
-    "SIMD",
-    "real-time"
-  ],
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "author": "Luis Montes",
-  "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/monteslu/webaudio-node.git"
-  },
-  "dependencies": {
-    "@kmamal/sdl": "^0.11.13"
-  },
-  "devDependencies": {
-    "c8": "^10.1.3",
-    "eslint": "^9.17.0",
-    "node-web-audio-api": "^1.0.4",
-    "prettier": "^3.4.2"
-  }
+    "name": "webaudio-node",
+    "version": "0.3.0",
+    "description": "Full-featured Web Audio API for Node.js with WASM and SIMD optimizations",
+    "main": "index.js",
+    "type": "module",
+    "bin": {
+        "webaudio-node": "./bin/cli.js"
+    },
+    "scripts": {
+        "build:wasm": "./scripts/build-wasm-unified.sh",
+        "test": "node test/api-suite.js",
+        "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov node test/api-suite.js",
+        "benchmark": "node test/benchmarks/run-benchmarks.js",
+        "benchmark:docs": "node test/benchmarks/generate-docs-benchmark.mjs",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format": "prettier --write \"**/*.{js,json,md}\"",
+        "format:check": "prettier --check \"**/*.{js,json,md}\"",
+        "pretest": "npm run lint",
+        "prepublishOnly": "npm run build:wasm && npm run test:coverage"
+    },
+    "keywords": [
+        "Node",
+        "WebAudio",
+        "Audio",
+        "WASM",
+        "audio-processing",
+        "mp3",
+        "ogg",
+        "wav",
+        "flac",
+        "aac",
+        "cli",
+        "audio-player",
+        "sdl",
+        "high-performance",
+        "SIMD",
+        "real-time"
+    ],
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "author": "Luis Montes",
+    "license": "ISC",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/monteslu/webaudio-node.git"
+    },
+    "dependencies": {
+        "@kmamal/sdl": "^0.11.13"
+    },
+    "devDependencies": {
+        "c8": "^10.1.3",
+        "eslint": "^9.17.0",
+        "node-web-audio-api": "^1.0.4",
+        "prettier": "^3.4.2"
+    }
 }

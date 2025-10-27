@@ -7,11 +7,13 @@ This Node.js implementation of the Web Audio API is now **COMPLETE** with all pr
 ## Implemented Nodes (16 total)
 
 ### Source Nodes
+
 - ✅ **OscillatorNode** - Generate sine, square, sawtooth, triangle, and custom waveforms
 - ✅ **AudioBufferSourceNode** - Play audio from memory buffers
 - ✅ **ConstantSourceNode** - Generate constant values for modulation
 
 ### Processing Nodes
+
 - ✅ **GainNode** - Volume control with automation
 - ✅ **DelayNode** - Time-based delay effects
 - ✅ **BiquadFilterNode** - Versatile filters (lowpass, highpass, bandpass, etc.)
@@ -21,13 +23,16 @@ This Node.js implementation of the Web Audio API is now **COMPLETE** with all pr
 - ✅ **ConvolverNode** - Convolution reverb and room simulation
 
 ### Spatial Audio
+
 - ✅ **PannerNode** - 3D positional audio with distance attenuation
 - ✅ **StereoPannerNode** - Simple stereo panning
 
 ### Analysis
+
 - ✅ **AnalyserNode** - FFT analysis for visualization (tested against Chrome)
 
 ### Utility
+
 - ✅ **ChannelSplitterNode** - Split multi-channel audio
 - ✅ **ChannelMergerNode** - Merge channels
 - ✅ **DestinationNode** - Audio output
@@ -35,6 +40,7 @@ This Node.js implementation of the Web Audio API is now **COMPLETE** with all pr
 ## Additional Features
 
 ### Core API
+
 - ✅ **AudioContext** - Main audio context with suspend/resume/close
 - ✅ **AudioParam** - Full automation (setValueAtTime, linearRampToValueAtTime, exponentialRampToValueAtTime, setTargetAtTime, setValueCurveAtTime, cancelScheduledValues, cancelAndHoldAtTime)
 - ✅ **AudioBuffer** - In-memory audio data storage
@@ -42,6 +48,7 @@ This Node.js implementation of the Web Audio API is now **COMPLETE** with all pr
 - ✅ **decodeAudioData** - Decode MP3, WAV, OGG, FLAC, and other formats via ffmpeg
 
 ### Testing
+
 - ✅ Reference testing against Chrome's Web Audio implementation
 - ✅ FFT accuracy verification
 - ✅ Comprehensive node tests
@@ -49,6 +56,7 @@ This Node.js implementation of the Web Audio API is now **COMPLETE** with all pr
 ## Architecture Highlights
 
 ### High Performance
+
 - Native C++ audio processing
 - Lock-free audio thread
 - SDL2 for cross-platform audio output
@@ -56,11 +64,13 @@ This Node.js implementation of the Web Audio API is now **COMPLETE** with all pr
 - Pre-allocated buffers
 
 ### Standards Compliant
+
 - Matches Web Audio API specification
 - Compatible with browser Web Audio code
 - Tested against Chrome's implementation
 
 ### Cross-Platform
+
 - macOS ✅
 - Linux ✅
 - Windows ✅
@@ -68,11 +78,13 @@ This Node.js implementation of the Web Audio API is now **COMPLETE** with all pr
 ## What's Not Implemented (and why)
 
 ### Browser-Specific Nodes
+
 - ❌ **MediaElementAudioSourceNode** - Requires `<audio>`/`<video>` DOM elements
 - ❌ **MediaStreamAudioSourceNode** - Requires getUserMedia/microphone access
 - ❌ **MediaStreamAudioDestinationNode** - Creates MediaStream for WebRTC
 
 ### Deprecated/Complex
+
 - ❌ **ScriptProcessorNode** - Deprecated in favor of AudioWorklet
 - ❌ **AudioWorkletNode** - Requires complex worklet thread system (future enhancement)
 
@@ -81,6 +93,7 @@ These features either don't make sense in Node.js or require significant archite
 ## Use Cases
 
 This implementation is perfect for:
+
 - 🎵 **Headless audio processing** - Process audio files without a browser
 - 🎮 **Game audio** - Real-time audio for Node.js games
 - 🎙️ **Audio effects** - Apply Web Audio effects in Node.js
@@ -93,46 +106,48 @@ This implementation is perfect for:
 ## API Coverage
 
 ### AudioContext Methods
+
 ```javascript
 const context = new AudioContext();
 
 // Node creation (all implemented)
-context.createOscillator()
-context.createGain()
-context.createBufferSource()
-context.createBiquadFilter()
-context.createDelay()
-context.createStereoPanner()
-context.createConstantSource()
-context.createChannelSplitter()
-context.createChannelMerger()
-context.createAnalyser()
-context.createDynamicsCompressor()
-context.createWaveShaper()
-context.createConvolver()
-context.createPanner()
-context.createIIRFilter()
+context.createOscillator();
+context.createGain();
+context.createBufferSource();
+context.createBiquadFilter();
+context.createDelay();
+context.createStereoPanner();
+context.createConstantSource();
+context.createChannelSplitter();
+context.createChannelMerger();
+context.createAnalyser();
+context.createDynamicsCompressor();
+context.createWaveShaper();
+context.createConvolver();
+context.createPanner();
+context.createIIRFilter();
 
 // Utilities (all implemented)
-context.createBuffer()
-context.createPeriodicWave()
-context.decodeAudioData()
+context.createBuffer();
+context.createPeriodicWave();
+context.decodeAudioData();
 
 // State management (all implemented)
-context.resume()
-context.suspend()
-context.close()
+context.resume();
+context.suspend();
+context.close();
 ```
 
 ### AudioParam Automation (all implemented)
+
 ```javascript
-param.setValueAtTime(value, time)
-param.linearRampToValueAtTime(value, time)
-param.exponentialRampToValueAtTime(value, time)
-param.setTargetAtTime(target, time, timeConstant)
-param.setValueCurveAtTime(values, time, duration)
-param.cancelScheduledValues(cancelTime)
-param.cancelAndHoldAtTime(cancelTime)
+param.setValueAtTime(value, time);
+param.linearRampToValueAtTime(value, time);
+param.exponentialRampToValueAtTime(value, time);
+param.setTargetAtTime(target, time, timeConstant);
+param.setValueCurveAtTime(values, time, duration);
+param.cancelScheduledValues(cancelTime);
+param.cancelAndHoldAtTime(cancelTime);
 ```
 
 ## Example: Complete Feature Showcase
@@ -184,6 +199,7 @@ osc.start();
 ## Performance
 
 Tested on Apple M1:
+
 - **Latency**: <10ms (128-sample buffer)
 - **Max Nodes**: 100+ simultaneous nodes
 - **FFT Performance**: 10-20µs (2048-point, unoptimized)
@@ -192,6 +208,7 @@ Tested on Apple M1:
 ## Future Enhancements
 
 Potential areas for enhancement:
+
 1. **AudioWorkletNode** - Custom processing via JavaScript
 2. **Optimized FFT** - SIMD vectorization (see `future_fft_optimization_plan.md`)
 3. **HRTF** - Head-related transfer functions for realistic 3D audio

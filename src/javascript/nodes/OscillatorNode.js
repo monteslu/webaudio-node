@@ -9,7 +9,14 @@ export class OscillatorNode extends AudioNode {
         this.numberOfInputs = 0;
         this.numberOfOutputs = 1;
 
-        this.frequency = new AudioParam(context, nodeId, 'frequency', 440.0, 0.0, context.sampleRate / 2);
+        this.frequency = new AudioParam(
+            context,
+            nodeId,
+            'frequency',
+            440.0,
+            0.0,
+            context.sampleRate / 2
+        );
         this.detune = new AudioParam(context, nodeId, 'detune', 0.0, -4800.0, 4800.0);
 
         this._type = 'sine';
@@ -50,11 +57,14 @@ export class OscillatorNode extends AudioNode {
 
         if (this.onended) {
             const stopTime = (when - this.context.currentTime) * 1000;
-            setTimeout(() => {
-                if (this.onended) {
-                    this.onended({ target: this });
-                }
-            }, Math.max(0, stopTime));
+            setTimeout(
+                () => {
+                    if (this.onended) {
+                        this.onended({ target: this });
+                    }
+                },
+                Math.max(0, stopTime)
+            );
         }
     }
 

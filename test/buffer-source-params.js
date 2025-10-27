@@ -13,7 +13,7 @@ async function testLoopParameters() {
     // Fill with a frequency sweep (chirp)
     for (let i = 0; i < channelData.length; i++) {
         const t = i / context.sampleRate;
-        const freq = 200 + (t * 600); // 200Hz to 800Hz over 1 second
+        const freq = 200 + t * 600; // 200Hz to 800Hz over 1 second
         channelData[i] = Math.sin(2 * Math.PI * freq * t) * 0.3;
     }
 
@@ -21,7 +21,7 @@ async function testLoopParameters() {
     source.buffer = buffer;
     source.loop = true;
     source.loopStart = 0.25; // Start loop at 0.25 seconds
-    source.loopEnd = 0.75;   // End loop at 0.75 seconds
+    source.loopEnd = 0.75; // End loop at 0.75 seconds
 
     source.connect(context.destination);
 

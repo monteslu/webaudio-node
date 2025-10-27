@@ -6,13 +6,13 @@ High-performance audio format decoders compiled to WebAssembly for fast, native-
 
 **267KB WASM bundle** with 5 audio codecs providing Chrome parity for static audio playback:
 
-| Format | Decoder Library | File Extensions | Description |
-|--------|----------------|-----------------|-------------|
-| **MP3** | dr_mp3 | `.mp3` | Most widely used lossy format |
-| **WAV** | dr_wav | `.wav` | Uncompressed PCM audio |
-| **FLAC** | dr_flac | `.flac` | Lossless compression |
-| **OGG/Vorbis** | stb_vorbis | `.ogg` | Open-source lossy format |
-| **AAC** | uaac | `.aac`, `.m4a` | Apple/YouTube standard |
+| Format         | Decoder Library | File Extensions | Description                   |
+| -------------- | --------------- | --------------- | ----------------------------- |
+| **MP3**        | dr_mp3          | `.mp3`          | Most widely used lossy format |
+| **WAV**        | dr_wav          | `.wav`          | Uncompressed PCM audio        |
+| **FLAC**       | dr_flac         | `.flac`         | Lossless compression          |
+| **OGG/Vorbis** | stb_vorbis      | `.ogg`          | Open-source lossy format      |
+| **AAC**        | uaac            | `.aac`, `.m4a`  | Apple/YouTube standard        |
 
 ## Usage
 
@@ -50,7 +50,7 @@ const result = await WasmAudioDecoders.decode(audioData.buffer);
 await WasmAudioDecoders.decodeMP3(buffer);
 await WasmAudioDecoders.decodeWAV(buffer);
 await WasmAudioDecoders.decodeFLAC(buffer);
-await WasmAudioDecoders.decodeVorbis(buffer);  // For .ogg files
+await WasmAudioDecoders.decodeVorbis(buffer); // For .ogg files
 await WasmAudioDecoders.decodeAAC(buffer);
 ```
 
@@ -71,15 +71,15 @@ All decoders return the same structure:
 
 Benchmarks comparing WASM decoders against Rust (node-web-audio-api):
 
-| Format | WASM (median) | Rust (median) | Winner |
-|--------|---------------|---------------|--------|
-| **WAV** | 3.7ms | 13.9ms | **WASM 3.75x faster** ✓ |
-| **FLAC** | 43.3ms | 69.6ms | **WASM 1.61x faster** ✓ |
-| **MP3** | 47.4ms | 44.1ms | Rust 1.07x faster |
-| **OGG** | 63.4ms | 44.1ms | Rust 1.44x faster |
-| **AAC** | 70.4ms | 46.4ms | Rust 1.52x faster |
+| Format   | WASM (median) | Rust (median) | Winner                  |
+| -------- | ------------- | ------------- | ----------------------- |
+| **WAV**  | 3.7ms         | 13.9ms        | **WASM 3.75x faster** ✓ |
+| **FLAC** | 43.3ms        | 69.6ms        | **WASM 1.61x faster** ✓ |
+| **MP3**  | 47.4ms        | 44.1ms        | Rust 1.07x faster       |
+| **OGG**  | 63.4ms        | 44.1ms        | Rust 1.44x faster       |
+| **AAC**  | 70.4ms        | 46.4ms        | Rust 1.52x faster       |
 
-*Benchmarked on 54-second stereo audio file (rising_sun.mp3)*
+_Benchmarked on 54-second stereo audio file (rising_sun.mp3)_
 
 ## Building
 
@@ -129,11 +129,13 @@ node bench-decoder-formats.js
 ## Why Not Opus?
 
 Opus would require:
+
 - 206+ source files (libopus + libogg + opusfile)
 - 200-300KB additional WASM size
 - Complex multi-library build system
 
 **Opus use cases:**
+
 - WebRTC (real-time) - uses raw packets, not .opus files
 - YouTube server-side encoding
 - `.opus` files are rare vs MP3/AAC/OGG
@@ -142,15 +144,16 @@ Opus would require:
 
 ## File Size
 
-| Component | Size | Notes |
-|-----------|------|-------|
-| audio_decoders.wasm | 267KB | All 5 decoders |
-| audio_decoders.mjs | 12KB | JS glue code |
-| **Total** | **279KB** | vs ~50MB for FFmpeg |
+| Component           | Size      | Notes               |
+| ------------------- | --------- | ------------------- |
+| audio_decoders.wasm | 267KB     | All 5 decoders      |
+| audio_decoders.mjs  | 12KB      | JS glue code        |
+| **Total**           | **279KB** | vs ~50MB for FFmpeg |
 
 ## Future Optimizations
 
 Potential improvements:
+
 - SIMD optimizations for specific codecs
 - Streaming decode (chunk-by-chunk)
 - WebCodecs API integration
@@ -159,6 +162,7 @@ Potential improvements:
 ## License
 
 Decoders use various licenses:
+
 - dr_libs (MP3/WAV/FLAC): Public Domain
 - stb_vorbis (OGG): Public Domain
 - uaac (AAC): RPSL license

@@ -17,11 +17,13 @@ Successfully compiled WaveShaper audio processing node to WebAssembly with SIMD 
 ## Build Configuration
 
 ### Emscripten Version
+
 ```
 emcc 4.0.18
 ```
 
 ### Compile Command
+
 ```bash
 emcc -O3 -msimd128 \
   -s WASM=1 \
@@ -34,6 +36,7 @@ emcc -O3 -msimd128 \
 ```
 
 ### Build Output
+
 - **WASM Module:** `dist/wave_shaper_poc.wasm` (7.8KB)
 - **JS Loader:** `dist/wave_shaper_poc.mjs` (13KB)
 - **Total Size:** 20.8KB (extremely compact!)
@@ -46,19 +49,20 @@ emcc -O3 -msimd128 \
 
 Successful 1:1 mapping from ARM NEON → WASM SIMD:
 
-| Operation | ARM NEON | WASM SIMD | Status |
-|-----------|----------|-----------|--------|
-| Load 4 floats | `vld1q_f32()` | `wasm_v128_load()` | ✅ Direct mapping |
-| Store 4 floats | `vst1q_f32()` | `wasm_v128_store()` | ✅ Direct mapping |
-| Clamp (min) | `vmaxq_f32()` | `wasm_f32x4_max()` | ✅ Direct mapping |
-| Clamp (max) | `vminq_f32()` | `wasm_f32x4_min()` | ✅ Direct mapping |
-| Add | `vaddq_f32()` | `wasm_f32x4_add()` | ✅ Direct mapping |
-| Multiply | `vmulq_f32()` | `wasm_f32x4_mul()` | ✅ Direct mapping |
+| Operation      | ARM NEON        | WASM SIMD            | Status            |
+| -------------- | --------------- | -------------------- | ----------------- |
+| Load 4 floats  | `vld1q_f32()`   | `wasm_v128_load()`   | ✅ Direct mapping |
+| Store 4 floats | `vst1q_f32()`   | `wasm_v128_store()`  | ✅ Direct mapping |
+| Clamp (min)    | `vmaxq_f32()`   | `wasm_f32x4_max()`   | ✅ Direct mapping |
+| Clamp (max)    | `vminq_f32()`   | `wasm_f32x4_min()`   | ✅ Direct mapping |
+| Add            | `vaddq_f32()`   | `wasm_f32x4_add()`   | ✅ Direct mapping |
+| Multiply       | `vmulq_f32()`   | `wasm_f32x4_mul()`   | ✅ Direct mapping |
 | Splat constant | `vdupq_n_f32()` | `wasm_f32x4_splat()` | ✅ Direct mapping |
 
 ### Algorithm Preservation
 
 **Key optimization preserved:** 8-sample batching with unrolled curve lookup
+
 - ARM NEON version: Lines 94-170 in `wave_shaper_node.cpp`
 - WASM version: Identical algorithm structure
 - Curve lookup: Still scalar (random access, hard to vectorize)
@@ -72,6 +76,7 @@ Successful 1:1 mapping from ARM NEON → WASM SIMD:
 ### Micro-Benchmark
 
 **Test Configuration:**
+
 - Sample Rate: 48000 Hz
 - Channels: 2 (stereo)
 - Frame Count: 128 samples (standard render quantum)
@@ -79,6 +84,7 @@ Successful 1:1 mapping from ARM NEON → WASM SIMD:
 - Iterations: 10,000
 
 **Results:**
+
 ```
 📊 WASM Performance Results:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -90,6 +96,7 @@ Processing Speed:    16,956x realtime
 ```
 
 **Interpretation:**
+
 - **Extremely fast:** 813 million samples/second throughput
 - **Ultra-low latency:** 0.31 microseconds per iteration
 - **Realtime capability:** 16,956x realtime is massive overkill
@@ -97,15 +104,18 @@ Processing Speed:    16,956x realtime
 ### Comparison Context
 
 **Current Native Performance (ARM NEON):**
+
 - WaveShaper 2x oversample: 1.89ms per render (Rust: 5.82ms) → **207% faster**
 - WaveShaper 4x oversample: 2.01ms per render (Rust: 7.82ms) → **289% faster**
 
 **Expected WASM Performance:**
+
 - Micro-benchmark shows WASM is **extremely fast**
 - Real-world performance needs full benchmark suite validation
 - Even with 2-3x overhead in full pipeline, still crushing Rust competitor
 
 **Performance Budget:**
+
 - Current advantage: 207-289% faster than Rust
 - Can afford 50% overhead and still win comfortably
 - WASM micro-benchmark suggests overhead will be **much lower**
@@ -115,21 +125,25 @@ Processing Speed:    16,956x realtime
 ## Technical Validation
 
 ### ✅ WASM SIMD Works
+
 - ARM NEON → WASM SIMD mapping successful
 - 8-sample batching preserved
 - SIMD speedup confirmed
 
 ### ✅ Algorithm Preservation
+
 - Same 8-sample batch processing
 - Same curve lookup strategy
 - Same linear interpolation
 
 ### ✅ Build Simplicity
+
 - Single Emscripten command
 - No platform-specific configuration
 - ES6 module output (clean JavaScript integration)
 
 ### ✅ Size Efficiency
+
 - 7.8KB WASM module (vs ~2MB native binary)
 - Total package: 20.8KB (WASM + JS loader)
 - 99% size reduction!
@@ -139,25 +153,31 @@ Processing Speed:    16,956x realtime
 ## Risks Identified
 
 ### 1. FFI Overhead (Mitigated)
+
 **Concern:** JavaScript ↔ WASM boundary crossing overhead
 
 **Mitigation:**
+
 - Process large buffers (128+ frames) to amortize overhead
 - Results show minimal overhead in micro-benchmark
 - Real-world validation needed in full benchmark suite
 
 ### 2. Memory Management
+
 **Concern:** Manual malloc/free in WASM
 
 **Mitigation:**
+
 - Used C++ `new`/`delete` successfully
 - Clear ownership model (JavaScript allocates, C++ processes, JavaScript frees)
 - No leaks observed in testing
 
 ### 3. Debugging Experience
+
 **Concern:** WASM debugging less mature than native
 
 **Mitigation:**
+
 - Emscripten source maps available
 - Chrome DevTools WASM debugging is excellent
 - Extensive console logging for diagnostics
@@ -167,19 +187,24 @@ Processing Speed:    16,956x realtime
 ## Next Steps
 
 ### Immediate (Week 1-2)
+
 1. ✅ **COMPLETE:** WaveShaper POC with WASM SIMD
 2. **TODO:** Integrate WASM WaveShaper into full benchmark suite
 3. **TODO:** Compare WASM vs ARM NEON vs Rust in webaudio-benchmarks
 4. **TODO:** Document any performance delta
 
 ### Phase 2 (Week 3-5)
+
 If Phase 1 validation confirms acceptable performance:
+
 1. Port FFT utility to WASM
 2. Port Analyser node (uses FFT)
 3. Validate SIMD magnitude computation performance
 
 ### Decision Point (Week 2)
+
 **Go/No-Go for full migration based on:**
+
 - ✅ WASM performance within 50% of native (likely much better!)
 - ✅ Still faster than Rust competitor on key benchmarks
 - ✅ Build simplicity validates approach
@@ -215,6 +240,7 @@ If Phase 1 validation confirms acceptable performance:
 ### ✅ Proceed with Full Migration
 
 **Justification:**
+
 1. **Performance validated:** WASM SIMD is extremely fast
 2. **Build simplification:** Massive reduction in complexity
 3. **Size reduction:** 99% smaller distribution
@@ -226,6 +252,7 @@ If Phase 1 validation confirms acceptable performance:
 ### Next Phase Timeline
 
 **Phase 2: Core Utilities (3 weeks)**
+
 - Port FFT with SIMD magnitude computation
 - Port Mixer utilities
 - Port Resampler
@@ -235,6 +262,7 @@ If Phase 1 validation confirms acceptable performance:
 ### Risk Mitigation
 
 **Contingency Plan:** If full benchmark suite shows unacceptable performance:
+
 - Hybrid approach: Keep native builds for critical nodes
 - Optimize WASM further (LTO, advanced SIMD)
 - Consider WebAssembly SIMD extensions (future)
@@ -245,13 +273,13 @@ If Phase 1 validation confirms acceptable performance:
 
 ## Metrics
 
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| Build Success | Compiles | ✅ Compiles | ✅ PASS |
-| WASM Size | <50KB | 7.8KB | ✅ PASS |
-| SIMD Support | Works | ✅ Works | ✅ PASS |
-| Performance | <2x native | ~0.1x native (!) | ✅ PASS |
-| Code Quality | Clean | ✅ Clean | ✅ PASS |
+| Metric        | Target     | Actual           | Status  |
+| ------------- | ---------- | ---------------- | ------- |
+| Build Success | Compiles   | ✅ Compiles      | ✅ PASS |
+| WASM Size     | <50KB      | 7.8KB            | ✅ PASS |
+| SIMD Support  | Works      | ✅ Works         | ✅ PASS |
+| Performance   | <2x native | ~0.1x native (!) | ✅ PASS |
+| Code Quality  | Clean      | ✅ Clean         | ✅ PASS |
 
 **Overall Phase 1:** ✅ **SUCCESS**
 

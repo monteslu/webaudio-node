@@ -58,9 +58,9 @@ export class AudioListener {
     }
 
     /**
-	 * Legacy method for setting position (deprecated in spec, use positionX/Y/Z instead)
-	 * @deprecated
-	 */
+     * Legacy method for setting position (deprecated in spec, use positionX/Y/Z instead)
+     * @deprecated
+     */
     setPosition(x, y, z) {
         this.positionX.value = x;
         this.positionY.value = y;
@@ -68,9 +68,9 @@ export class AudioListener {
     }
 
     /**
-	 * Legacy method for setting orientation (deprecated in spec, use forwardX/Y/Z and upX/Y/Z instead)
-	 * @deprecated
-	 */
+     * Legacy method for setting orientation (deprecated in spec, use forwardX/Y/Z and upX/Y/Z instead)
+     * @deprecated
+     */
     setOrientation(x, y, z, xUp, yUp, zUp) {
         this.forwardX.value = x;
         this.forwardY.value = y;

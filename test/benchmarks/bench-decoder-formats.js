@@ -59,9 +59,13 @@ async function benchmarkFormat(formatName, fileName, wasmDecoder) {
 
     // WASM decoder
     console.log('Testing WASM decoder...');
-    const wasmResults = await benchmarkDecoder('WASM', async (data) => {
-        return await wasmDecoder(data.buffer);
-    }, fileData);
+    const wasmResults = await benchmarkDecoder(
+        'WASM',
+        async data => {
+            return await wasmDecoder(data.buffer);
+        },
+        fileData
+    );
 
     if (!wasmResults) {
         console.log('WASM decoder failed, skipping Rust comparison');
@@ -71,9 +75,13 @@ async function benchmarkFormat(formatName, fileName, wasmDecoder) {
     // Rust decoder
     console.log('Testing Rust decoder...');
     const rustContext = new RustAudioContext({ sampleRate: 44100 });
-    const rustResults = await benchmarkDecoder('Rust', async (data) => {
-        return await rustContext.decodeAudioData(data.buffer);
-    }, fileData);
+    const rustResults = await benchmarkDecoder(
+        'Rust',
+        async data => {
+            return await rustContext.decodeAudioData(data.buffer);
+        },
+        fileData
+    );
     rustContext.close();
 
     if (!rustResults) {
@@ -104,18 +112,18 @@ async function benchmarkFormat(formatName, fileName, wasmDecoder) {
     // Compare
     console.log('\nComparison:');
     console.log('-----------');
-    const speedup = (rustResults.median / wasmResults.median);
+    const speedup = rustResults.median / wasmResults.median;
     if (speedup > 1) {
         console.log(`✓ WASM is ${speedup.toFixed(2)}x faster than Rust (median)`);
     } else {
-        console.log(`  Rust is ${(1/speedup).toFixed(2)}x faster than WASM (median)`);
+        console.log(`  Rust is ${(1 / speedup).toFixed(2)}x faster than WASM (median)`);
     }
 
-    const avgSpeedup = (rustResults.avg / wasmResults.avg);
+    const avgSpeedup = rustResults.avg / wasmResults.avg;
     if (avgSpeedup > 1) {
         console.log(`✓ WASM is ${avgSpeedup.toFixed(2)}x faster than Rust (average)`);
     } else {
-        console.log(`  Rust is ${(1/avgSpeedup).toFixed(2)}x faster than WASM (average)`);
+        console.log(`  Rust is ${(1 / avgSpeedup).toFixed(2)}x faster than WASM (average)`);
     }
 }
 
@@ -125,11 +133,31 @@ async function main() {
     console.log('='.repeat(60));
 
     const formats = [
-        { name: 'MP3', file: 'rising_sun.mp3', decoder: WasmAudioDecoders.decodeMP3.bind(WasmAudioDecoders) },
-        { name: 'WAV', file: 'rising_sun.wav', decoder: WasmAudioDecoders.decodeWAV.bind(WasmAudioDecoders) },
-        { name: 'FLAC', file: 'rising_sun.flac', decoder: WasmAudioDecoders.decodeFLAC.bind(WasmAudioDecoders) },
-        { name: 'OGG/Vorbis', file: 'rising_sun.ogg', decoder: WasmAudioDecoders.decodeVorbis.bind(WasmAudioDecoders) },
-        { name: 'AAC', file: 'rising_sun.aac', decoder: WasmAudioDecoders.decodeAAC.bind(WasmAudioDecoders) }
+        {
+            name: 'MP3',
+            file: 'rising_sun.mp3',
+            decoder: WasmAudioDecoders.decodeMP3.bind(WasmAudioDecoders)
+        },
+        {
+            name: 'WAV',
+            file: 'rising_sun.wav',
+            decoder: WasmAudioDecoders.decodeWAV.bind(WasmAudioDecoders)
+        },
+        {
+            name: 'FLAC',
+            file: 'rising_sun.flac',
+            decoder: WasmAudioDecoders.decodeFLAC.bind(WasmAudioDecoders)
+        },
+        {
+            name: 'OGG/Vorbis',
+            file: 'rising_sun.ogg',
+            decoder: WasmAudioDecoders.decodeVorbis.bind(WasmAudioDecoders)
+        },
+        {
+            name: 'AAC',
+            file: 'rising_sun.aac',
+            decoder: WasmAudioDecoders.decodeAAC.bind(WasmAudioDecoders)
+        }
     ];
 
     for (const format of formats) {

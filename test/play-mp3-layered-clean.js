@@ -14,7 +14,9 @@ const audioData = readFileSync(audioFilePath);
 console.log('Decoding audio file...');
 const buffer = await context.decodeAudioData(audioData.buffer);
 
-console.log(`Loaded: ${buffer.duration.toFixed(2)}s, ${buffer.sampleRate}Hz, ${buffer.numberOfChannels}ch\n`);
+console.log(
+    `Loaded: ${buffer.duration.toFixed(2)}s, ${buffer.sampleRate}Hz, ${buffer.numberOfChannels}ch\n`
+);
 
 await context.resume();
 
@@ -31,7 +33,7 @@ for (let i = 0; i < 5; i++) {
     source.buffer = buffer;
     source.connect(masterGain);
 
-    const startTime = context.currentTime + (i * 0.5);
+    const startTime = context.currentTime + i * 0.5;
     source.start(startTime, 0, 10); // Play 10 seconds of each
 
     console.log(`  Instance ${i + 1}: starts at ${startTime.toFixed(2)}s`);

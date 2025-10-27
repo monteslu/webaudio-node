@@ -12,7 +12,7 @@ import { AudioContext, OfflineAudioContext } from '../index.js';
 
 // Generate laser sound offline
 async function generateLaserSound() {
-    const offlineCtx = new OfflineAudioContext(2, 14400, 48000);  // 0.3s
+    const offlineCtx = new OfflineAudioContext(2, 14400, 48000); // 0.3s
 
     const osc = offlineCtx.createOscillator();
     osc.type = 'sawtooth';
@@ -31,7 +31,7 @@ async function generateLaserSound() {
 
 // Generate explosion sound offline
 async function generateExplosionSound() {
-    const offlineCtx = new OfflineAudioContext(2, 48000, 48000);  // 1s
+    const offlineCtx = new OfflineAudioContext(2, 48000, 48000); // 1s
 
     const osc = offlineCtx.createOscillator();
     osc.type = 'sawtooth';
@@ -55,7 +55,7 @@ async function generateExplosionSound() {
 
 // Generate coin/pickup sound
 async function generateCoinSound() {
-    const offlineCtx = new OfflineAudioContext(2, 12000, 48000);  // 0.25s
+    const offlineCtx = new OfflineAudioContext(2, 12000, 48000); // 0.25s
 
     const osc = offlineCtx.createOscillator();
     osc.type = 'square';
@@ -103,9 +103,9 @@ async function main() {
     console.log('💥 Laser barrage (20 shots)...');
     for (let i = 0; i < 20; i++) {
         const source = ctx.createBufferSource();
-        source.buffer = laserBuffer;  // All share same buffer!
+        source.buffer = laserBuffer; // All share same buffer!
         source.connect(masterGain);
-        source.start(ctx.currentTime + i * 0.08);  // 80ms apart
+        source.start(ctx.currentTime + i * 0.08); // 80ms apart
     }
 
     await new Promise(resolve => setTimeout(resolve, 2000));

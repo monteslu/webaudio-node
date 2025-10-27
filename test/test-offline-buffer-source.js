@@ -13,7 +13,7 @@ console.log('1. Creating audio buffer manually...');
 const buffer = offlineCtx.createBuffer(2, 48000, 48000);
 const channelData = buffer.getChannelData(0);
 for (let i = 0; i < channelData.length; i++) {
-    channelData[i] = Math.sin(2 * Math.PI * 440 * i / 48000) * 0.5;
+    channelData[i] = Math.sin((2 * Math.PI * 440 * i) / 48000) * 0.5;
 }
 // Copy to second channel
 buffer.copyToChannel(channelData, 1);

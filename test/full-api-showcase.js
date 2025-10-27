@@ -59,7 +59,7 @@ console.log('✓ DynamicsCompressorNode');
 const shaper = context.createWaveShaper();
 const curve = new Float32Array(256);
 for (let i = 0; i < 256; i++) {
-    const x = (i / 128) - 1;
+    const x = i / 128 - 1;
     curve[i] = Math.tanh(x * 2); // Soft clipping
 }
 shaper.curve = curve;
@@ -178,7 +178,7 @@ for (let i = 0; i < freqData.length; i++) {
         peakBin = i;
     }
 }
-const peakFreq = peakBin * context.sampleRate / analyser.fftSize;
+const peakFreq = (peakBin * context.sampleRate) / analyser.fftSize;
 console.log(`  Peak frequency: ${Math.round(peakFreq)} Hz at ${peak.toFixed(1)} dB`);
 
 // Continue playing

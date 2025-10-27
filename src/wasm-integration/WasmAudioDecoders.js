@@ -8,7 +8,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, '..', '..');
 
 // Load WASM decoder module
-const createAudioDecodersModule = (await import(path.join(rootDir, 'dist', 'audio_decoders.mjs'))).default;
+const createAudioDecodersModule = (await import(path.join(rootDir, 'dist', 'audio_decoders.mjs')))
+    .default;
 const wasmModule = await createAudioDecodersModule();
 
 export class WasmAudioDecoders {
@@ -314,7 +315,9 @@ export class WasmAudioDecoders {
             wasmModule._free(outputPtrPtr);
             wasmModule._free(totalSamplesPtr);
             wasmModule._free(sampleRatePtr);
-            throw new Error('Failed to decode audio or unsupported format (MP3, WAV, FLAC, OGG/Vorbis, and AAC are supported)');
+            throw new Error(
+                'Failed to decode audio or unsupported format (MP3, WAV, FLAC, OGG/Vorbis, and AAC are supported)'
+            );
         }
 
         // Read output values

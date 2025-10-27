@@ -27,7 +27,10 @@ export class AudioWorkletNode extends AudioNode {
                 context._engine.addWorkletParameter(nodeId, name, defaultValue, minValue, maxValue);
 
                 // Create JavaScript AudioParam wrapper
-                this._parameters.set(name, new AudioParam(context, nodeId, name, defaultValue, minValue, maxValue));
+                this._parameters.set(
+                    name,
+                    new AudioParam(context, nodeId, name, defaultValue, minValue, maxValue)
+                );
             }
         }
 

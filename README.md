@@ -13,6 +13,7 @@ High-performance, browser-compatible Web Audio API for Node.js. Perfect for audi
 ## ⭐ Features
 
 ✨ **Web Audio API Support**
+
 - Core audio nodes (Oscillator, Gain, BiquadFilter, BufferSource)
 - AudioParam automation with scheduling
 - **OfflineAudioContext** for fast non-realtime rendering
@@ -20,12 +21,14 @@ High-performance, browser-compatible Web Audio API for Node.js. Perfect for audi
 - **5 audio formats** via WASM decoders (MP3, WAV, FLAC, OGG, AAC) - see [WASM Audio Decoders](./docs/WASM_AUDIO_DECODERS.md)
 
 🚀 **High Performance**
+
 - **WASM with SIMD optimizations** - beats Rust implementation in 83% of benchmarks
 - **~2,600x faster than realtime** offline rendering
 - **Chunk-ahead buffering** for smooth real-time playback
 - Zero JavaScript overhead in audio rendering
 
 🎮 **Perfect for Games**
+
 - Procedural sound effect generation
 - Mix multiple audio sources
 - Low-latency playback with SDL2
@@ -37,6 +40,7 @@ npm install webaudio-node
 ```
 
 ### Requirements
+
 - Node.js 20+
 - No build step required - uses pre-compiled WASM
 
@@ -136,13 +140,13 @@ Real-time audio playback with chunk-ahead buffering.
 
 ```javascript
 const ctx = new AudioContext({
-    sampleRate: 48000,        // Default: 44100
-    numberOfChannels: 2       // Default: 2 (stereo)
+    sampleRate: 48000, // Default: 44100
+    numberOfChannels: 2 // Default: 2 (stereo)
 });
 
-await ctx.resume();    // Start audio
-await ctx.suspend();   // Pause audio
-await ctx.close();     // Stop and cleanup
+await ctx.resume(); // Start audio
+await ctx.suspend(); // Pause audio
+await ctx.close(); // Stop and cleanup
 ```
 
 **Note:** Real-time AudioContext uses chunk-ahead buffering (1-2 second latency), which is perfect for background music and non-interactive audio.
@@ -154,7 +158,7 @@ Non-realtime rendering for ultra-fast audio processing.
 ```javascript
 const offlineCtx = new OfflineAudioContext({
     numberOfChannels: 2,
-    length: 48000,        // samples
+    length: 48000, // samples
     sampleRate: 48000
 });
 
@@ -166,22 +170,24 @@ const buffer = await offlineCtx.startRendering();
 ### Audio Nodes
 
 **Source Nodes:**
+
 - `createOscillator()` - Sine, square, sawtooth, triangle waveforms
 - `createBufferSource()` - Play audio buffers
 - `createGain()` - Volume control
 
 **Processing:**
+
 - `createBiquadFilter()` - Lowpass, highpass, bandpass, notch filters
 
 ### Supported Node Types
 
-| Node | AudioContext | OfflineAudioContext |
-|------|--------------|---------------------|
-| OscillatorNode | ✅ | ✅ |
-| GainNode | ✅ | ✅ |
-| AudioBufferSourceNode | ✅ | ✅ |
-| BiquadFilterNode | ✅ | ✅ |
-| AudioDestinationNode | ✅ | ✅ |
+| Node                  | AudioContext | OfflineAudioContext |
+| --------------------- | ------------ | ------------------- |
+| OscillatorNode        | ✅           | ✅                  |
+| GainNode              | ✅           | ✅                  |
+| AudioBufferSourceNode | ✅           | ✅                  |
+| BiquadFilterNode      | ✅           | ✅                  |
+| AudioDestinationNode  | ✅           | ✅                  |
 
 ### AudioParam Automation
 
@@ -210,9 +216,9 @@ const audioData = readFileSync('./audio.mp3');
 // Decode MP3/WAV/OGG
 const buffer = await ctx.decodeAudioData(audioData.buffer);
 
-console.log(buffer.duration);          // seconds
-console.log(buffer.numberOfChannels);  // 1 or 2
-console.log(buffer.sampleRate);        // Hz
+console.log(buffer.duration); // seconds
+console.log(buffer.numberOfChannels); // 1 or 2
+console.log(buffer.sampleRate); // Hz
 
 // Get audio data
 const channelData = buffer.getChannelData(0);
@@ -323,7 +329,9 @@ async function generateLaserSound() {
 
 // Generate 100 variations in ~100ms
 const sounds = await Promise.all(
-    Array(100).fill(0).map(() => generateLaserSound())
+    Array(100)
+        .fill(0)
+        .map(() => generateLaserSound())
 );
 ```
 
@@ -334,22 +342,23 @@ const sounds = await Promise.all(
 **webaudio-node wins 5/6 core benchmarks** (83% win rate) against the high-performance Rust implementation.
 
 Core benchmark results:
+
 - **Offline Rendering**: 1.8x faster (250.87M vs 139.68M samples/sec)
 - **Filter Chain**: 5.4x faster (164.40M vs 30.35M samples/sec)
 - **Channel Operations**: 5.3x faster (195.56M vs 37.16M samples/sec)
 - **Node Creation**: 76x faster (2561.9K vs 33.7K nodes/sec)
 - **Automation**: 1.1x faster (2.24ms vs 2.53ms total)
-- **Mixing (100 sources)**: 0.86x (7.48M vs 6.43M samples/sec) - *Rust wins this one*
+- **Mixing (100 sources)**: 0.86x (7.48M vs 6.43M samples/sec) - _Rust wins this one_
 
 Run benchmarks yourself: `node test/benchmarks/run-core-benchmarks.js`
 
 ### Offline Rendering Speed
 
 | Duration | Render Time | Speed vs Realtime |
-|----------|-------------|-------------------|
-| 1s | ~0.38ms | ~2,600x |
-| 5s | ~1.9ms | ~2,600x |
-| 10s | ~3.8ms | ~2,600x |
+| -------- | ----------- | ----------------- |
+| 1s       | ~0.38ms     | ~2,600x           |
+| 5s       | ~1.9ms      | ~2,600x           |
+| 10s      | ~3.8ms      | ~2,600x           |
 
 **Why so fast?** WASM with SIMD optimizations processes 4 audio samples in parallel.
 
@@ -374,6 +383,7 @@ Audio graph rendering uses WebAssembly compiled from optimized C++:
 ```
 
 **Key features:**
+
 - C++ audio graph compiled to WASM
 - SIMD optimizations (4-8x parallel processing)
 - Chunk-ahead buffering for real-time playback
@@ -427,6 +437,7 @@ npm test
 ```
 
 Tests cover:
+
 - All audio nodes
 - AudioParam automation
 - Audio graph connections
@@ -454,23 +465,25 @@ webaudio-node/
 
 ## 🖥️ Platform Support
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| macOS ARM64 | ✅ | SIMD optimizations |
-| macOS x86-64 | ✅ | SIMD optimizations |
-| Linux ARM64 | ✅ | SIMD optimizations |
-| Linux x86-64 | ✅ | SIMD optimizations |
-| Windows x86-64 | ✅ | Requires SDL2 |
+| Platform       | Status | Notes              |
+| -------------- | ------ | ------------------ |
+| macOS ARM64    | ✅     | SIMD optimizations |
+| macOS x86-64   | ✅     | SIMD optimizations |
+| Linux ARM64    | ✅     | SIMD optimizations |
+| Linux x86-64   | ✅     | SIMD optimizations |
+| Windows x86-64 | ✅     | Requires SDL2      |
 
 ## 🔄 Comparison with Other Libraries
 
 **vs node-web-audio-api (Rust):**
+
 - ✅ 83% win rate in benchmarks (5/6 core benchmarks)
 - ✅ 1.8-76x faster in winning benchmarks with WASM + SIMD
 - ✅ Simpler installation (no Rust toolchain)
 - ⚠️ Fewer nodes (core set only)
 
 **vs web-audio-engine:**
+
 - ✅ Much faster (WASM vs pure JS)
 - ✅ Better Web Audio API compliance
 - ✅ Real-time playback support
@@ -480,6 +493,7 @@ webaudio-node/
 **Current:** Core Web Audio API nodes with WASM backend
 
 **Future:**
+
 - Worker Thread rendering for lower latency
 - Additional nodes (Delay, Convolver, Compressor)
 - AudioWorklet support

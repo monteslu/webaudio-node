@@ -5,6 +5,7 @@
 The current FFT implementation (`src/native/utils/fft.cpp`) is **correct and functional** but not optimized for performance.
 
 **Current characteristics:**
+
 - ✅ Cooley-Tukey radix-2 algorithm (O(n log n))
 - ✅ Pre-computed twiddle factors
 - ✅ Produces correct results matching Chrome
@@ -14,6 +15,7 @@ The current FFT implementation (`src/native/utils/fft.cpp`) is **correct and fun
 - ❌ Computes `std::log2()` in hot loop
 
 **Performance estimate:**
+
 - Current: ~100-200 microseconds for 2048-point FFT
 - Optimized: ~10-20 microseconds (10x improvement possible)
 
@@ -24,32 +26,35 @@ The current FFT implementation (`src/native/utils/fft.cpp`) is **correct and fun
 Quick wins without external dependencies:
 
 1. **Remove `std::log2()` from hot path** (line 65)
-   ```cpp
-   // Pre-compute log2(size_) in constructor
-   int log2_size_ = 0;
-   int temp = size_;
-   while (temp > 1) { temp >>= 1; log2_size_++; }
 
-   // Use in Forward()
-   for (int stage = 1; stage <= log2_size_; ++stage)
-   ```
+    ```cpp
+    // Pre-compute log2(size_) in constructor
+    int log2_size_ = 0;
+    int temp = size_;
+    while (temp > 1) { temp >>= 1; log2_size_++; }
+
+    // Use in Forward()
+    for (int stage = 1; stage <= log2_size_; ++stage)
+    ```
 
 2. **Replace `std::complex<float>` with manual struct**
-   ```cpp
-   struct Complex { float re, im; };
-   // Manually implement butterfly operations
-   ```
+
+    ```cpp
+    struct Complex { float re, im; };
+    // Manually implement butterfly operations
+    ```
 
 3. **Add SIMD hints/alignment**
-   ```cpp
-   alignas(32) std::vector<Complex> twiddle_factors_;
-   ```
+    ```cpp
+    alignas(32) std::vector<Complex> twiddle_factors_;
+    ```
 
 **Expected improvement:** 2-3x faster (~50-70 microseconds)
 
 ### Option 2: Integrate PFFFT (Recommended)
 
 **Why PFFFT:**
+
 - Permissive license (BSD-like)
 - Highly optimized (SIMD: SSE, NEON)
 - Small codebase (~500 lines)
@@ -57,6 +62,7 @@ Quick wins without external dependencies:
 - https://github.com/marton78/pffft
 
 **Implementation plan:**
+
 1. Add `pffft.c/h` to `src/native/utils/`
 2. Wrap in FFT class interface
 3. Keep current implementation as fallback
@@ -65,6 +71,7 @@ Quick wins without external dependencies:
 **Expected improvement:** 8-10x faster (~10-20 microseconds)
 
 **Code example:**
+
 ```cpp
 class FFT {
 private:
@@ -88,6 +95,7 @@ public:
 ### Option 3: Integrate Kiss FFT (Simple Alternative)
 
 **Why Kiss FFT:**
+
 - Public domain (no license restrictions)
 - Very simple API
 - Reasonably fast
@@ -98,11 +106,13 @@ public:
 ### Option 4: Integrate FFTW (Maximum Performance)
 
 **Why FFTW:**
+
 - Fastest FFT library available
 - Industry standard
 - Runtime plan optimization
 
 **Drawbacks:**
+
 - GPL license (requires commercial license for proprietary use)
 - Larger dependency
 - More complex API
@@ -112,11 +122,13 @@ public:
 ## Recommendation
 
 **For production use:** Option 2 (PFFFT)
+
 - Best performance/complexity trade-off
 - Permissive license
 - Battle-tested in audio applications
 
 **For learning/experimentation:** Option 1
+
 - Understand optimization techniques
 - No external dependencies
 - Good enough for basic use
@@ -124,6 +136,7 @@ public:
 ## When to Optimize
 
 Optimize when you encounter:
+
 - Multiple AnalyserNodes running simultaneously
 - Low-latency requirements (< 128 sample buffer sizes)
 - CPU usage concerns
@@ -131,6 +144,7 @@ Optimize when you encounter:
 - Real-time visualization performance issues
 
 ## Current Performance is Acceptable For:
+
 - 1-2 AnalyserNodes
 - Desktop applications
 - Non-critical visualization
@@ -140,6 +154,7 @@ Optimize when you encounter:
 ## Implementation Priority
 
 **Low priority** - Current implementation works correctly. Only optimize if:
+
 1. Performance profiling shows FFT is a bottleneck
 2. Deploying to resource-constrained environments
 3. Need to support many simultaneous analysers
@@ -160,7 +175,7 @@ analyser.fftSize = 2048;
 const buffer = context.createBuffer(1, 2048, 44100);
 const data = buffer.getChannelData(0);
 for (let i = 0; i < 2048; i++) {
-    data[i] = Math.sin(2 * Math.PI * 440 * i / 44100);
+    data[i] = Math.sin((2 * Math.PI * 440 * i) / 44100);
 }
 
 // Benchmark

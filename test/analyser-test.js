@@ -60,7 +60,7 @@ async function testAnalyserNode() {
             peakBin = i;
         }
     }
-    const peakFreq = peakBin * context.sampleRate / analyser.fftSize;
+    const peakFreq = (peakBin * context.sampleRate) / analyser.fftSize;
     console.log(`Peak frequency: ${peakFreq.toFixed(2)} Hz (bin ${peakBin})`);
     console.log(`Peak magnitude: ${maxMag.toFixed(2)} dB`);
 
@@ -134,10 +134,10 @@ async function testMultipleFrequencies() {
     // Find top 5 peaks
     const peaks = [];
     for (let i = 1; i < freqData.length - 1; i++) {
-        if (freqData[i] > freqData[i-1] && freqData[i] > freqData[i+1] && freqData[i] > -60) {
+        if (freqData[i] > freqData[i - 1] && freqData[i] > freqData[i + 1] && freqData[i] > -60) {
             peaks.push({
                 bin: i,
-                freq: i * context.sampleRate / analyser.fftSize,
+                freq: (i * context.sampleRate) / analyser.fftSize,
                 magnitude: freqData[i]
             });
         }

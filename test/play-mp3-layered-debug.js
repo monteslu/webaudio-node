@@ -47,7 +47,9 @@ for (let i = 0; i < numInstances; i++) {
     const startTime = context.currentTime + i;
     source.start(startTime, 0, 5); // Start at scheduled time, offset 0, play 5 seconds
 
-    console.log(`  Instance ${i + 1}: scheduled to start at ${startTime.toFixed(3)}s (in ${i}s from now)`);
+    console.log(
+        `  Instance ${i + 1}: scheduled to start at ${startTime.toFixed(3)}s (in ${i}s from now)`
+    );
 
     sources.push(source);
 }
@@ -68,7 +70,9 @@ for (let t = 0; t < 10; t++) {
     }
     const rms = Math.sqrt(sum / timeData.length);
 
-    console.log(`[${t + 1}s] Context time: ${context.currentTime.toFixed(2)}s, RMS: ${rms.toFixed(4)}`);
+    console.log(
+        `[${t + 1}s] Context time: ${context.currentTime.toFixed(2)}s, RMS: ${rms.toFixed(4)}`
+    );
 }
 
 await context.close();
