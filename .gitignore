@@ -1,2 +1,28 @@
-node_modules
+node_modules/
+build/
+sdl/
+tmp/
+.sdl-env
+*.node
+*.o
+*.a
+*.so
+*.dylib
+*.dll
 package-lock.json
+.DS_Store
+
+# Test files (user-generated)
+test/reference-data/
+test/samples/
+
+# Benchmark results
+test/benchmarks/node_modules/
+test/benchmarks/package*.json
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Build artifacts (built during npm publish, not tracked in git)
+dist/

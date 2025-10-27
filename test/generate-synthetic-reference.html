@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Generate Synthetic Signal Reference Data</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 800px;
+			margin: 50px auto;
+			padding: 20px;
+		}
+		button {
+			padding: 10px 20px;
+			font-size: 16px;
+			margin: 10px 5px;
+			cursor: pointer;
+		}
+		#status {
+			margin-top: 20px;
+			padding: 10px;
+			background: #f0f0f0;
+			border-radius: 4px;
+		}
+		.data-output {
+			margin-top: 20px;
+			padding: 10px;
+			background: #fff;
+			border: 1px solid #ccc;
+			max-height: 400px;
+			overflow-y: auto;
+		}
+		pre {
+			margin: 0;
+			white-space: pre-wrap;
+		}
+	</style>
+</head>
+<body>
+	<h1>Generate Synthetic Signal Reference Data</h1>
+	<p>This generates reference data using a simple 440 Hz sine wave that can be exactly reproduced in Node.js.</p>
+
+	<button id="generateBtn">Generate Reference Data</button>
+	<button id="downloadBtn" disabled>Download JSON</button>
+
+	<div id="status"></div>
+	<div class="data-output">
+		<h3>Generated Data Preview:</h3>
+		<pre id="dataPreview"></pre>
+	</div>
+
+	<script>
+		const generateBtn = document.getElementById('generateBtn');
+		const downloadBtn = document.getElementById('downloadBtn');
+		const status = document.getElementById('status');
+		const dataPreview = document.getElementById('dataPreview');
+
+		let generatedData = {};
+
+		generateBtn.addEventListener('click', async () => {
+			generateBtn.disabled = true;
+			status.textContent = 'Generating...';
+
+			try {
+				await generateReferenceData();
+				status.textContent = 'Reference data generated successfully!';
+				downloadBtn.disabled = false;
+			} catch (error) {
+				status.textContent = 'Error: ' + error.message;
+				console.error(error);
+			} finally {
+				generateBtn.disabled = false;
+			}
+		});
+
+		downloadBtn.addEventListener('click', () => {
+			const dataStr = JSON.stringify(generatedData, null, 2);
+			const blob = new Blob([dataStr], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'analyser-reference-data.json';
+			a.click();
+			URL.revokeObjectURL(url);
+			status.textContent = 'Downloaded: analyser-reference-data.json';
+		});
+
+		async function generateReferenceData() {
+			// Test parameters - MUST match the Node.js test exactly
+			const sampleRate = 44100;
+			const duration = 0.5; // 0.5 seconds
+			const frequency = 440; // A4
+			const numSamples = Math.floor(sampleRate * duration);
+
+			generatedData = {
+				metadata: {
+					testSignal: 'sine wave',
+					frequency,
+					sampleRate,
+					duration,
+					numberOfChannels: 2,
+					generatedBy: 'Chrome ' + navigator.userAgent.match(/Chrome\/(\d+)/)?.[1],
+					generatedAt: new Date().toISOString()
+				},
+				tests: {}
+			};
+
+			// Test different FFT sizes
+			const fftSizes = [256, 512, 1024, 2048];
+
+			for (const fftSize of fftSizes) {
+				status.textContent = `Processing FFT size ${fftSize}...`;
+
+				// Create offline context
+				const offlineCtx = new OfflineAudioContext(2, numSamples, sampleRate);
+
+				// Create buffer with sine wave
+				const buffer = offlineCtx.createBuffer(2, numSamples, sampleRate);
+				for (let channel = 0; channel < 2; channel++) {
+					const channelData = buffer.getChannelData(channel);
+					for (let i = 0; i < numSamples; i++) {
+						channelData[i] = Math.sin(2 * Math.PI * frequency * i / sampleRate);
+					}
+				}
+
+				// Create source and analyser
+				const source = offlineCtx.createBufferSource();
+				source.buffer = buffer;
+
+				const analyser = offlineCtx.createAnalyser();
+				analyser.fftSize = fftSize;
+				analyser.smoothingTimeConstant = 0; // No smoothing for deterministic results
+
+				source.connect(analyser);
+				analyser.connect(offlineCtx.destination);
+
+				source.start(0);
+
+				// Render
+				await offlineCtx.startRendering();
+
+				// Capture data
+				const frequencyBinCount = analyser.frequencyBinCount;
+
+				const floatFreqData = new Float32Array(frequencyBinCount);
+				const byteFreqData = new Uint8Array(frequencyBinCount);
+				const floatTimeData = new Float32Array(fftSize);
+				const byteTimeData = new Uint8Array(fftSize);
+
+				analyser.getFloatFrequencyData(floatFreqData);
+				analyser.getByteFrequencyData(byteFreqData);
+				analyser.getFloatTimeDomainData(floatTimeData);
+				analyser.getByteTimeDomainData(byteTimeData);
+
+				// Store peak information for verification
+				let peakFreqBin = 0;
+				let peakMagnitude = -Infinity;
+				for (let i = 0; i < floatFreqData.length; i++) {
+					if (floatFreqData[i] > peakMagnitude) {
+						peakMagnitude = floatFreqData[i];
+						peakFreqBin = i;
+					}
+				}
+				const peakFrequency = peakFreqBin * sampleRate / fftSize;
+
+				generatedData.tests[`fftSize_${fftSize}`] = {
+					fftSize,
+					frequencyBinCount,
+					minDecibels: analyser.minDecibels,
+					maxDecibels: analyser.maxDecibels,
+					smoothingTimeConstant: analyser.smoothingTimeConstant,
+					peakFreqBin,
+					peakFrequency: Math.round(peakFrequency * 10) / 10,
+					peakMagnitude: Math.round(peakMagnitude * 100) / 100,
+					floatFrequencyData: Array.from(floatFreqData),
+					byteFrequencyData: Array.from(byteFreqData),
+					floatTimeDomainData: Array.from(floatTimeData),
+					byteTimeDomainData: Array.from(byteTimeData)
+				};
+			}
+
+			// Show preview
+			const preview = JSON.stringify(generatedData, null, 2);
+			dataPreview.textContent = preview.substring(0, 3000) + '\n\n... (truncated, total ' + preview.length + ' chars)';
+		}
+	</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# Build unified WASM module with AudioGraph
+
+set -e
+
+echo "Building WebAudio WASM module with AudioGraph..."
+
+# Source emsdk environment quietly
+# Check if emcc is already available (e.g., from GitHub Actions setup-emsdk)
+if command -v emcc > /dev/null 2>&1; then
+    echo "✓ emcc found in PATH"
+elif [ -n "$EMSDK" ] && [ -f "$EMSDK/emsdk_env.sh" ]; then
+    echo "✓ Sourcing emsdk from EMSDK env var: $EMSDK"
+    source "$EMSDK/emsdk_env.sh" > /dev/null 2>&1
+elif [ -f "$HOME/code/audio/emsdk/emsdk_env.sh" ]; then
+    echo "✓ Sourcing emsdk from $HOME/code/audio/emsdk"
+    source "$HOME/code/audio/emsdk/emsdk_env.sh" > /dev/null 2>&1
+elif [ -f "$HOME/emsdk/emsdk_env.sh" ]; then
+    echo "✓ Sourcing emsdk from $HOME/emsdk"
+    source "$HOME/emsdk/emsdk_env.sh" > /dev/null 2>&1
+else
+    echo "Error: emsdk not found"
+    echo "Please install emsdk or ensure emcc is in PATH"
+    exit 1
+fi
+
+# Output directory
+OUTPUT_DIR="dist"
+mkdir -p "$OUTPUT_DIR"
+
+# Compiler flags
+CXXFLAGS="-O3 -std=c++17 -sASSERTIONS=1"
+
+# SIMD flags for ARM NEON (translates to WASM SIMD)
+CXXFLAGS="$CXXFLAGS -msimd128"
+
+# Include directories
+INCLUDES="-I. -Isrc/vendor"
+
+# Exported functions (C API for JavaScript)
+EXPORTED_FUNCTIONS='[
+    "_createAudioGraph",
+    "_destroyAudioGraph",
+    "_createNode",
+    "_connectNodes",
+    "_connectToParam",
+    "_disconnectNodes",
+    "_startNode",
+    "_stopNode",
+    "_setNodeParameter",
+    "_setNodeBuffer",
+    "_registerBuffer",
+    "_setNodeBufferId",
+    "_setNodeStringProperty",
+    "_setWaveShaperCurve",
+    "_setNodePeriodicWave",
+    "_setNodeProperty",
+    "_scheduleParameterValue",
+    "_scheduleParameterRamp",
+    "_processGraph",
+    "_getCurrentTime",
+    "_malloc",
+    "_free"
+]'
+
+# Exported runtime methods
+EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "HEAPU8", "HEAPU32", "HEAP32", "HEAPF32", "stringToUTF8", "lengthBytesUTF8"]'
+
+echo "Compiling AudioGraph with SIMD-optimized node implementations..."
+emcc $CXXFLAGS $INCLUDES \
+    src/wasm/nodes/oscillator_node.cpp \
+    src/wasm/nodes/gain_node.cpp \
+    src/wasm/nodes/buffer_source_node.cpp \
+    src/wasm/audio_graph_simple.cpp \
+    -s WASM=1 \
+    -s EXPORTED_FUNCTIONS="$EXPORTED_FUNCTIONS" \
+    -s EXPORTED_RUNTIME_METHODS="$EXPORTED_RUNTIME_METHODS" \
+    -s ALLOW_MEMORY_GROWTH=1 \
+    -s INITIAL_MEMORY=268435456 \
+    -s MAXIMUM_MEMORY=4294967296 \
+    -s MODULARIZE=1 \
+    -s EXPORT_ES6=1 \
+    -s EXPORT_NAME="createWebAudioModule" \
+    -s ENVIRONMENT=node \
+    -o "$OUTPUT_DIR/webaudio.mjs"
+
+echo "✓ WASM build complete!"
+echo "  Output: $OUTPUT_DIR/webaudio.mjs (JS glue)"
+echo "  Output: $OUTPUT_DIR/webaudio.wasm (WASM binary)"
+ls -lh "$OUTPUT_DIR/webaudio.mjs" "$OUTPUT_DIR/webaudio.wasm"
