@@ -37,7 +37,9 @@ jobs:
         run: npm install
 
       - name: Build WASM modules
-        run: npm run build:wasm
+        run: |
+          npm run build:wasm
+          ./scripts/build-decoders.sh
 
       - name: Run linter
         run: npm run lint
