@@ -1,7 +1,13 @@
 # Benchmark Results Summary
 
+> **⚠️ DEPRECATED:** These results test the **legacy native C++ implementation**, NOT the WASM implementation.
+>
+> **For WASM benchmark results, see the main [README.md](../../README.md#-performance)**
+
 ## Overview
-Comprehensive performance comparison between **webaudio-node** (C++ with SIMD optimizations) and **node-web-audio-api** (Rust-based implementation).
+Comprehensive performance comparison between **webaudio-node native C++ addon** (with SIMD optimizations) and **node-web-audio-api** (Rust-based implementation).
+
+**Note:** These benchmarks test the legacy C++ native addon. The current WASM implementation only supports a subset of nodes. For accurate WASM performance data, see the core benchmarks in the main README.
 
 Both libraries are excellent implementations of the Web Audio API. This comparison aims to identify optimization opportunities and demonstrate the performance characteristics of different architectural approaches.
 
