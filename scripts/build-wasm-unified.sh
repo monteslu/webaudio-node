@@ -51,16 +51,6 @@ EXPORTED_FUNCTIONS='[
     "_scheduleParameterRamp",
     "_processGraph",
     "_getCurrentTime",
-    "_decodeMP3",
-    "_decodeWAV",
-    "_freeDecodedBuffer",
-    "_createMediaStreamSourceNode",
-    "_destroyMediaStreamSourceNode",
-    "_startMediaStreamSource",
-    "_stopMediaStreamSource",
-    "_writeInputData",
-    "_getInputDataAvailable",
-    "_processMediaStreamSourceNode",
     "_malloc",
     "_free"
 ]'
@@ -68,9 +58,12 @@ EXPORTED_FUNCTIONS='[
 # Exported runtime methods
 EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "HEAPU8", "HEAPU32", "HEAP32", "HEAPF32", "stringToUTF8", "lengthBytesUTF8"]'
 
-echo "Compiling AudioGraph with integrated audio decoders..."
+echo "Compiling AudioGraph with SIMD-optimized node implementations..."
 emcc $CXXFLAGS $INCLUDES \
-    src/wasm/audio_graph_wasm.cpp \
+    src/wasm/nodes/oscillator_node.cpp \
+    src/wasm/nodes/gain_node.cpp \
+    src/wasm/nodes/buffer_source_node.cpp \
+    src/wasm/audio_graph_simple.cpp \
     -s WASM=1 \
     -s EXPORTED_FUNCTIONS="$EXPORTED_FUNCTIONS" \
     -s EXPORTED_RUNTIME_METHODS="$EXPORTED_RUNTIME_METHODS" \

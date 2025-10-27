@@ -10,7 +10,7 @@ let implementations = [];
 
 // Try to load webaudio-node (local)
 try {
-	const webaudioNode = await import('webaudio-node');
+	const webaudioNode = await import('../../index.js');
 	implementations.push({
 		name: 'webaudio-node',
 		OfflineAudioContext: webaudioNode.OfflineAudioContext,

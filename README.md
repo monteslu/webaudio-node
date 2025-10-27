@@ -20,8 +20,8 @@ High-performance, browser-compatible Web Audio API for Node.js. Perfect for audi
 - **5 audio formats** via WASM decoders (MP3, WAV, FLAC, OGG, AAC) - see [WASM Audio Decoders](./docs/WASM_AUDIO_DECODERS.md)
 
 🚀 **High Performance**
-- **WASM with SIMD optimizations** - beats Rust implementation in 65% of benchmarks
-- **~50,000x faster than realtime** offline rendering
+- **WASM with SIMD optimizations** - beats Rust implementation in 83% of benchmarks
+- **~2,600x faster than realtime** offline rendering
 - **Chunk-ahead buffering** for smooth real-time playback
 - Zero JavaScript overhead in audio rendering
 
@@ -331,26 +331,27 @@ const sounds = await Promise.all(
 
 ### WASM vs Rust (node-web-audio-api)
 
-**webaudio-node wins 30/31 benchmarks** (97% win rate) with an average **3x faster** performance.
+**webaudio-node wins 5/6 core benchmarks** (83% win rate) against the high-performance Rust implementation.
 
-Top performance advantages:
-- **3D Audio/HRTF**: 30x faster
-- **Envelope Generator**: 5.7x faster
-- **Convolver/Reverb**: 4x faster
-- **Mixing (100 sources)**: 3.6x faster
-- **Buffer Playback**: 2.9x faster
+Core benchmark results:
+- **Offline Rendering**: 1.8x faster (250.87M vs 139.68M samples/sec)
+- **Filter Chain**: 5.4x faster (164.40M vs 30.35M samples/sec)
+- **Channel Operations**: 5.3x faster (195.56M vs 37.16M samples/sec)
+- **Node Creation**: 76x faster (2561.9K vs 33.7K nodes/sec)
+- **Automation**: 1.1x faster (2.24ms vs 2.53ms total)
+- **Mixing (100 sources)**: 0.86x (7.48M vs 6.43M samples/sec) - *Rust wins this one*
 
-See [Automated Benchmarks](./docs/automated_benchmarks.md) for detailed comparative results.
+Run benchmarks yourself: `node test/benchmarks/run-core-benchmarks.js`
 
 ### Offline Rendering Speed
 
 | Duration | Render Time | Speed vs Realtime |
 |----------|-------------|-------------------|
-| 1s | ~0.02ms | ~50,000x |
-| 5s | ~0.1ms | ~50,000x |
-| 10s | ~0.2ms | ~50,000x |
+| 1s | ~0.38ms | ~2,600x |
+| 5s | ~1.9ms | ~2,600x |
+| 10s | ~3.8ms | ~2,600x |
 
-**Why so fast?** WASM with SIMD optimizations processes audio in parallel.
+**Why so fast?** WASM with SIMD optimizations processes 4 audio samples in parallel.
 
 ## 🏗️ Architecture
 
@@ -464,8 +465,8 @@ webaudio-node/
 ## 🔄 Comparison with Other Libraries
 
 **vs node-web-audio-api (Rust):**
-- ✅ 97% win rate in benchmarks (30/31)
-- ✅ Average 3x faster with WASM + SIMD optimizations
+- ✅ 83% win rate in benchmarks (5/6 core benchmarks)
+- ✅ 1.8-76x faster in winning benchmarks with WASM + SIMD
 - ✅ Simpler installation (no Rust toolchain)
 - ⚠️ Fewer nodes (core set only)
 
