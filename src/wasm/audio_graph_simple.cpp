@@ -74,8 +74,8 @@ extern "C" {
     // WaveShaper
     WaveShaperNodeState* createWaveShaperNode(int sample_rate, int channels);
     void destroyWaveShaperNode(WaveShaperNodeState* state);
-    void setWaveShaperCurve(WaveShaperNodeState* state, float* curve, int length);
-    void setWaveShaperOversample(WaveShaperNodeState* state, int oversample);
+    void setWaveShaperCurve_node(WaveShaperNodeState* state, float* curve, int length);
+    void setWaveShaperOversample_node(WaveShaperNodeState* state, int oversample);
     void processWaveShaperNode(WaveShaperNodeState* state, float* input, float* output, int frame_count, bool has_input);
 
     // StereoPanner
@@ -841,6 +841,44 @@ void setNodeBufferId(int graph_id, int node_id, int buffer_id) {
     if (node.type == 3 && node.state && node.state->buffer_source_state) {
         // Set buffer on buffer source node
         setBufferSourceBuffer(node.state->buffer_source_state, bd.data, bd.frames, bd.channels);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setWaveShaperCurve(int graph_id, int node_id, float* curve_data, int curve_length) {
+    auto it = graphs.find(graph_id);
+    if (it == graphs.end()) return;
+
+    AudioGraph* graph = it->second;
+    auto node_it = graph->nodes.find(node_id);
+    if (node_it == graph->nodes.end()) return;
+
+    Node& node = node_it->second;
+    if (node.type == 6 && node.state && node.state->waveshaper_state) { // waveshaper
+        setWaveShaperCurve_node(node.state->waveshaper_state, curve_data, curve_length);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setWaveShaperOversample(int graph_id, int node_id, const char* oversample_str) {
+    auto it = graphs.find(graph_id);
+    if (it == graphs.end()) return;
+
+    AudioGraph* graph = it->second;
+    auto node_it = graph->nodes.find(node_id);
+    if (node_it == graph->nodes.end()) return;
+
+    // Convert string to oversample enum
+    int oversample_value = 0; // 0 = none
+    if (oversample_str) {
+        std::string os(oversample_str);
+        if (os == "2x") oversample_value = 1;
+        else if (os == "4x") oversample_value = 2;
+    }
+
+    Node& node = node_it->second;
+    if (node.type == 6 && node.state && node.state->waveshaper_state) { // waveshaper
+        setWaveShaperOversample_node(node.state->waveshaper_state, oversample_value);
     }
 }
 

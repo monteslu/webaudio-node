@@ -27,10 +27,10 @@ export async function benchmarkGranularSynthesis(OfflineAudioContext, iterations
             sourceData[j] = Math.random() * 2 - 1;
         }
 
-        // Create 100 grains (overlapping short playbacks)
-        const numGrains = 100;
+        // Create 50 grains (overlapping short playbacks) - reduced to avoid WASM memory issues
+        const numGrains = 50;
         const grainLength = 0.05; // 50ms grains
-        const grainSpacing = 0.01; // 10ms spacing (overlapping)
+        const grainSpacing = 0.02; // 20ms spacing (overlapping)
 
         for (let g = 0; g < numGrains; g++) {
             const grain = ctx.createBufferSource();

@@ -60,8 +60,10 @@ export class WasmAudioEngine {
         // Allocate WASM memory for buffer data
         const totalSamples = length * channels;
         const bufferPtr = wasmModule._malloc(totalSamples * 4); // 4 bytes per float
-        const bufferHeap = new Float32Array(wasmModule.HEAPF32.buffer, bufferPtr, totalSamples);
-        bufferHeap.set(bufferData);
+
+        // Use HEAPF32.set() with subarray (avoids alignment issues and is fast)
+        const floatIndex = bufferPtr >> 2;  // Divide by 4 to get Float32 index
+        wasmModule.HEAPF32.set(bufferData, floatIndex);
 
         wasmModule._setNodeBuffer(this.graphId, nodeId, bufferPtr, length, channels);
 
@@ -105,8 +107,10 @@ export class WasmAudioEngine {
     registerBuffer(bufferId, bufferData, length, channels) {
         const totalSamples = length * channels;
         const bufferPtr = wasmModule._malloc(totalSamples * 4);
-        const bufferHeap = new Float32Array(wasmModule.HEAPF32.buffer, bufferPtr, totalSamples);
-        bufferHeap.set(bufferData);
+
+        // Use HEAPF32.set() with subarray (avoids alignment issues and is fast)
+        const floatIndex = bufferPtr >> 2;  // Divide by 4 to get Float32 index
+        wasmModule.HEAPF32.set(bufferData, floatIndex);
 
         wasmModule._registerBuffer(this.graphId, bufferId, bufferPtr, length, channels);
         // Don't free - WASM keeps a reference
@@ -118,8 +122,10 @@ export class WasmAudioEngine {
 
     setWaveShaperCurve(nodeId, curve) {
         const curvePtr = wasmModule._malloc(curve.length * 4);
-        const curveHeap = new Float32Array(wasmModule.HEAPF32.buffer, curvePtr, curve.length);
-        curveHeap.set(curve);
+
+        // Use HEAPF32.set() with subarray (avoids alignment issues and is fast)
+        const floatIndex = curvePtr >> 2;
+        wasmModule.HEAPF32.set(curve, floatIndex);
 
         wasmModule._setWaveShaperCurve(this.graphId, nodeId, curvePtr, curve.length);
         // Don't free - WASM keeps a reference
@@ -132,19 +138,23 @@ export class WasmAudioEngine {
 
     setNodePeriodicWave(nodeId, wavetable) {
         const wavetablePtr = wasmModule._malloc(wavetable.length * 4);
-        const wavetableHeap = new Float32Array(
-            wasmModule.HEAPF32.buffer,
-            wavetablePtr,
-            wavetable.length
-        );
-        wavetableHeap.set(wavetable);
+
+        // Use HEAPF32.set() with subarray (avoids alignment issues and is fast)
+        const floatIndex = wavetablePtr >> 2;
+        wasmModule.HEAPF32.set(wavetable, floatIndex);
 
         wasmModule._setNodePeriodicWave(this.graphId, nodeId, wavetablePtr, wavetable.length);
         // Don't free - WASM keeps a reference
     }
 
     setWaveShaperOversample(nodeId, oversample) {
-        this.setNodeStringProperty(nodeId, 'oversample', oversample);
+        // Convert string oversample to C string
+        const valLengthBytes = wasmModule.lengthBytesUTF8(oversample) + 1;
+        const valPtr = wasmModule._malloc(valLengthBytes);
+        wasmModule.stringToUTF8(oversample, valPtr, valLengthBytes);
+
+        wasmModule._setWaveShaperOversample(this.graphId, nodeId, valPtr);
+        wasmModule._free(valPtr);
     }
 
     setNodeProperty(nodeId, property, value) {
@@ -215,9 +225,9 @@ export class WasmAudioEngine {
         // Process graph in WASM
         wasmModule._processGraph(this.graphId, outputPtr, frameCount);
 
-        // Copy result to output array
-        const wasmBuffer = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
-        outputArray.set(wasmBuffer);
+        // Copy result to output array using subarray (fast and avoids alignment issues)
+        const floatIndex = outputPtr >> 2;
+        outputArray.set(wasmModule.HEAPF32.subarray(floatIndex, floatIndex + totalSamples));
 
         // Free temp buffer
         wasmModule._free(outputPtr);
@@ -227,7 +237,6 @@ export class WasmAudioEngine {
         // Allocate output buffer in WASM memory
         const totalSamples = this.length * this.numberOfChannels;
         const outputPtr = wasmModule._malloc(totalSamples * 4);
-        const outputBuffer = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
 
         // Process in blocks (standard Web Audio quantum size)
         const blockSize = 128;
@@ -245,8 +254,11 @@ export class WasmAudioEngine {
             );
         }
 
-        // Copy result to JavaScript array
-        const result = new Float32Array(outputBuffer);
+        // Copy result to JavaScript array using subarray (fast and avoids alignment issues)
+        const floatIndex = outputPtr >> 2;
+        const result = new Float32Array(
+            wasmModule.HEAPF32.subarray(floatIndex, floatIndex + totalSamples)
+        );
 
         // Free WASM memory
         wasmModule._free(outputPtr);
