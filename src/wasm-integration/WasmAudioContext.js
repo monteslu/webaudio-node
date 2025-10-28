@@ -351,7 +351,7 @@ export class WasmAudioContext {
         try {
             // Decode using WASM decoders and resample to context's sample rate
             // This matches Web Audio API spec behavior
-            const decoded = await WasmAudioDecoders.decode(audioData, this.sampleRate);
+            const decoded = await WasmAudioDecoders.decode(this._engine.wasmModule, audioData, this.sampleRate);
 
             // Create AudioBuffer with decoded data at context's sample rate
             const audioBuffer = new AudioBuffer({
