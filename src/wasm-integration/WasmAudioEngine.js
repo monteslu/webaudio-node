@@ -8,23 +8,25 @@ function copyToWasmHeap(wasmModule, data, ptr) {
     // Ensure data is a Float32Array
     const floatArray = data instanceof Float32Array ? data : new Float32Array(data);
 
-    // Use HEAPF32 directly (Emscripten updates it automatically on memory growth)
+    // Create a fresh Float32Array view directly from the current heap buffer
+    // This ensures we're always using the latest buffer after any potential memory growth
+    // Use HEAPU8.buffer to get the current ArrayBuffer (HEAPU8 is always defined in Emscripten)
     const floatIndex = ptr >> 2;
+    const heapView = new Float32Array(wasmModule.HEAPU8.buffer, ptr, floatArray.length);
 
     // Validate bounds BEFORE copying
-    if (floatIndex + floatArray.length > wasmModule.HEAPF32.length) {
+    if (floatIndex + floatArray.length > (wasmModule.HEAPU8.buffer.byteLength >> 2)) {
         console.error('[copyToWasmHeap ERROR]');
         console.error(`  ptr=${ptr} (0x${ptr.toString(16)})`);
         console.error(`  floatIndex=${floatIndex}`);
         console.error(`  data.length=${floatArray.length}`);
         console.error(`  required end=${floatIndex + floatArray.length}`);
-        console.error(`  HEAPF32.length=${wasmModule.HEAPF32.length}`);
-        console.error(`  buffer.byteLength=${wasmModule.HEAPF32.buffer.byteLength}`);
+        console.error(`  heap buffer byteLength=${wasmModule.HEAPU8.buffer.byteLength}`);
         console.error('  Stack trace:', new Error().stack);
-        throw new Error(`copyToWasmHeap: offset ${floatIndex} + length ${floatArray.length} exceeds heap size ${wasmModule.HEAPF32.length}`);
+        throw new Error(`copyToWasmHeap: offset ${floatIndex} + length ${floatArray.length} exceeds heap size`);
     }
 
-    wasmModule.HEAPF32.set(floatArray, floatIndex);
+    heapView.set(floatArray);
 }
 
 export class WasmAudioEngine {

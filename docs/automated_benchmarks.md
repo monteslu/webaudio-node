@@ -12,15 +12,15 @@ Comparative performance benchmarks between **webaudio-node** (WASM + C++ impleme
 ### Summary Statistics
 
 - **Total Benchmarks:** 61
-- **Successful Comparisons:** 47 (both implementations completed)
-  - **webaudio-node wins:** 13/47 (**27.7%**)
-  - **node-web-audio-api wins:** 34/47 (72.3%)
-  - **Similar performance (within 1%):** 0/47 (0.0%)
-- **Failed Benchmarks:** 14
-  - **webaudio-node failed:** 13
+- **Successful Comparisons:** 60 (both implementations completed)
+  - **webaudio-node wins:** 18/60 (**30.0%**)
+  - **node-web-audio-api wins:** 42/60 (70.0%)
+  - **Similar performance (within 1%):** 0/60 (0.0%)
+- **Failed Benchmarks:** 1
+  - **webaudio-node failed:** 0
   - **node-web-audio-api failed:** 0
   - **Both failed:** 1
-- **Average Speedup (when webaudio-node faster):** 752.4%
+- **Average Speedup (when webaudio-node faster):** 549.2%
 
 ## Detailed Results
 
@@ -28,66 +28,66 @@ The table below shows render time in milliseconds (lower is better) and realtime
 
 | Benchmark | webaudio-node<br/>(ms) | node-web-audio-api<br/>(ms) | Realtime Multiplier<br/>(WASM / Rust) | Faster | Speedup |
 |-----------|----------:|------------:|----------------:|---------|--------:|
-| AudioListener (8 sources, 50 position/orientation changes) | 5.44 | 107.45 | 184.0x / 9.0x | 🟢 WASM | 1875.2% |
-| 3D Panner (8 sources with HRTF positioning) | 5.48 | 107.66 | 182.0x / 9.0x | 🟢 WASM | 1864.6% |
-| Panner Distance Models (Inverse) | 5.44 | 105.44 | 184.0x / 9.0x | 🟢 WASM | 1838.2% |
-| Panner Distance Models (Exponential) | 5.46 | 105.42 | 183.0x / 9.0x | 🟢 WASM | 1830.8% |
-| Panner Distance Models (Linear) | 5.46 | 105.38 | 183.0x / 9.0x | 🟢 WASM | 1830.0% |
-| Filter Modulation (4 oscillators with auto-wah) | 3.00 | 6.39 | 333.0x / 157.0x | 🟢 WASM | 113.0% |
-| Delay Modulation (4 sources with chorus effect) | 3.39 | 7.22 | 295.0x / 138.0x | 🟢 WASM | 113.0% |
-| Ring Modulation (8 voices) | 3.40 | 6.51 | 294.0x / 154.0x | 🟢 WASM | 91.5% |
-| AudioParam Automation (1000 events) | 0.25 | 0.45 | 1.7x / 2.1x | 🟢 WASM | 80.0% |
-| ConstantSource (16 oscillators with LFO modulation) | 5.00 | 8.36 | 200.0x / 120.0x | 🟢 WASM | 67.2% |
-| Node Creation (150 nodes per iteration) | 3.18 | 4.33 | 47.2x / 34.6x | 🟢 WASM | 36.2% |
-| Stereo Panner (16 sources across stereo field) | 6.19 | 7.66 | 162.0x / 131.0x | 🟢 WASM | 23.7% |
-| Oscillators (16 oscillators, 4 waveform types) | 4.85 | 5.73 | 206.0x / 175.0x | 🟢 WASM | 18.1% |
-| Channel Counts Comparison (8 Channels) | 5.07 | 0.80 | 197.0x / 1257.0x | 🔴 Rust | 533.8% |
-| Channel Counts Comparison (6 Channels) | 3.71 | 0.75 | 270.0x / 1337.0x | 🔴 Rust | 394.7% |
-| Channel Counts Comparison (4 Channels) | 2.57 | 0.71 | 390.0x / 1401.0x | 🔴 Rust | 262.0% |
-| MP3 Processing (decode + gain, no filters due to webaudio-node bug) | 304.00 | 97.90 | 113.3x / 57.9x | 🔴 Rust | 210.5% |
-| Multichannel (5.1 surround) | 12.72 | 4.26 | 79.0x / 235.0x | 🔴 Rust | 198.6% |
-| Analyser FFT Sizes (256) | 1.37 | 0.51 | 728.0x / 1979.0x | 🔴 Rust | 168.6% |
-| Analyser FFT Sizes (1024) | 1.26 | 0.49 | 793.0x / 2020.0x | 🔴 Rust | 157.1% |
-| Analyser FFT Sizes (512) | 1.25 | 0.49 | 798.0x / 2041.0x | 🔴 Rust | 155.1% |
-| Analyser FFT Sizes (2048) | 1.25 | 0.49 | 799.0x / 2021.0x | 🔴 Rust | 155.1% |
-| Analyser FFT Sizes (8192) | 1.27 | 0.50 | 787.0x / 2015.0x | 🔴 Rust | 154.0% |
-| Analyser FFT Sizes (16384) | 1.26 | 0.50 | 796.0x / 1981.0x | 🔴 Rust | 152.0% |
-| Analyser FFT Sizes (4096) | 1.25 | 0.50 | 799.0x / 1990.0x | 🔴 Rust | 150.0% |
-| Analyser FFT Sizes (32768) | 1.25 | 0.52 | 798.0x / 1933.0x | 🔴 Rust | 140.4% |
-| Delay Node (1 second with feedback) | 2.12 | 0.91 | 471.0x / 1100.0x | 🔴 Rust | 133.0% |
-| Sample Rates Comparison (96000 Hz) | 2.75 | 1.29 | 364.0x / 775.0x | 🔴 Rust | 113.2% |
-| Sample Rates Comparison (44100 Hz) | 1.27 | 0.63 | 784.0x / 1589.0x | 🔴 Rust | 101.6% |
-| Sample Rates Comparison (48000 Hz) | 1.35 | 0.67 | 739.0x / 1489.0x | 🔴 Rust | 101.5% |
-| Channel Counts Comparison (2 Channels) | 1.35 | 0.68 | 743.0x / 1481.0x | 🔴 Rust | 98.5% |
-| Sample Rates Comparison (22050 Hz) | 0.63 | 0.34 | 1589.0x / 2940.0x | 🔴 Rust | 85.3% |
-| Sample Rates Comparison (16000 Hz) | 0.46 | 0.26 | 2188.0x / 3799.0x | 🔴 Rust | 76.9% |
-| Filter Chain (5 cascaded filters) | 2.66 | 1.58 | 376.0x / 631.0x | 🔴 Rust | 68.4% |
-| Gain Ramping (20 crossfades) | 1.55 | 1.04 | 646.0x / 963.0x | 🔴 Rust | 49.0% |
-| Complex Graph (4 parallel chains) | 2.74 | 1.97 | 183.0x / 254.0x | 🔴 Rust | 39.1% |
-| Dynamics Compressor (4 sources with aggressive settings) | 2.67 | 1.94 | 374.0x / 515.0x | 🔴 Rust | 37.6% |
-| Sample Rates Comparison (8000 Hz) | 0.22 | 0.16 | 4463.0x / 6310.0x | 🔴 Rust | 37.5% |
-| Channel Counts Comparison (1 Channel) | 0.88 | 0.64 | 1131.0x / 1562.0x | 🔴 Rust | 37.5% |
-| Mixing Performance (100 simultaneous sources) | 8.38 | 6.36 | 5.7x / 7.5x | 🔴 Rust | 31.8% |
-| WaveShaper (1 second with 2x oversampling) | 1.66 | 1.26 | 601.0x / 794.0x | 🔴 Rust | 31.7% |
-| Analyser (FFT with 2048 fftSize) | 2.82 | 2.30 | 354.0x / 435.0x | 🔴 Rust | 22.6% |
-| Channel Operations (split/process/merge) | 1.83 | 1.50 | 546.0x / 668.0x | 🔴 Rust | 22.0% |
-| Envelope Generator (16 notes with ADSR) | 2.79 | 2.52 | 359.0x / 397.0x | 🔴 Rust | 10.7% |
-| Stress Test (100 sources, 400 total nodes) | 71.74 | 66.30 | 14.0x / 15.0x | 🔴 Rust | 8.2% |
-| Filter Types (8 filter types) | 5.17 | 4.81 | 193.0x / 208.0x | 🔴 Rust | 7.5% |
-| Offline Rendering (1 second of audio) | 0.72 | 0.68 | 1382.0x / 1460.0x | 🔴 Rust | 5.9% |
-| Convolver (Reverb with 1s impulse response) | FAILED | 35.19 | N/A / 28.0x | ❌ webaudio-node FAILED | N/A |
-| Buffer Playback (50 sound effects) | FAILED | 3.58 | N/A / 279.0x | ❌ webaudio-node FAILED | N/A |
-| IIR Filter (4 cascaded custom filters) | FAILED | 2.99 | N/A / 334.0x | ❌ webaudio-node FAILED | N/A |
-| Heavy Processing (Full mixing/mastering chain) | FAILED | 18.70 | N/A / 53.0x | ❌ webaudio-node FAILED | N/A |
-| PeriodicWave (8 custom waveforms, 32 harmonics) | FAILED | 3.28 | N/A / 304.0x | ❌ webaudio-node FAILED | N/A |
-| Granular Synthesis (100 grains) | FAILED | 3.44 | N/A / 291.0x | ❌ webaudio-node FAILED | N/A |
-| WaveShaper Oversampling Levels (none) | FAILED | 1.90 | N/A / 526.0x | ❌ webaudio-node FAILED | N/A |
-| WaveShaper Oversampling Levels (2x) | FAILED | 5.12 | N/A / 195.0x | ❌ webaudio-node FAILED | N/A |
-| WaveShaper Oversampling Levels (4x) | FAILED | 7.83 | N/A / 128.0x | ❌ webaudio-node FAILED | N/A |
-| Convolver Impulse Response Sizes (0.1s (4800 samples)) | FAILED | 10.70 | N/A / 93.0x | ❌ webaudio-node FAILED | N/A |
-| Convolver Impulse Response Sizes (0.5s (24000 samples)) | FAILED | 13.68 | N/A / 73.0x | ❌ webaudio-node FAILED | N/A |
-| Convolver Impulse Response Sizes (1s (48000 samples)) | FAILED | 17.40 | N/A / 57.0x | ❌ webaudio-node FAILED | N/A |
-| Convolver Impulse Response Sizes (2s (96000 samples)) | FAILED | 24.61 | N/A / 41.0x | ❌ webaudio-node FAILED | N/A |
+| Panner Distance Models (Exponential) | 5.35 | 104.05 | 187.0x / 10.0x | 🟢 WASM | 1844.9% |
+| Panner Distance Models (Inverse) | 5.35 | 103.26 | 187.0x / 10.0x | 🟢 WASM | 1830.1% |
+| Panner Distance Models (Linear) | 5.50 | 104.30 | 182.0x / 10.0x | 🟢 WASM | 1796.4% |
+| AudioListener (8 sources, 50 position/orientation changes) | 5.52 | 104.51 | 181.0x / 10.0x | 🟢 WASM | 1793.3% |
+| 3D Panner (8 sources with HRTF positioning) | 5.53 | 104.69 | 181.0x / 10.0x | 🟢 WASM | 1793.1% |
+| WaveShaper Oversampling Levels (4x) | 2.86 | 7.77 | 349.0x / 129.0x | 🟢 WASM | 171.7% |
+| Delay Modulation (4 sources with chorus effect) | 3.43 | 7.14 | 292.0x / 140.0x | 🟢 WASM | 108.2% |
+| Filter Modulation (4 oscillators with auto-wah) | 3.12 | 6.37 | 320.0x / 157.0x | 🟢 WASM | 104.2% |
+| Ring Modulation (8 voices) | 3.42 | 6.51 | 292.0x / 154.0x | 🟢 WASM | 90.4% |
+| WaveShaper Oversampling Levels (2x) | 2.89 | 5.08 | 346.0x / 197.0x | 🟢 WASM | 75.8% |
+| AudioParam Automation (1000 events) | 0.25 | 0.43 | 1.9x / 2.1x | 🟢 WASM | 72.0% |
+| ConstantSource (16 oscillators with LFO modulation) | 4.97 | 8.40 | 201.0x / 119.0x | 🟢 WASM | 69.0% |
+| Node Creation (150 nodes per iteration) | 3.24 | 4.50 | 46.2x / 33.4x | 🟢 WASM | 38.9% |
+| WaveShaper (1 second with 2x oversampling) | 0.93 | 1.25 | 1078.0x / 799.0x | 🟢 WASM | 34.4% |
+| Heavy Processing (Full mixing/mastering chain) | 14.18 | 18.48 | 71.0x / 54.0x | 🟢 WASM | 30.3% |
+| Oscillators (16 oscillators, 4 waveform types) | 4.81 | 5.64 | 208.0x / 177.0x | 🟢 WASM | 17.3% |
+| Stereo Panner (16 sources across stereo field) | 6.11 | 6.68 | 164.0x / 150.0x | 🟢 WASM | 9.3% |
+| PeriodicWave (8 custom waveforms, 32 harmonics) | 2.81 | 3.00 | 356.0x / 333.0x | 🟢 WASM | 6.8% |
+| Convolver Impulse Response Sizes (2s (96000 samples)) | 7117.08 | 24.08 | 0.0x / 42.0x | 🔴 Rust | 29456.0% |
+| Convolver Impulse Response Sizes (1s (48000 samples)) | 3385.96 | 17.09 | 0.0x / 59.0x | 🔴 Rust | 19712.5% |
+| Convolver Impulse Response Sizes (0.5s (24000 samples)) | 1584.04 | 13.42 | 1.0x / 75.0x | 🔴 Rust | 11703.6% |
+| Convolver (Reverb with 1s impulse response) | 1694.03 | 34.74 | 1.0x / 29.0x | 🔴 Rust | 4776.3% |
+| Convolver Impulse Response Sizes (0.1s (4800 samples)) | 342.47 | 10.66 | 3.0x / 94.0x | 🔴 Rust | 3112.7% |
+| Channel Counts Comparison (8 Channels) | 5.30 | 0.80 | 189.0x / 1255.0x | 🔴 Rust | 562.5% |
+| Channel Counts Comparison (6 Channels) | 4.11 | 0.75 | 243.0x / 1333.0x | 🔴 Rust | 448.0% |
+| Channel Counts Comparison (4 Channels) | 2.68 | 0.70 | 373.0x / 1424.0x | 🔴 Rust | 282.9% |
+| Granular Synthesis (100 grains) | 10.49 | 3.20 | 95.0x / 313.0x | 🔴 Rust | 227.8% |
+| MP3 Processing (decode + gain, no filters due to webaudio-node bug) | 302.81 | 96.63 | 104.0x / 58.9x | 🔴 Rust | 213.4% |
+| Multichannel (5.1 surround) | 13.09 | 4.26 | 76.0x / 235.0x | 🔴 Rust | 207.3% |
+| Analyser FFT Sizes (256) | 1.39 | 0.50 | 720.0x / 2018.0x | 🔴 Rust | 178.0% |
+| Analyser FFT Sizes (512) | 1.30 | 0.49 | 768.0x / 2052.0x | 🔴 Rust | 165.3% |
+| Analyser FFT Sizes (1024) | 1.29 | 0.49 | 774.0x / 2022.0x | 🔴 Rust | 163.3% |
+| Analyser FFT Sizes (4096) | 1.28 | 0.49 | 784.0x / 2033.0x | 🔴 Rust | 161.2% |
+| Analyser FFT Sizes (2048) | 1.29 | 0.50 | 776.0x / 1981.0x | 🔴 Rust | 158.0% |
+| Analyser FFT Sizes (8192) | 1.28 | 0.50 | 783.0x / 1983.0x | 🔴 Rust | 156.0% |
+| Analyser FFT Sizes (32768) | 1.26 | 0.50 | 794.0x / 1994.0x | 🔴 Rust | 152.0% |
+| Buffer Playback (50 sound effects) | 8.66 | 3.58 | 115.0x / 279.0x | 🔴 Rust | 141.9% |
+| Sample Rates Comparison (96000 Hz) | 2.84 | 1.20 | 352.0x / 836.0x | 🔴 Rust | 136.7% |
+| Sample Rates Comparison (48000 Hz) | 1.38 | 0.62 | 724.0x / 1616.0x | 🔴 Rust | 122.6% |
+| Sample Rates Comparison (44100 Hz) | 1.26 | 0.58 | 795.0x / 1731.0x | 🔴 Rust | 117.2% |
+| Channel Counts Comparison (2 Channels) | 1.39 | 0.65 | 717.0x / 1541.0x | 🔴 Rust | 113.8% |
+| Sample Rates Comparison (8000 Hz) | 0.35 | 0.17 | 2852.0x / 5948.0x | 🔴 Rust | 105.9% |
+| Sample Rates Comparison (22050 Hz) | 0.64 | 0.32 | 1562.0x / 3078.0x | 🔴 Rust | 100.0% |
+| Filter Chain (5 cascaded filters) | 3.00 | 1.53 | 334.0x / 652.0x | 🔴 Rust | 96.1% |
+| Sample Rates Comparison (16000 Hz) | 0.49 | 0.26 | 2044.0x / 3849.0x | 🔴 Rust | 88.5% |
+| WaveShaper Oversampling Levels (none) | 3.04 | 1.87 | 328.0x / 535.0x | 🔴 Rust | 62.6% |
+| Channel Counts Comparison (1 Channel) | 0.99 | 0.63 | 1009.0x / 1592.0x | 🔴 Rust | 57.1% |
+| Gain Ramping (20 crossfades) | 1.52 | 1.00 | 660.0x / 1001.0x | 🔴 Rust | 52.0% |
+| Channel Operations (split/process/merge) | 1.82 | 1.29 | 549.0x / 773.0x | 🔴 Rust | 41.1% |
+| IIR Filter (4 cascaded custom filters) | 4.06 | 2.99 | 246.0x / 335.0x | 🔴 Rust | 35.8% |
+| Mixing Performance (100 simultaneous sources) | 8.57 | 6.37 | 5.6x / 7.5x | 🔴 Rust | 34.5% |
+| Dynamics Compressor (4 sources with aggressive settings) | 2.50 | 1.94 | 399.0x / 516.0x | 🔴 Rust | 28.9% |
+| Offline Rendering (1 second of audio) | 0.84 | 0.68 | 1194.0x / 1468.0x | 🔴 Rust | 23.5% |
+| Analyser FFT Sizes (16384) | 1.27 | 1.03 | 788.0x / 968.0x | 🔴 Rust | 23.3% |
+| Analyser (FFT with 2048 fftSize) | 2.66 | 2.28 | 376.0x / 438.0x | 🔴 Rust | 16.7% |
+| Complex Graph (4 parallel chains) | 2.35 | 2.07 | 213.0x / 242.0x | 🔴 Rust | 13.5% |
+| Envelope Generator (16 notes with ADSR) | 2.82 | 2.52 | 354.0x / 397.0x | 🔴 Rust | 11.9% |
+| Stress Test (100 sources, 400 total nodes) | 71.15 | 63.91 | 14.0x / 16.0x | 🔴 Rust | 11.3% |
+| Filter Types (8 filter types) | 5.23 | 4.73 | 191.0x / 211.0x | 🔴 Rust | 10.6% |
+| Delay Node (1 second with feedback) | 1.10 | 1.05 | 912.0x / 956.0x | 🔴 Rust | 4.8% |
 | Convolver Impulse Response Sizes (4s (192000 samples)) | FAILED | FAILED | N/A / N/A | ❌ BOTH FAILED | N/A |
 
 ## Interpretation
