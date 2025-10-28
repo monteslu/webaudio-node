@@ -3,6 +3,40 @@
 
 export class WasmAudioDecoders {
     /**
+     * De-interleave audio data using WASM (SIMD-optimized)
+     * @param {Object} wasmModule - WASM module instance
+     * @param {Float32Array} interleavedData - Interleaved audio samples
+     * @param {number} frameCount - Number of frames
+     * @param {number} channels - Number of channels
+     * @returns {Float32Array} Planar audio data
+     */
+    static deinterleaveAudio(wasmModule, interleavedData, frameCount, channels) {
+        const totalSamples = frameCount * channels;
+
+        // Allocate buffers in WASM
+        const interleavedPtr = wasmModule._malloc(totalSamples * 4);
+        const planarPtr = wasmModule._malloc(totalSamples * 4);
+
+        // Copy interleaved data to WASM
+        const floatIndex = interleavedPtr >> 2;
+        wasmModule.HEAPF32.set(interleavedData, floatIndex);
+
+        // De-interleave in WASM (uses SIMD!)
+        wasmModule._deinterleaveAudio(interleavedPtr, planarPtr, frameCount, channels);
+
+        // Copy planar result back to JavaScript
+        const planarFloatIndex = planarPtr >> 2;
+        const result = new Float32Array(totalSamples);
+        result.set(wasmModule.HEAPF32.subarray(planarFloatIndex, planarFloatIndex + totalSamples));
+
+        // Free WASM memory
+        wasmModule._free(interleavedPtr);
+        wasmModule._free(planarPtr);
+
+        return result;
+    }
+
+    /**
      * Resample audio data to target sample rate
      * @param {Object} wasmModule - WASM module instance
      * @param {Float32Array} audioData - Interleaved audio samples

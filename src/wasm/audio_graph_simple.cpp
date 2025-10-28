@@ -11,6 +11,40 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+// Parameter ID enumeration - eliminates string malloc/copy/free overhead
+enum ParamID {
+    PARAM_FREQUENCY = 0,
+    PARAM_DETUNE = 1,
+    PARAM_GAIN = 2,
+    PARAM_Q = 3,
+    PARAM_DELAY_TIME = 4,
+    PARAM_PAN = 5,
+    PARAM_OFFSET = 6,
+    PARAM_TYPE = 7,
+    PARAM_PLAYBACK_OFFSET = 8,
+    PARAM_PLAYBACK_DURATION = 9,
+    PARAM_LOOP = 10,
+    PARAM_LOOP_START = 11,
+    PARAM_LOOP_END = 12,
+    PARAM_REF_DISTANCE = 13,
+    PARAM_MAX_DISTANCE = 14,
+    PARAM_ROLLOFF_FACTOR = 15,
+    PARAM_CONE_INNER_ANGLE = 16,
+    PARAM_CONE_OUTER_ANGLE = 17,
+    PARAM_CONE_OUTER_GAIN = 18,
+    PARAM_THRESHOLD = 19,
+    PARAM_KNEE = 20,
+    PARAM_RATIO = 21,
+    PARAM_ATTACK = 22,
+    PARAM_RELEASE = 23,
+    PARAM_POSITION_X = 24,
+    PARAM_POSITION_Y = 25,
+    PARAM_POSITION_Z = 26,
+    PARAM_ORIENTATION_X = 27,
+    PARAM_ORIENTATION_Y = 28,
+    PARAM_ORIENTATION_Z = 29
+};
+
 // Simple oscillator implementation with SIMD
 #ifdef __wasm_simd128__
 #include <wasm_simd128.h>
@@ -469,7 +503,7 @@ void stopNode(int graph_id, int node_id, double when) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void setNodeParameter(int graph_id, int node_id, const char* param_name, float value) {
+void setNodeParameter(int graph_id, int node_id, int param_id, float value) {
     auto it = graphs.find(graph_id);
     if (it == graphs.end()) return;
 
@@ -480,36 +514,34 @@ void setNodeParameter(int graph_id, int node_id, const char* param_name, float v
     Node& node = node_it->second;
     if (!node.state) return;
 
-    std::string param(param_name);
-
     if (node.type == 1) { // oscillator
-        if (param == "frequency") node.state->frequency = value;
-        else if (param == "detune") node.state->detune = value;
+        if (param_id == PARAM_FREQUENCY) node.state->frequency = value;
+        else if (param_id == PARAM_DETUNE) node.state->detune = value;
     } else if (node.type == 2) { // gain
-        if (param == "gain") node.state->gain = value;
+        if (param_id == PARAM_GAIN) node.state->gain = value;
     } else if (node.type == 4 && node.state->biquad_state) { // biquad_filter
-        if (param == "frequency") {
+        if (param_id == PARAM_FREQUENCY) {
             node.state->filter_frequency = value;
             setBiquadFilterFrequency(node.state->biquad_state, value);
-        } else if (param == "Q") {
+        } else if (param_id == PARAM_Q) {
             node.state->filter_q = value;
             setBiquadFilterQ(node.state->biquad_state, value);
-        } else if (param == "gain") {
+        } else if (param_id == PARAM_GAIN) {
             node.state->filter_gain = value;
             setBiquadFilterGain(node.state->biquad_state, value);
         }
     } else if (node.type == 5 && node.state->delay_state) { // delay
-        if (param == "delayTime") {
+        if (param_id == PARAM_DELAY_TIME) {
             node.state->delay_time = value;
             setDelayTime(node.state->delay_state, value);
         }
     } else if (node.type == 7 && node.state->stereo_panner_state) { // stereo_panner
-        if (param == "pan") {
+        if (param_id == PARAM_PAN) {
             node.state->pan = value;
             setStereoPannerPan(node.state->stereo_panner_state, value);
         }
     } else if (node.type == 8 && node.state->constant_source_state) { // constant_source
-        if (param == "offset") {
+        if (param_id == PARAM_OFFSET) {
             node.state->offset = value;
             setConstantSourceOffset(node.state->constant_source_state, value);
         }

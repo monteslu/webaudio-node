@@ -3,6 +3,41 @@
 
 import { wasmModule as defaultWasmModule } from './WasmModule.js';
 
+// Parameter name to ID mapping - matches C++ ParamID enum
+// Eliminates malloc/copy/free overhead on every parameter change
+const PARAM_ID_MAP = {
+    'frequency': 0,
+    'detune': 1,
+    'gain': 2,
+    'Q': 3,
+    'delayTime': 4,
+    'pan': 5,
+    'offset': 6,
+    'type': 7,
+    'playbackOffset': 8,
+    'playbackDuration': 9,
+    'loop': 10,
+    'loopStart': 11,
+    'loopEnd': 12,
+    'refDistance': 13,
+    'maxDistance': 14,
+    'rolloffFactor': 15,
+    'coneInnerAngle': 16,
+    'coneOuterAngle': 17,
+    'coneOuterGain': 18,
+    'threshold': 19,
+    'knee': 20,
+    'ratio': 21,
+    'attack': 22,
+    'release': 23,
+    'positionX': 24,
+    'positionY': 25,
+    'positionZ': 26,
+    'orientationX': 27,
+    'orientationY': 28,
+    'orientationZ': 29
+};
+
 // Helper to safely copy data to WASM heap, handling potential memory growth
 function copyToWasmHeap(wasmModule, data, ptr) {
     // Ensure data is a Float32Array
@@ -78,12 +113,14 @@ export class WasmAudioEngine {
     }
 
     setNodeParameter(nodeId, paramName, value) {
-        const lengthBytes = this.wasmModule.lengthBytesUTF8(paramName) + 1;
-        const paramNamePtr = this.wasmModule._malloc(lengthBytes);
-        this.wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
+        // Map parameter name to integer ID - eliminates malloc/copy/free overhead
+        const paramId = PARAM_ID_MAP[paramName];
+        if (paramId === undefined) {
+            console.warn(`Unknown parameter: ${paramName}`);
+            return;
+        }
 
-        this.wasmModule._setNodeParameter(this.graphId, nodeId, paramNamePtr, value);
-        this.wasmModule._free(paramNamePtr);
+        this.wasmModule._setNodeParameter(this.graphId, nodeId, paramId, value);
     }
 
     setNodeBuffer(nodeId, bufferData, length, channels) {
