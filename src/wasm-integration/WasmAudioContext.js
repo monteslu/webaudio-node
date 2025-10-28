@@ -7,7 +7,19 @@ import { GainNode } from '../javascript/nodes/GainNode.js';
 import { OscillatorNode } from '../javascript/nodes/OscillatorNode.js';
 import { AudioBufferSourceNode } from '../javascript/nodes/AudioBufferSourceNode.js';
 import { BiquadFilterNode } from '../javascript/nodes/BiquadFilterNode.js';
+import { DelayNode } from '../javascript/nodes/DelayNode.js';
+import { WaveShaperNode } from '../javascript/nodes/WaveShaperNode.js';
+import { StereoPannerNode } from '../javascript/nodes/StereoPannerNode.js';
+import { ConstantSourceNode } from '../javascript/nodes/ConstantSourceNode.js';
+import { ConvolverNode } from '../javascript/nodes/ConvolverNode.js';
+import { DynamicsCompressorNode } from '../javascript/nodes/DynamicsCompressorNode.js';
+import { AnalyserNode } from '../javascript/nodes/AnalyserNode.js';
+import { PannerNode } from '../javascript/nodes/PannerNode.js';
+import { IIRFilterNode } from '../javascript/nodes/IIRFilterNode.js';
+import { ChannelSplitterNode } from '../javascript/nodes/ChannelSplitterNode.js';
+import { ChannelMergerNode } from '../javascript/nodes/ChannelMergerNode.js';
 import { AudioBuffer } from '../javascript/AudioBuffer.js';
+import { PeriodicWave } from '../javascript/PeriodicWave.js';
 import { WasmAudioDecoders } from './WasmAudioDecoders.js';
 import { MediaStreamSourceNode } from './MediaStreamSourceNode.js';
 import sdl from '@kmamal/sdl';
@@ -85,18 +97,13 @@ export class WasmAudioContext {
     // Helper method to find SDL device by deviceId
     _findDeviceBySinkId(sinkId) {
         try {
-            const devices = sdl.audio.devices || [];
-
-            // If no sinkId specified, return the first playback device (default)
+            // If no sinkId specified, return just the type to use SDL's default device
             if (!sinkId || sinkId === '') {
-                const playbackDevice = devices.find(d => d.type === 'playback');
-                if (!playbackDevice) {
-                    throw new Error('No audio playback devices found');
-                }
-                return playbackDevice;
+                return { type: 'playback' }; // SDL will use system default
             }
 
-            // Find device by sinkId
+            // Find specific device by sinkId
+            const devices = sdl.audio.devices || [];
             for (const device of devices) {
                 if (hashString(device.name) === sinkId) {
                     return device;
@@ -175,6 +182,66 @@ export class WasmAudioContext {
         return new BiquadFilterNode(this, options);
     }
 
+    createDelay(maxDelayTime) {
+        // Support legacy parameter or options object
+        const options = typeof maxDelayTime === 'number'
+            ? { maxDelayTime }
+            : maxDelayTime;
+        return new DelayNode(this, options);
+    }
+
+    createWaveShaper(options) {
+        return new WaveShaperNode(this, options);
+    }
+
+    createStereoPanner(options) {
+        return new StereoPannerNode(this, options);
+    }
+
+    createConstantSource(options) {
+        return new ConstantSourceNode(this, options);
+    }
+
+    createConvolver(options) {
+        return new ConvolverNode(this, options);
+    }
+
+    createDynamicsCompressor(options) {
+        return new DynamicsCompressorNode(this, options);
+    }
+
+    createAnalyser(options) {
+        return new AnalyserNode(this, options);
+    }
+
+    createPanner(options) {
+        return new PannerNode(this, options);
+    }
+
+    createIIRFilter(feedforward, feedback) {
+        return new IIRFilterNode(this, { feedforward, feedback });
+    }
+
+    createChannelSplitter(numberOfOutputs) {
+        // Support legacy parameter or options object
+        const options = typeof numberOfOutputs === 'number'
+            ? { numberOfOutputs }
+            : numberOfOutputs;
+        return new ChannelSplitterNode(this, options);
+    }
+
+    createChannelMerger(numberOfInputs) {
+        // Support legacy parameter or options object
+        const options = typeof numberOfInputs === 'number'
+            ? { numberOfInputs }
+            : numberOfInputs;
+        return new ChannelMergerNode(this, options);
+    }
+
+    createPeriodicWave(real, imag, options) {
+        return new PeriodicWave(this, { real, imag, ...options });
+    }
+
     createMediaStreamSource(options) {
         return new MediaStreamSourceNode(this, options);
     }
@@ -198,8 +265,13 @@ export class WasmAudioContext {
         this._startTime = Date.now();
         this.state = 'running';
 
-        // Pre-render initial chunk (2 seconds) before starting playback
-        this._renderAndEnqueueChunk(this.sampleRate * 2);
+        // Pre-allocate reusable buffer for rendering (avoid allocations in hot path)
+        const maxChunkFrames = Math.ceil(this.sampleRate * 0.2); // 200ms max chunks
+        this._renderBuffer = new Float32Array(maxChunkFrames * this._channels);
+        this._renderBufferAsBuffer = Buffer.from(this._renderBuffer.buffer);
+
+        // Pre-render initial chunk (200ms) before starting playback
+        this._renderAndEnqueueChunk(Math.ceil(this.sampleRate * 0.2));
 
         // Start playback
         this._audioDevice.play();
@@ -209,13 +281,15 @@ export class WasmAudioContext {
     }
 
     _renderAndEnqueueChunk(numFrames) {
-        const floatBuffer = new Float32Array(numFrames * this._channels);
+        // Reuse pre-allocated buffer (no allocation in hot path!)
+        const totalSamples = numFrames * this._channels;
+        const floatBuffer = this._renderBuffer.subarray(0, totalSamples);
 
         // Render audio using WASM engine
         this._engine.renderBlock(floatBuffer, numFrames);
 
-        // Convert Float32Array to Buffer for SDL
-        const buffer = Buffer.from(floatBuffer.buffer);
+        // Use pre-allocated Buffer view (no copy!)
+        const buffer = this._renderBufferAsBuffer.subarray(0, totalSamples * 4);
 
         // Enqueue audio data to SDL
         this._audioDevice.enqueue(buffer);
@@ -228,13 +302,15 @@ export class WasmAudioContext {
         const queuedBytes = this._audioDevice.queued;
         const queuedSeconds = queuedBytes / (this.sampleRate * this._channels * 4);
 
-        // If less than 1 second queued, render another 2 seconds
-        if (queuedSeconds < 1.0) {
-            this._renderAndEnqueueChunk(this.sampleRate * 2);
+        // Keep buffer at 150-250ms for stability without too much latency
+        if (queuedSeconds < 0.2) {
+            // Render 32ms chunks (slightly larger than browser quantum size)
+            const framesToRender = Math.ceil(this.sampleRate * 0.032);
+            this._renderAndEnqueueChunk(framesToRender);
         }
 
-        // Check again in 500ms
-        setTimeout(() => this._monitorLoop(), 500);
+        // Check every 10ms - good balance
+        setTimeout(() => this._monitorLoop(), 10);
     }
 
     async suspend() {

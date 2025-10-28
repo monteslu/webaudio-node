@@ -400,4 +400,71 @@ void destroyFFT(FFTState* state) {
     delete state;
 }
 
+// Simple in-place FFT for AnalyserNode and ConvolverNode
+// This is a Cooley-Tukey radix-2 implementation
+EMSCRIPTEN_KEEPALIVE
+void computeFFT(Complex* data, int n, bool inverse) {
+    if (n <= 1) return;
+
+    // Bit-reversal permutation
+    int j = 0;
+    for (int i = 0; i < n - 1; i++) {
+        if (i < j) {
+            Complex temp = data[i];
+            data[i] = data[j];
+            data[j] = temp;
+        }
+        int k = n / 2;
+        while (k <= j) {
+            j -= k;
+            k /= 2;
+        }
+        j += k;
+    }
+
+    // FFT computation
+    float direction = inverse ? 1.0f : -1.0f;
+
+    for (int size = 2; size <= n; size *= 2) {
+        int half_size = size / 2;
+        float step = direction * 2.0f * M_PI / size;
+
+        for (int i = 0; i < n; i += size) {
+            for (int j = 0; j < half_size; j++) {
+                float angle = step * j;
+                float cos_val = std::cos(angle);
+                float sin_val = std::sin(angle);
+
+                Complex w;
+                w.real = cos_val;
+                w.imag = sin_val;
+
+                int idx1 = i + j;
+                int idx2 = i + j + half_size;
+
+                Complex t;
+                t.real = w.real * data[idx2].real - w.imag * data[idx2].imag;
+                t.imag = w.real * data[idx2].imag + w.imag * data[idx2].real;
+
+                Complex u = data[idx1];
+
+                data[idx1].real = u.real + t.real;
+                data[idx1].imag = u.imag + t.imag;
+
+                data[idx2].real = u.real - t.real;
+                data[idx2].imag = u.imag - t.imag;
+            }
+        }
+    }
+
+    // Normalize inverse FFT
+    if (inverse) {
+        float scale = 1.0f / n;
+        for (int i = 0; i < n; i++) {
+            data[i].real *= scale;
+            data[i].imag *= scale;
+        }
+    }
+}
+
 } // extern "C"

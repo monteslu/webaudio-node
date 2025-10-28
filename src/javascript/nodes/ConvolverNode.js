@@ -47,9 +47,8 @@ export class ConvolverNode extends AudioNode {
         }
 
         // Send to native code
-        this.context._engine.setNodeParameter(
+        this.context._engine.setNodeBuffer(
             this._nodeId,
-            'buffer',
             interleavedData,
             length,
             numberOfChannels

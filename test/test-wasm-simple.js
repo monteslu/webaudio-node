@@ -1,4 +1,4 @@
-import { OfflineAudioContext } from './index-wasm.js';
+import { OfflineAudioContext } from '../index-wasm.js';
 
 console.log('\n🧪 Testing WASM offline rendering...\n');
 

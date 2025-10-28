@@ -1,15 +1,7 @@
 // Thin wrapper around WASM AudioGraph
 // All heavy lifting (graph traversal, mixing, processing) is done in WASM
 
-import { fileURLToPath } from 'url';
-import path from 'path';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.join(__dirname, '..', '..');
-
-// Preload WASM module at import time using top-level await
-const createWebAudioModule = (await import(path.join(rootDir, 'dist', 'webaudio.mjs'))).default;
-const wasmModule = await createWebAudioModule();
+import { wasmModule } from './WasmModule.js';
 
 export class WasmAudioEngine {
     constructor(numberOfChannels, length, sampleRate) {

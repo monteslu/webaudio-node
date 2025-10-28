@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Build unified WASM module with AudioGraph
+# Build TRULY unified WASM module
+# ONE file with: audio graph + all nodes + decoders
 
 set -e
 
-echo "Building WebAudio WASM module with AudioGraph..."
+echo "Building UNIFIED WASM module (graph + nodes + decoders)..."
 
 # Source emsdk environment quietly
-# Check if emcc is already available (e.g., from GitHub Actions setup-emsdk)
 if command -v emcc > /dev/null 2>&1; then
     echo "✓ emcc found in PATH"
 elif [ -n "$EMSDK" ] && [ -f "$EMSDK/emsdk_env.sh" ]; then
@@ -21,24 +21,19 @@ elif [ -f "$HOME/emsdk/emsdk_env.sh" ]; then
     source "$HOME/emsdk/emsdk_env.sh" > /dev/null 2>&1
 else
     echo "Error: emsdk not found"
-    echo "Please install emsdk or ensure emcc is in PATH"
     exit 1
 fi
 
-# Output directory
 OUTPUT_DIR="dist"
 mkdir -p "$OUTPUT_DIR"
 
-# Compiler flags
-CXXFLAGS="-O3 -std=c++17 -sASSERTIONS=1"
-
-# SIMD flags for ARM NEON (translates to WASM SIMD)
-CXXFLAGS="$CXXFLAGS -msimd128"
+# Compiler flags - optimized with SIMD
+CXXFLAGS="-O3 -std=c++17 -msimd128 -D__i386__ -Wno-narrowing"
 
 # Include directories
 INCLUDES="-I. -Isrc/vendor"
 
-# Exported functions (C API for JavaScript)
+# ALL exported functions (graph + nodes + decoders + media stream)
 EXPORTED_FUNCTIONS='[
     "_createAudioGraph",
     "_destroyAudioGraph",
@@ -60,19 +55,51 @@ EXPORTED_FUNCTIONS='[
     "_scheduleParameterRamp",
     "_processGraph",
     "_getCurrentTime",
+    "_decodeMP3",
+    "_decodeWAV",
+    "_decodeFLAC",
+    "_decodeVorbis",
+    "_decodeAAC",
+    "_decodeAudio",
+    "_resampleAudio",
+    "_freeDecodedBuffer",
+    "_createMediaStreamSourceNode",
+    "_destroyMediaStreamSourceNode",
+    "_startMediaStreamSource",
+    "_stopMediaStreamSource",
+    "_writeInputData",
+    "_getInputDataAvailable",
+    "_processMediaStreamSourceNode",
     "_malloc",
     "_free"
 ]'
 
-# Exported runtime methods
 EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "HEAPU8", "HEAPU32", "HEAP32", "HEAPF32", "stringToUTF8", "lengthBytesUTF8"]'
 
-echo "Compiling AudioGraph with SIMD-optimized node implementations..."
+echo "Compiling unified WASM: graph + all nodes + decoders..."
+echo "This may take a minute due to audio decoder libraries..."
+
+# Compile everything together - ALL nodes + utils + graph + decoders + media stream
 emcc $CXXFLAGS $INCLUDES \
+    src/wasm/utils/fft.cpp \
     src/wasm/nodes/oscillator_node.cpp \
     src/wasm/nodes/gain_node.cpp \
     src/wasm/nodes/buffer_source_node.cpp \
+    src/wasm/nodes/biquad_filter_node.cpp \
+    src/wasm/nodes/delay_node.cpp \
+    src/wasm/nodes/wave_shaper_node.cpp \
+    src/wasm/nodes/stereo_panner_node.cpp \
+    src/wasm/nodes/constant_source_node.cpp \
+    src/wasm/nodes/convolver_node.cpp \
+    src/wasm/nodes/dynamics_compressor_node.cpp \
+    src/wasm/nodes/analyser_node.cpp \
+    src/wasm/nodes/panner_node.cpp \
+    src/wasm/nodes/iir_filter_node.cpp \
+    src/wasm/nodes/channel_splitter_node.cpp \
+    src/wasm/nodes/channel_merger_node.cpp \
     src/wasm/audio_graph_simple.cpp \
+    src/wasm/media_stream_source.cpp \
+    src/wasm/audio_decoders.cpp \
     -s WASM=1 \
     -s EXPORTED_FUNCTIONS="$EXPORTED_FUNCTIONS" \
     -s EXPORTED_RUNTIME_METHODS="$EXPORTED_RUNTIME_METHODS" \
@@ -81,11 +108,19 @@ emcc $CXXFLAGS $INCLUDES \
     -s MAXIMUM_MEMORY=4294967296 \
     -s MODULARIZE=1 \
     -s EXPORT_ES6=1 \
-    -s EXPORT_NAME="createWebAudioModule" \
+    -s EXPORT_NAME="createUnifiedWebAudioModule" \
     -s ENVIRONMENT=node \
     -o "$OUTPUT_DIR/webaudio.mjs"
 
-echo "✓ WASM build complete!"
+echo "✓ Unified WASM build complete!"
 echo "  Output: $OUTPUT_DIR/webaudio.mjs (JS glue)"
 echo "  Output: $OUTPUT_DIR/webaudio.wasm (WASM binary)"
 ls -lh "$OUTPUT_DIR/webaudio.mjs" "$OUTPUT_DIR/webaudio.wasm"
+
+# Remove old audio_decoders files
+if [ -f "$OUTPUT_DIR/audio_decoders.mjs" ]; then
+    echo ""
+    echo "Removing old separate decoder files..."
+    rm -f "$OUTPUT_DIR/audio_decoders.mjs" "$OUTPUT_DIR/audio_decoders.wasm"
+    echo "✓ Cleanup complete - now using single unified WASM"
+fi

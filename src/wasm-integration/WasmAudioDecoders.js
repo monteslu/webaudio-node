@@ -1,16 +1,7 @@
 // WASM Audio Decoders
 // Fast MP3/WAV decoding using dr_libs compiled to WASM
 
-import { fileURLToPath } from 'url';
-import path from 'path';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.join(__dirname, '..', '..');
-
-// Load WASM decoder module
-const createAudioDecodersModule = (await import(path.join(rootDir, 'dist', 'audio_decoders.mjs')))
-    .default;
-const wasmModule = await createAudioDecodersModule();
+import { wasmModule } from './WasmModule.js';
 
 export class WasmAudioDecoders {
     /**

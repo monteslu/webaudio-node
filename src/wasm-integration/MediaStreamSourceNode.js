@@ -2,15 +2,7 @@
 // Browser-compatible API for audio input using SDL with WASM processing
 
 import sdl from '@kmamal/sdl';
-import { fileURLToPath } from 'url';
-import path from 'path';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.join(__dirname, '..', '..');
-
-// Preload WASM module
-const createWebAudioModule = (await import(path.join(rootDir, 'dist', 'webaudio.mjs'))).default;
-const wasmModule = await createWebAudioModule();
+import { wasmModule } from './WasmModule.js';
 
 // Helper to find SDL device by hashed ID
 function hashString(str) {
@@ -31,17 +23,21 @@ export class MediaStreamSourceNode {
         this._isCapturing = false;
         this._sampleRate = context.sampleRate;
         this._channels = options.channelCount || 1; // Default to mono for input
+        this._currentLevel = 0; // RMS level for UI
 
-        // Create WASM MediaStreamSourceNode with 2 second ring buffer
+        // Create WASM MediaStreamSourceNode with balanced ring buffer
         this._wasmState = wasmModule._createMediaStreamSourceNode(
             this._sampleRate,
             this._channels,
-            2.0 // buffer duration in seconds
+            0.15 // buffer duration in seconds (150ms - balance of latency/stability)
         );
 
-        // Note: In WASM-based context, node IDs are managed differently
-        // This is a standalone audio source that writes to the ring buffer
-        this.nodeId = null; // Not integrated with graph yet
+        // Create node in the audio graph
+        this.nodeId = context._engine.createNode('media-stream-source');
+
+        // Link the graph node to our WASM state
+        // We need to set the node's media_stream_source_state pointer
+        wasmModule._setMediaStreamSourceState(context._engine.graphId, this.nodeId, this._wasmState);
 
         // Track connections
         this._outputs = [];
@@ -49,17 +45,13 @@ export class MediaStreamSourceNode {
 
     // Find SDL device by deviceId
     _findInputDevice() {
-        const devices = sdl.audio.devices || [];
-
         if (!this._deviceId || this._deviceId === '') {
-            // Find first recording device as default
-            const defaultDevice = devices.find(d => d.type === 'recording');
-            if (!defaultDevice) {
-                throw new Error('No audio input devices available');
-            }
-            return defaultDevice;
+            // Return just the type to use SDL's default recording device
+            return { type: 'recording' };
         }
 
+        // Find specific device by deviceId
+        const devices = sdl.audio.devices || [];
         for (const device of devices) {
             if (device.type === 'recording' && hashString(device.name) === this._deviceId) {
                 return device;
@@ -69,52 +61,76 @@ export class MediaStreamSourceNode {
     }
 
     // Start capturing audio
-    async start() {
+    async start(deviceOverride) {
         if (this._isCapturing) return;
 
-        const device = this._findInputDevice();
+        // Allow passing device object directly (for CLI device picker)
+        const device = deviceOverride || this._findInputDevice();
 
-        // Open SDL recording device with callback that writes to WASM ring buffer
-        this._inputDevice = sdl.audio.openDevice(
-            device,
-            {
-                type: 'recording',
-                frequency: this._sampleRate,
-                channels: this._channels,
-                format: 'f32',
-                buffered: 65536 // Must be power of 2 (~340ms at 48kHz mono)
-            },
-            audioData => {
-                // Audio callback - write directly to WASM ring buffer
-                const sampleCount = audioData.length;
+        // Open SDL recording device (recording uses dequeue, not callbacks)
+        this._inputDevice = sdl.audio.openDevice(device, {
+            channels: this._channels,
+            frequency: this._sampleRate,
+            format: 'f32',
+            buffered: 8192 // Power of 2
+        });
 
-                // Allocate WASM memory for input data
-                const inputPtr = wasmModule._malloc(sampleCount * 4); // 4 bytes per float
+        // Allocate buffer for dequeuing
+        this._audioBuffer = Buffer.alloc(8192 * 4); // 8192 samples * 4 bytes per float
+
+        // Set capturing to true BEFORE starting polling (avoid race condition)
+        this._isCapturing = true;
+
+        // Start polling loop for dequeuing audio data
+        this._pollingInterval = setInterval(() => {
+            if (!this._isCapturing) return;
+
+            const bytesRead = this._inputDevice.dequeue(this._audioBuffer);
+
+            if (bytesRead > 0) {
+                const audioData = this._audioBuffer.subarray(0, bytesRead);
+                const floatData = new Float32Array(
+                    audioData.buffer,
+                    audioData.byteOffset,
+                    audioData.length / 4
+                );
+
+                // Calculate RMS level for UI
+                let sumSquares = 0;
+                for (let i = 0; i < floatData.length; i++) {
+                    sumSquares += floatData[i] * floatData[i];
+                }
+                this._currentLevel = Math.sqrt(sumSquares / floatData.length);
+
+                // Write to WASM ring buffer
+                const sampleCount = floatData.length;
+                const inputPtr = wasmModule._malloc(sampleCount * 4);
                 const inputHeap = new Float32Array(
                     wasmModule.HEAPF32.buffer,
                     inputPtr,
                     sampleCount
                 );
-                inputHeap.set(audioData);
-
-                // Write to ring buffer
+                inputHeap.set(floatData);
                 wasmModule._writeInputData(this._wasmState, inputPtr, sampleCount);
-
-                // Free input buffer
                 wasmModule._free(inputPtr);
             }
-        );
+        }, 10); // Poll every 10ms
 
         // Start WASM node
         wasmModule._startMediaStreamSource(this._wasmState);
 
         this._inputDevice.play(); // Start capturing
-        this._isCapturing = true;
     }
 
     // Stop capturing audio
     stop() {
         if (!this._isCapturing) return;
+
+        // Stop polling
+        if (this._pollingInterval) {
+            clearInterval(this._pollingInterval);
+            this._pollingInterval = null;
+        }
 
         if (this._inputDevice) {
             this._inputDevice.close();
@@ -151,6 +167,48 @@ export class MediaStreamSourceNode {
         return wasmModule._getInputDataAvailable(this._wasmState);
     }
 
+    // Get current RMS level (for UI visualization)
+    getCurrentLevel() {
+        return this._currentLevel;
+    }
+
+    // Write audio data directly (for manual feeding from external source)
+    writeInputData(audioData) {
+        if (!audioData || audioData.length === 0) return;
+
+        // Convert Buffer to Float32Array if needed
+        let floatData;
+        if (Buffer.isBuffer(audioData)) {
+            // Buffer contains f32 data, reinterpret as Float32Array
+            floatData = new Float32Array(
+                audioData.buffer,
+                audioData.byteOffset,
+                audioData.length / 4
+            );
+        } else if (audioData instanceof Float32Array) {
+            floatData = audioData;
+        } else {
+            throw new Error('audioData must be Buffer or Float32Array');
+        }
+
+        const sampleCount = floatData.length;
+
+        // Allocate WASM memory for input data
+        const inputPtr = wasmModule._malloc(sampleCount * 4);
+        const inputHeap = new Float32Array(
+            wasmModule.HEAPF32.buffer,
+            inputPtr,
+            sampleCount
+        );
+        inputHeap.set(floatData);
+
+        // Write to ring buffer
+        wasmModule._writeInputData(this._wasmState, inputPtr, sampleCount);
+
+        // Free input buffer
+        wasmModule._free(inputPtr);
+    }
+
     // Cleanup
     destroy() {
         this.stop();
@@ -164,9 +222,9 @@ export class MediaStreamSourceNode {
     connect(destination) {
         this._outputs.push(destination);
 
-        if (destination.nodeId !== undefined) {
-            // Connect to audio node
-            this.context._engine.connectNodes(this.nodeId, destination.nodeId);
+        // Connect in the audio graph
+        if (destination._nodeId !== undefined) {
+            this.context._engine.connectNodes(this.nodeId, destination._nodeId);
         }
 
         return destination;
@@ -177,8 +235,8 @@ export class MediaStreamSourceNode {
         if (!destination) {
             // Disconnect all
             for (const output of this._outputs) {
-                if (output.nodeId !== undefined) {
-                    this.context._engine.disconnectNodes(this.nodeId, output.nodeId);
+                if (output._nodeId !== undefined) {
+                    this.context._engine.disconnectNodes(this.nodeId, output._nodeId);
                 }
             }
             this._outputs = [];
@@ -187,8 +245,8 @@ export class MediaStreamSourceNode {
             const index = this._outputs.indexOf(destination);
             if (index !== -1) {
                 this._outputs.splice(index, 1);
-                if (destination.nodeId !== undefined) {
-                    this.context._engine.disconnectNodes(this.nodeId, destination.nodeId);
+                if (destination._nodeId !== undefined) {
+                    this.context._engine.disconnectNodes(this.nodeId, destination._nodeId);
                 }
             }
         }

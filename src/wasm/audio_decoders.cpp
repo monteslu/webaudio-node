@@ -389,17 +389,18 @@ int decodeAudio(const uint8_t* input, size_t inputSize, float** output, size_t* 
     }
 
     // Check magic bytes to determine format
-    // Note: AAC must be checked before MP3 since AAC's 0xFF 0xFx is a subset of MP3's 0xFF 0xEx
-
-    // AAC: starts with 0xFF 0xFx (ADTS sync word)
-    if (input[0] == 0xFF && (input[1] & 0xF0) == 0xF0) {
-        return decodeAAC(input, inputSize, output, totalSamples, sampleRate);
-    }
+    // Note: MP3 must be checked before AAC since both use 0xFF 0xFx sync patterns
+    // MP3's 0xFF 0xEx is more specific than AAC's 0xFF 0xFx
 
     // MP3: starts with 0xFF 0xEx or ID3 tag
     if ((input[0] == 0xFF && (input[1] & 0xE0) == 0xE0) ||
         (input[0] == 0x49 && input[1] == 0x44 && input[2] == 0x33)) {
         return decodeMP3(input, inputSize, output, totalSamples, sampleRate);
+    }
+
+    // AAC: starts with 0xFF 0xFx (ADTS sync word) - checked after MP3
+    if (input[0] == 0xFF && (input[1] & 0xF0) == 0xF0) {
+        return decodeAAC(input, inputSize, output, totalSamples, sampleRate);
     }
 
     // WAV: starts with "RIFF"

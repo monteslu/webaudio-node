@@ -62,6 +62,23 @@ webaudio-node sound.wav
 
 **Supported formats:** MP3, WAV, FLAC, OGG, AAC
 
+### 🎤 Microphone Effects
+
+Transform your voice in real-time with built-in effects:
+
+```bash
+# Add reverb to your microphone
+webaudio-node --reverb
+
+# Auto-tune your voice (vocoder-style effect)
+webaudio-node --auto-tune
+
+# Show all options
+webaudio-node --help
+```
+
+Press Ctrl+C to stop the effect and close the microphone.
+
 ## 🚀 Quick Start
 
 ### Simple Beep

@@ -1,7 +1,7 @@
 // Test WASM MP3 decoder
 
 import { readFile } from 'fs/promises';
-import { WasmAudioDecoders } from './src/wasm-integration/WasmAudioDecoders.js';
+import { WasmAudioDecoders } from '../src/wasm-integration/WasmAudioDecoders.js';
 
 async function test() {
     console.log('Testing WASM MP3 decoder...');
