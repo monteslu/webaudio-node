@@ -25,8 +25,18 @@ export class IIRFilterNode extends AudioNode {
         });
         super(context, nodeId);
 
+        this.numberOfInputs = 1;
+        this.numberOfOutputs = 1;
+
         this._feedforward = Array.from(options.feedforward);
         this._feedback = Array.from(options.feedback);
+
+        // Set the coefficients in WASM
+        context._engine.setIIRFilterCoefficients(
+            nodeId,
+            this._feedforward,
+            this._feedback
+        );
 
         // Apply channel config from options
         if (options.channelCount !== undefined) this.channelCount = options.channelCount;

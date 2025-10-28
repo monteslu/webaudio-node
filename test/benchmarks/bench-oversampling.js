@@ -74,12 +74,6 @@ export async function benchmarkOversampling(OfflineAudioContext, iterations = 10
         };
     }
 
-    // Calculate overall average for benchmark runner
-    const allTimes = Object.values(results).map(r => r.avgTimeMs);
-    const overallAvg = allTimes.reduce((a, b) => a + b, 0) / allTimes.length;
-
-    return {
-        avgTimeMs: overallAvg,
-        byOversample: results
-    };
+    // Return results keyed by oversample level (expected by run-benchmarks.js)
+    return results;
 }

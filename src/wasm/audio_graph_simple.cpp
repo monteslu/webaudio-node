@@ -262,7 +262,11 @@ void destroyAudioGraph(int graph_id) {
         }
 
         // Free all registered buffers
-        // Note: buffer data is owned by WASM heap, not freed here
+        for (auto& pair : graph->buffers) {
+            if (pair.second.data) {
+                free(pair.second.data);
+            }
+        }
 
         delete graph;
         graphs.erase(it);
@@ -374,7 +378,7 @@ int createNode(int graph_id, const char* type_str) {
         NodeState* state = init_state();
         state->panner_state = createPannerNode(graph->sample_rate, graph->channels);
         node.state = state;
-    } else if (type == "iirFilter" || type == "iir_filter") {
+    } else if (type == "IIRFilter" || type == "iirFilter" || type == "iir_filter") {
         node.type = 13;
         // IIR filter requires coefficients - will be set later via setNodeProperty
         // Default: simple pass-through (b=[1], a=[1])
@@ -786,6 +790,35 @@ void setNodeBuffer(int graph_id, int node_id, float* buffer_data, int buffer_fra
     Node& node = node_it->second;
     if (node.type == 3 && node.state && node.state->buffer_source_state) { // buffer_source
         setBufferSourceBuffer(node.state->buffer_source_state, buffer_data, buffer_frames, buffer_channels);
+    } else if (node.type == 9 && node.state && node.state->convolver_state) { // convolver
+        setConvolverBuffer(node.state->convolver_state, buffer_data, buffer_frames, buffer_channels);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setIIRFilterCoefficients(int graph_id, int node_id, float* feedforward, int feedforward_length, float* feedback, int feedback_length) {
+    auto it = graphs.find(graph_id);
+    if (it == graphs.end()) return;
+
+    AudioGraph* graph = it->second;
+    auto node_it = graph->nodes.find(node_id);
+    if (node_it == graph->nodes.end()) return;
+
+    Node& node = node_it->second;
+    if (node.type == 13 && node.state) { // iir_filter
+        // Destroy old IIR filter state
+        if (node.state->iir_filter_state) {
+            destroyIIRFilterNode(node.state->iir_filter_state);
+        }
+        // Create new IIR filter with updated coefficients
+        node.state->iir_filter_state = createIIRFilterNode(
+            graph->sample_rate,
+            graph->channels,
+            feedforward,
+            feedforward_length,
+            feedback,
+            feedback_length
+        );
     }
 }
 

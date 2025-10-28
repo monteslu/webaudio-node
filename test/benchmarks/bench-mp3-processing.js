@@ -66,18 +66,31 @@ export async function benchmarkMP3Processing(
         }
 
         // Create processing chain
-        // NOTE: webaudio-node has a bug where BiquadFilter and DynamicsCompressor
-        // produce silence when processing buffer sources in offline contexts.
-        // For now, we skip the filter chain to get valid benchmark results.
         const source = offlineCtx.createBufferSource();
         source.buffer = offlineBuffer;
 
-        // Master gain (filters disabled due to webaudio-node bug)
+        // EQ (biquad filter)
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 3000;
+        filter.Q.value = 1.0;
+
+        // Dynamics compressor
+        const compressor = offlineCtx.createDynamicsCompressor();
+        compressor.threshold.value = -24;
+        compressor.knee.value = 30;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.25;
+
+        // Master gain
         const gain = offlineCtx.createGain();
         gain.gain.value = 0.8;
 
-        // Simplified chain without filters
-        source.connect(gain);
+        // Connect: source -> filter -> compressor -> gain -> destination
+        source.connect(filter);
+        filter.connect(compressor);
+        compressor.connect(gain);
         gain.connect(offlineCtx.destination);
 
         source.start(0);

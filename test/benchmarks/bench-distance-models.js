@@ -74,12 +74,6 @@ export async function benchmarkDistanceModels(OfflineAudioContext, iterations = 
         };
     }
 
-    // Calculate overall average for benchmark runner
-    const allTimes = Object.values(results).map(r => r.avgTimeMs);
-    const overallAvg = allTimes.reduce((a, b) => a + b, 0) / allTimes.length;
-
-    return {
-        avgTimeMs: overallAvg,
-        byDistanceModel: results
-    };
+    // Return results keyed by distance model (expected by run-benchmarks.js)
+    return results;
 }

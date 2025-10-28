@@ -28,7 +28,12 @@ OUTPUT_DIR="dist"
 mkdir -p "$OUTPUT_DIR"
 
 # Compiler flags - optimized with SIMD
-CXXFLAGS="-O3 -std=c++17 -msimd128 -D__i386__ -Wno-narrowing"
+# -msimd128: Enable WASM SIMD
+# -msse -msse2: Enable SSE/SSE2 intrinsics (emulated to WASM SIMD by Emscripten)
+# -D__i386__: Required by uaac.h AAC decoder
+# -DDR_MP3_FLOAT_OUTPUT: Optimize dr_mp3 for float output (matches our use case)
+# -DDR_MP3_ONLY_SIMD: Skip CPU detection, always use SIMD paths (we know WASM SIMD is available)
+CXXFLAGS="-O3 -std=c++17 -msimd128 -msse -msse2 -D__i386__ -DDR_MP3_FLOAT_OUTPUT -DDR_MP3_ONLY_SIMD -Wno-narrowing"
 
 # Include directories
 INCLUDES="-I. -Isrc/vendor"

@@ -63,12 +63,6 @@ export async function benchmarkSampleRates(OfflineAudioContext, iterations = 10)
         };
     }
 
-    // Calculate overall average for benchmark runner
-    const allTimes = Object.values(results).map(r => r.avgTimeMs);
-    const overallAvg = allTimes.reduce((a, b) => a + b, 0) / allTimes.length;
-
-    return {
-        avgTimeMs: overallAvg,
-        byRate: results
-    };
+    // Return results keyed by sample rate (expected by run-benchmarks.js)
+    return results;
 }

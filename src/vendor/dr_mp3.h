@@ -682,6 +682,16 @@ DRMP3_API const char* drmp3_version_string(void)
 typedef __m128 drmp3_f4;
 #if (defined(_MSC_VER) || defined(DR_MP3_ONLY_SIMD)) && !defined(__clang__)
 #define drmp3_cpuid __cpuid
+#elif defined(__EMSCRIPTEN__)
+/* WebAssembly doesn't have cpuid instruction - stub it out since we use DR_MP3_ONLY_SIMD anyway */
+static __inline__ __attribute__((always_inline)) void drmp3_cpuid(int CPUInfo[], const int InfoType)
+{
+    (void)InfoType;
+    CPUInfo[0] = 0;
+    CPUInfo[1] = 0;
+    CPUInfo[2] = 0;
+    CPUInfo[3] = 0;
+}
 #else
 static __inline__ __attribute__((always_inline)) void drmp3_cpuid(int CPUInfo[], const int InfoType)
 {

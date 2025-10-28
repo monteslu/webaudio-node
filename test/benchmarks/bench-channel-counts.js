@@ -64,12 +64,6 @@ export async function benchmarkChannelCounts(OfflineAudioContext, iterations = 1
         };
     }
 
-    // Calculate overall average for benchmark runner
-    const allTimes = Object.values(results).map(r => r.avgTimeMs);
-    const overallAvg = allTimes.reduce((a, b) => a + b, 0) / allTimes.length;
-
-    return {
-        avgTimeMs: overallAvg,
-        byChannelCount: results
-    };
+    // Return results keyed by channel count (expected by run-benchmarks.js)
+    return results;
 }

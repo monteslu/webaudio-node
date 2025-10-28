@@ -186,6 +186,12 @@ export class WasmOfflineAudioContext {
             this._rendering = false;
             this.state = 'suspended';
             throw error;
+        } finally {
+            // Clean up WASM resources after rendering (success or failure)
+            // This frees all malloc'd memory from the graph
+            if (this._engine && this._engine.graphId !== null) {
+                this._engine.destroy();
+            }
         }
     }
 

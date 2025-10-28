@@ -68,12 +68,6 @@ export async function benchmarkAnalyserProcessOverhead(OfflineAudioContext, iter
         };
     }
 
-    // Calculate overall average for benchmark runner
-    const allTimes = Object.values(results).map(r => r.avgTimeMs);
-    const overallAvg = allTimes.reduce((a, b) => a + b, 0) / allTimes.length;
-
-    return {
-        avgTimeMs: overallAvg,
-        byFFTSize: results
-    };
+    // Return results keyed by FFT size (expected by run-benchmarks.js)
+    return results;
 }
