@@ -206,6 +206,7 @@ struct AudioGraph {
     int next_id;
     int dest_id;
     uint64_t current_sample; // Track current sample for timing
+    bool is_realtime; // True for AudioContext (JS manages time), false for OfflineAudioContext (WASM manages time)
 };
 
 static std::map<int, AudioGraph*> graphs;
@@ -214,12 +215,13 @@ static int next_graph_id = 1;
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
-int createAudioGraph(int sample_rate, int channels, int buffer_size) {
+int createAudioGraph(int sample_rate, int channels, int buffer_size, bool is_realtime) {
     AudioGraph* graph = new AudioGraph();
     graph->sample_rate = sample_rate;
     graph->channels = channels;
     graph->next_id = 1;
     graph->current_sample = 0;
+    graph->is_realtime = is_realtime;
 
     // Create destination
     Node dest;
@@ -567,13 +569,23 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         if (!node.state || !node.state->gain_state) {
             memset(output, 0, frame_count * graph->channels * sizeof(float));
         } else {
-            // Process input first
+            // Process and MIX all inputs
             auto conn_it = graph->connections.find(node_id);
             bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
 
             if (has_input) {
-                int source_id = conn_it->second[0];
-                processNode(graph, source_id, output, frame_count, buffers);
+                // Mix all inputs together
+                memset(output, 0, frame_count * graph->channels * sizeof(float));
+                std::vector<float> temp_buffer(frame_count * graph->channels);
+
+                for (int source_id : conn_it->second) {
+                    processNode(graph, source_id, temp_buffer.data(), frame_count, buffers);
+
+                    // Mix this source into output
+                    for (int i = 0; i < frame_count * graph->channels; i++) {
+                        output[i] += temp_buffer[i];
+                    }
+                }
             }
 
             // Call external SIMD-optimized gain
@@ -778,13 +790,20 @@ void processGraph(int graph_id, float* output, int frame_count) {
     // Process destination node (pulls entire graph)
     processNode(graph, graph->dest_id, output, frame_count, buffers);
 
-    // Increment sample counter for timing
+    // Always increment sample counter after processing
+    // For offline contexts: this advances time automatically
+    // For real-time contexts: this ensures timing within each render block is correct
+    //   (JavaScript will reset current_sample to wall-clock time before next render)
     graph->current_sample += frame_count;
 }
 
 EMSCRIPTEN_KEEPALIVE
-double getCurrentTime(int graph_id) {
-    return 0.0; // Offline rendering
+double getGraphCurrentTime(int graph_id) {
+    auto it = graphs.find(graph_id);
+    if (it == graphs.end()) return 0.0;
+
+    AudioGraph* graph = it->second;
+    return static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
 }
 
 EMSCRIPTEN_KEEPALIVE

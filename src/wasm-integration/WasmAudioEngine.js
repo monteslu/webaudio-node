@@ -28,7 +28,7 @@ function copyToWasmHeap(wasmModule, data, ptr) {
 }
 
 export class WasmAudioEngine {
-    constructor(numberOfChannels, length, sampleRate, wasmModule = null) {
+    constructor(numberOfChannels, length, sampleRate, isRealtime = false, wasmModule = null) {
         this.numberOfChannels = numberOfChannels;
         this.length = length;
         this.sampleRate = sampleRate;
@@ -40,7 +40,8 @@ export class WasmAudioEngine {
         this.graphId = this.wasmModule._createAudioGraph(
             this.sampleRate,
             this.numberOfChannels,
-            128 // buffer size (standard Web Audio quantum)
+            128, // buffer size (standard Web Audio quantum)
+            isRealtime ? 1 : 0 // Convert boolean to integer for C++
         );
         this.initialized = true;
     }
@@ -261,8 +262,15 @@ export class WasmAudioEngine {
         // TODO: Implement in WASM
     }
 
-    // Render a single block of audio (for real-time SDL callback)
+    // Get current time from WASM (sample-accurate)
+    getCurrentTime() {
+        if (!this.initialized) return 0;
+        return this.wasmModule._getGraphCurrentTime(this.graphId);
+    }
+
     // Set current time for real-time playback (for scheduled start/stop times)
+    // NOTE: This should generally not be called for real-time contexts,
+    // as WASM manages timing internally via sample counting
     setCurrentTime(time) {
         if (!this.initialized) return;
         this.wasmModule._setGraphCurrentTime(this.graphId, time);

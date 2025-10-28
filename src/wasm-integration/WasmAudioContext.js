@@ -59,7 +59,8 @@ export class WasmAudioContext {
         this._engine = new WasmAudioEngine(
             this._channels,
             this._bufferSize * 1000, // length doesn't matter for real-time
-            this.sampleRate
+            this.sampleRate,
+            true // isRealtime - time managed by JavaScript
         );
 
         // Create destination node immediately
@@ -164,8 +165,8 @@ export class WasmAudioContext {
     }
 
     get currentTime() {
-        if (!this._startTime) return 0;
-        return (Date.now() - this._startTime) / 1000.0;
+        // Get precise sample-based time from WASM
+        return this._engine.getCurrentTime();
     }
 
     // Node creation methods (synchronous - per WebAudio spec)
@@ -288,7 +289,7 @@ export class WasmAudioContext {
         const totalSamples = numFrames * this._channels;
         const floatBuffer = this._renderBuffer.subarray(0, totalSamples);
 
-        // Render audio using WASM engine (time auto-increments in WASM)
+        // Render audio using WASM engine (time managed entirely in WASM)
         this._engine.renderBlock(floatBuffer, numFrames);
 
         // Use pre-allocated Buffer view (no copy!)
