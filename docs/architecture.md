@@ -2,15 +2,17 @@
 
 ## Overview
 
-**webaudio-node** is a high-performance Web Audio API implementation for Node.js, featuring a C++ native addon with extensive SIMD optimizations. It provides 99% spec compliance with the W3C Web Audio API specification, including real-time audio playback, OfflineAudioContext rendering, AudioWorklet support, and microphone input.
+**webaudio-node** is a high-performance Web Audio API implementation for Node.js, featuring a WebAssembly-based audio engine with extensive SIMD optimizations. It provides comprehensive Web Audio API support with sample-accurate timing, all managed in WASM.
 
 ### Key Features
 
-- **Native C++ Implementation:** High-performance audio processing using N-API bindings
-- **SIMD Optimizations:** ARM NEON and x86 SSE/AVX vectorization for critical audio paths
-- **SDL2 Audio Backend:** Cross-platform audio output via Simple DirectMedia Layer
+- **WebAssembly Implementation:** High-performance audio processing compiled from optimized C++
+- **SIMD Optimizations:** WASM SIMD128 vectorization for 4-sample parallel processing
+- **SDL2 Audio Backend:** Cross-platform audio output via Simple DirectMedia Layer (JavaScript binding)
+- **Sample-Accurate Timing:** All audio timing managed in WASM using `current_sample` counters
+- **Unified WASM Binary:** Single `dist/webaudio.wasm` contains graph engine, nodes, and decoders
 - **Full Web Audio API:** Comprehensive node types, AudioParam automation, spatial audio
-- **Media Decoding:** MP3/OGG/WAV support via fluent-ffmpeg
+- **Media Decoding:** MP3/WAV/FLAC/OGG/AAC support via WASM decoders
 - **Real-time & Offline:** Both AudioContext and OfflineAudioContext modes
 
 ### Performance Characteristics
@@ -39,40 +41,91 @@ Current performance vs. node-web-audio-api (Rust competitor):
 │  • AudioContext / OfflineAudioContext                    │
 │  • Node Wrapper Classes (AudioNode, AudioParam)          │
 │  • AudioBuffer management                                │
+│  • SDL2 I/O handling (via @kmamal/sdl)                   │
 └───────────────────────────┬─────────────────────────────┘
                             │
-                            │ N-API Bindings
+                            │ WASM Module API
                             ▼
 ┌─────────────────────────────────────────────────────────┐
-│              Native C++ Layer (src/native/)              │
-│  • AudioEngine (real-time SDL2 callback)                 │
-│  • OfflineAudioEngine (non-realtime rendering)           │
-│  • AudioGraph (node graph management)                    │
-│  • Audio Nodes (processing primitives)                   │
-│  • SIMD-optimized utilities (FFT, mixer, resampler)      │
+│         WebAssembly Layer (dist/webaudio.wasm)           │
+│  • AudioGraph (node graph + sample-accurate timing)      │
+│  • Audio Nodes (all processing primitives)               │
+│  • AudioParam scheduling (sample-accurate)               │
+│  • WASM SIMD128-optimized utilities                      │
+│  • Audio Decoders (MP3/WAV/FLAC/OGG/AAC)                 │
+│                                                           │
+│  Timing: current_sample counters (no JS timing)          │
 └───────────────────────────┬─────────────────────────────┘
                             │
-                ┌───────────┴───────────┐
-                │                       │
-                ▼                       ▼
-        ┌──────────────┐        ┌──────────────┐
-        │   SDL2 Audio │        │   FFmpeg     │
-        │  (playback)  │        │  (decoding)  │
-        └──────────────┘        └──────────────┘
+                            │ Audio samples
+                            ▼
+        ┌────────────────────────────────────┐
+        │  JavaScript SDL2 I/O Layer         │
+        │  • Fills audio buffer from WASM    │
+        │  • Sends to SDL2 device            │
+        └────────────┬───────────────────────┘
+                     │
+                     ▼
+             ┌──────────────┐
+             │  SDL2 Audio  │
+             │  (playback)  │
+             └──────────────┘
 ```
+
+### Recent Architecture Changes (October 2025)
+
+#### WASM-Based Timing System
+
+**Critical Change:** All audio timing is now handled in WebAssembly, not JavaScript.
+
+- **Before:** JavaScript managed timing using `context.currentTime` and scheduled events
+- **After:** WASM maintains `current_sample` counters for sample-accurate timing
+- **Impact:** Zero timing drift, perfect sample accuracy, no JS overhead
+
+**Implementation:**
+- `AudioGraph` in WASM increments `current_sample` with each render quantum
+- `BufferSourceNode.start(when)` converts time to sample number in WASM
+- AudioParam scheduling uses sample-accurate timing internally
+- JavaScript only queries current time from WASM when needed
+
+#### Gain Node Mixing Fix
+
+**Critical Bug Fixed:** Gain nodes were only processing their first input.
+
+- **Before:** `GainNode` with multiple inputs only mixed the first connection
+- **After:** Properly mixes ALL connected inputs together
+- **Impact:** Matches Web Audio API spec, fixes multi-source mixing scenarios
+
+**Technical Details:**
+- Fixed in `src/wasm/nodes/gain_node.cpp`
+- Now iterates through all input connections and mixes them
+- Uses proper audio buffer mixing with gain application
+
+#### Unified WASM Module
+
+**Architecture Improvement:** Single binary for all audio processing.
+
+- **Before:** Separate binaries for graph, nodes, and decoders (or native C++ addon)
+- **After:** Single `dist/webaudio.wasm` contains everything
+- **Size:** ~267KB compressed
+- **Contents:**
+  - Audio graph engine
+  - All 16+ audio nodes
+  - 5 audio decoders (MP3/WAV/FLAC/OGG/AAC)
+  - SIMD-optimized utilities
 
 ### Component Responsibilities
 
 #### JavaScript Layer (`src/javascript/`)
 
-**Purpose:** Provides Web Audio API-compliant interface, manages high-level object lifecycle
+**Purpose:** Provides Web Audio API-compliant interface, manages I/O and high-level object lifecycle
 
 **Key Files:**
 
 - `AudioContext.js` - Real-time audio context, SDL initialization, node factory methods
 - `OfflineAudioContext.js` - Non-realtime rendering context
-- `AudioNode.js` - Base class for all audio nodes
-- `AudioParam.js` - Parameter automation (setValueAtTime, linearRampToValueAtTime, etc.)
+- `AudioNode.js` - Base class for all audio nodes (JavaScript wrappers)
+- `AudioParam.js` - Parameter automation API (delegates to WASM)
 - `AudioBuffer.js` - Audio data container with typed array access
 - `nodes/*.js` - Individual node wrapper classes
 
@@ -80,56 +133,55 @@ Current performance vs. node-web-audio-api (Rust competitor):
 
 - API surface conformance to Web Audio spec
 - Parameter validation and type coercion
-- Node connection management (JavaScript graph)
-- SharedArrayBuffer coordination for AudioBuffer sharing
+- SDL2 I/O management (via @kmamal/sdl)
+- WASM module loading and interaction
+- Node connection management (delegates to WASM)
 - Event dispatching (ended, etc.)
+- **NOT responsible for:** Audio timing (handled in WASM), audio processing (handled in WASM)
 
-#### Native C++ Layer (`src/native/`)
+#### WebAssembly Layer (`src/wasm/`)
 
-**Purpose:** High-performance audio processing, graph execution, SIMD optimization
+**Purpose:** High-performance audio processing, graph execution, sample-accurate timing, SIMD optimization
 
 **Core Components:**
 
-1. **AudioEngine** (`audio_engine.cpp`)
-    - Real-time audio callback integration with SDL2
-    - Audio graph execution on dedicated thread
-    - Buffer management and sample rate conversion
-    - Microphone input handling
-
-2. **OfflineAudioEngine** (`offline_audio_engine.cpp`)
-    - Non-realtime rendering for benchmarks and offline processing
-    - Precise timing control for deterministic output
-    - Used by OfflineAudioContext
-
-3. **AudioGraph** (`audio_graph.cpp`)
-    - Node connection topology
-    - Dependency resolution and execution order
-    - Cycle detection
+1. **AudioGraph** (`audio_graph_simple.cpp`)
+    - Node connection topology and execution
+    - Sample-accurate timing using `current_sample` counter
     - Pull-based processing model
+    - Manages render quantum processing
+    - No JavaScript timing dependencies
 
-4. **Audio Nodes** (`nodes/*.cpp`)
+2. **Audio Nodes** (`nodes/*.cpp`)
    Each node implements `Process(float* output, int frame_count)` for audio rendering:
-    - `buffer_source_node.cpp` - Audio sample playback
+    - `buffer_source_node.cpp` - Audio sample playback with sample-accurate start/stop
     - `oscillator_node.cpp` - Waveform generation (sine, square, triangle, sawtooth)
-    - `gain_node.cpp` - Volume control with automation
+    - `gain_node.cpp` - Volume control with proper multi-input mixing
     - `biquad_filter_node.cpp` - IIR filters (lowpass, highpass, bandpass, etc.)
     - `delay_node.cpp` - Time-domain delay with feedback
     - `analyser_node.cpp` - FFT-based frequency/time analysis
     - `convolver_node.cpp` - Impulse response convolution (reverb)
     - `wave_shaper_node.cpp` - Nonlinear distortion
     - `dynamics_compressor_node.cpp` - Dynamic range compression
-    - `panner_node.cpp` - 3D spatial audio with HRTF
+    - `panner_node.cpp` - 3D spatial audio
     - `stereo_panner_node.cpp` - Simple stereo positioning
     - `iir_filter_node.cpp` - Arbitrary IIR filter
-    - `audio_worklet_node.cpp` - Custom JavaScript audio processor
-    - `media_stream_source_node.cpp` - Microphone input
+    - `constant_source_node.cpp` - Constant signal generator
     - `channel_splitter_node.cpp` / `channel_merger_node.cpp` - Channel routing
 
-5. **Utilities** (`utils/*.cpp`)
-    - `fft.cpp` - Radix-4 FFT with SIMD magnitude computation
-    - `mixer.cpp` - Audio buffer mixing and channel manipulation
-    - `resampler.cpp` - Sample rate conversion
-    - `logger.cpp` - Debugging and diagnostics
+3. **Audio Decoders** (`audio_decoders.cpp`)
+    - MP3 decoder (dr_mp3)
+    - WAV decoder (dr_wav)
+    - FLAC decoder (dr_flac)
+    - OGG/Vorbis decoder (stb_vorbis)
+    - AAC decoder (uaac)
+    - All integrated into single WASM binary
+
+4. **Utilities** (`utils/*.cpp`)
+    - `audio_param.cpp` - Sample-accurate parameter automation
+    - `fft.cpp` - WASM SIMD FFT implementation
+    - `resampler.cpp` - Sample rate conversion with Speex
+    - `RingBuffer.h` - Circular buffer for audio streaming
 
 ---
 

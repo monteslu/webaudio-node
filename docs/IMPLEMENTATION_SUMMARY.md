@@ -1,50 +1,61 @@
-# WebAudio-Node v1.0 Implementation Summary
+# WebAudio-Node v1.0+ Implementation Summary
 
 ## ✅ Completed Implementation
 
+### Current Architecture: WebAssembly-Based (October 2025)
+
+**Major Change:** Migrated from native C++ addon to WebAssembly architecture.
+
+**Key Improvements:**
+- All audio timing now in WASM using sample-accurate `current_sample` counters
+- JavaScript only handles I/O through SDL - no timing logic
+- Single unified WASM binary (`dist/webaudio.wasm`) contains everything
+- Fixed critical gain node multi-input mixing bug
+- Sample-accurate BufferSourceNode scheduling
+
 ### Phase 1: Project Setup & Infrastructure ✓
 
-- ✅ Created `binding.gyp` for native addon compilation
-- ✅ Set up N-API with node-addon-api for Node.js integration
-- ✅ Created build scripts: `install.mjs`, `download-sdl.mjs`, `build.mjs`
-- ✅ Configured GitHub Actions CI/CD for multi-platform builds
-- ✅ Updated `package.json` with proper dependencies and scripts
-- ✅ Configured `.gitignore` for native build artifacts
+- ✅ Emscripten build system for WASM compilation
+- ✅ Build scripts: `build-wasm.sh` for WASM builds
+- ✅ Pre-compiled WASM binaries included in distribution
+- ✅ Updated `package.json` for WASM module integration
+- ✅ SDL2 JavaScript bindings via `@kmamal/sdl`
 
 ### Phase 2: Core Audio Engine ✓
 
-- ✅ Implemented `audio_engine.h/.cpp` with SDL2 audio callback
-- ✅ Single SDL audio device initialization
-- ✅ Audio callback running on dedicated audio thread
-- ✅ Sample-accurate timing based on processed samples
-- ✅ Implemented `audio_graph.h/.cpp` for node graph management
+- ✅ Implemented WASM audio graph with sample-accurate timing
+- ✅ SDL2 audio I/O handled in JavaScript layer
+- ✅ Audio processing callback in WASM
+- ✅ Sample-accurate timing using `current_sample` counters (no JavaScript timing)
+- ✅ Implemented `audio_graph_simple.cpp` for node graph management
 - ✅ Graph data structure with connections
 - ✅ Pull-based rendering model
-- ✅ Thread-safe graph updates with mutex protection
-- ✅ N-API bindings exposing engine to JavaScript
+- ✅ All timing and scheduling handled in WASM
 
 ### Phase 3: Core Audio Nodes ✓
 
 - ✅ `AudioNode` - Base class with input/output management
-- ✅ `AudioDestinationNode` - Graph sink that writes to SDL buffer
-- ✅ `AudioBufferSourceNode` - Playback with loop support
-- ✅ `GainNode` - Volume control with automation
+- ✅ `AudioDestinationNode` - Graph sink (output handled in JavaScript/SDL)
+- ✅ `AudioBufferSourceNode` - Playback with sample-accurate start/stop scheduling
+- ✅ `GainNode` - Volume control with proper multi-input mixing (fixed October 2025)
 - ✅ `OscillatorNode` - Sine, square, sawtooth, triangle waveforms
-- ✅ `AudioParam` - Full automation with scheduling support
+- ✅ `ConstantSourceNode` - Constant signal generator
+- ✅ `AudioParam` - Sample-accurate automation with scheduling support
     - setValueAtTime
     - linearRampToValueAtTime
     - exponentialRampToValueAtTime
+    - All automation handled in WASM
 
 ### Phase 4: JavaScript API Layer ✓
 
-- ✅ Refactored `AudioContext.js` to use native engine
-- ✅ Removed multi-device hack
+- ✅ Refactored `AudioContext.js` to use WASM engine
+- ✅ JavaScript handles SDL I/O only - no timing logic
 - ✅ Implemented proper state management (suspended/running/closed)
-- ✅ `AudioNode.js` wrapper with connect/disconnect
-- ✅ `AudioParam.js` wrapper for parameter automation
+- ✅ `AudioNode.js` wrapper classes that delegate to WASM
+- ✅ `AudioParam.js` wrapper that delegates scheduling to WASM
 - ✅ `AudioBuffer.js` with channel data management
-- ✅ All node wrappers: BufferSource, Gain, Oscillator, BiquadFilter, Delay, Panner
-- ✅ Kept FFmpeg integration for `decodeAudioData`
+- ✅ All node wrappers delegate processing to WASM
+- ✅ WASM audio decoders (MP3/WAV/FLAC/OGG/AAC) - no FFmpeg needed
 
 ### Phase 5: Advanced Nodes ✓
 
@@ -67,149 +78,153 @@
 
 ```
 webaudio-node/
-├── binding.gyp                          # Native build configuration
-├── package.json                         # Updated for v1.0
+├── package.json                         # Updated for WASM architecture
 ├── index.js                            # Main entry point
 │
+├── dist/
+│   └── webaudio.wasm                   # Unified WASM binary (~267KB)
+│                                        # Contains: graph, nodes, decoders
+│
 ├── src/
-│   ├── native/                         # C++ Audio Engine
-│   │   ├── module.cpp                  # N-API entry point
-│   │   ├── audio_engine.h/.cpp         # Core engine + SDL callback
-│   │   ├── audio_graph.h/.cpp          # Node graph processing
-│   │   ├── audio_param.h/.cpp          # Parameter automation
+│   ├── wasm/                           # C++ Audio Engine (compiled to WASM)
+│   │   ├── audio_graph_simple.cpp      # Graph + sample-accurate timing
+│   │   ├── audio_decoders.cpp          # 5 format decoders
 │   │   ├── nodes/
-│   │   │   ├── audio_node.h/.cpp       # Base node class
-│   │   │   ├── destination_node.h/.cpp
-│   │   │   ├── buffer_source_node.h/.cpp
-│   │   │   ├── gain_node.h/.cpp
-│   │   │   ├── oscillator_node.h/.cpp
-│   │   │   ├── biquad_filter_node.h/.cpp
-│   │   │   ├── delay_node.h/.cpp
-│   │   │   └── panner_node.h/.cpp
+│   │   │   ├── buffer_source_node.cpp  # Sample-accurate scheduling
+│   │   │   ├── gain_node.cpp           # Multi-input mixing
+│   │   │   ├── oscillator_node.cpp
+│   │   │   ├── biquad_filter_node.cpp
+│   │   │   ├── delay_node.cpp
+│   │   │   ├── convolver_node.cpp
+│   │   │   ├── dynamics_compressor_node.cpp
+│   │   │   ├── analyser_node.cpp
+│   │   │   ├── wave_shaper_node.cpp
+│   │   │   ├── panner_node.cpp
+│   │   │   ├── stereo_panner_node.cpp
+│   │   │   ├── iir_filter_node.cpp
+│   │   │   ├── constant_source_node.cpp
+│   │   │   ├── channel_splitter_node.cpp
+│   │   │   └── channel_merger_node.cpp
 │   │   └── utils/
-│   │       ├── mixer.h/.cpp            # Mixing utilities
-│   │       └── resampler.h/.cpp        # Sample rate conversion
+│   │       ├── audio_param.cpp         # Sample-accurate automation
+│   │       ├── fft.cpp                 # WASM SIMD FFT
+│   │       ├── resampler.cpp           # Speex resampler
+│   │       └── RingBuffer.h            # Circular buffer
 │   │
-│   └── javascript/                     # JS API Layer
-│       ├── AudioContext.js
-│       ├── AudioNode.js
-│       ├── AudioParam.js
+│   ├── wasm-integration/               # WASM JavaScript wrappers
+│   │   ├── WasmAudioDecoders.js        # Decoder API
+│   │   └── [other WASM integrations]
+│   │
+│   └── javascript/                     # JS API Layer (I/O only)
+│       ├── AudioContext.js             # SDL I/O + WASM calls
+│       ├── AudioNode.js                # Delegates to WASM
+│       ├── AudioParam.js               # Delegates to WASM
 │       ├── AudioBuffer.js
-│       ├── nodes/
+│       ├── nodes/                      # All delegate to WASM
 │       │   ├── AudioDestinationNode.js
 │       │   ├── AudioBufferSourceNode.js
 │       │   ├── GainNode.js
 │       │   ├── OscillatorNode.js
-│       │   ├── BiquadFilterNode.js
-│       │   ├── DelayNode.js
-│       │   └── PannerNode.js
+│       │   └── [15+ more nodes]
 │       └── index.js
 │
 ├── scripts/
-│   ├── install.mjs                     # Install with prebuilt binaries
-│   ├── download-sdl.mjs                # Download SDL2 from build-sdl
-│   └── build.mjs                       # Build native addon
-│
-├── .github/workflows/
-│   └── build.yml                       # CI/CD for all platforms
+│   ├── build-wasm.sh                   # Build WASM with Emscripten
+│   └── build-decoders.sh               # Build decoder WASM
 │
 └── test/
     ├── basic-playback.js               # Functional tests
-    └── benchmark.js                    # Performance tests
+    └── benchmarks/                     # Performance tests
 ```
 
 ## Key Technical Achievements
 
-### 1. **Single Audio Device Architecture**
+### 1. **WASM-Based Sample-Accurate Timing**
 
-- Eliminated the multi-device hack from v0.x
-- All audio sources mix through a single SDL device
-- Unlimited simultaneous sources (CPU-bound, not device-bound)
+- All audio timing handled in WebAssembly using `current_sample` counters
+- JavaScript has NO timing logic - only handles I/O
+- Zero timing drift, perfect sample accuracy
+- BufferSourceNode scheduling is sample-accurate
+- AudioParam automation uses sample-accurate scheduling
 
-### 2. **Native Audio Processing**
+### 2. **High-Performance WASM Engine**
 
-- C++ implementation for performance-critical code
-- SDL audio callback runs on dedicated high-priority thread
+- WASM SIMD128 optimization for 4-sample parallel processing
+- Single unified binary contains all audio processing
 - Pull-based graph traversal (destination pulls from sources)
-- Zero-copy where possible
+- ~267KB compressed, includes 5 audio decoders
 
-### 3. **Proper Mixing**
+### 3. **Proper Multi-Input Mixing**
 
-- Native buffer mixing with gain control
-- Support for multiple inputs per node
-- Proper sample-accurate timing
+- Fixed critical bug: gain nodes now mix ALL inputs (not just first)
+- Matches Web Audio API specification
+- Support for multiple inputs per node with proper mixing
+- Sample-accurate gain application
 
 ### 4. **Web Audio API Compliance**
 
 - Familiar browser API works in Node.js
-- AudioParam automation with scheduling
+- Sample-accurate AudioParam automation
 - Proper node graph with connect/disconnect
 - State management (suspended/running/closed)
+- 16+ node types implemented
 
-### 5. **Multi-Platform Support**
+### 5. **Multi-Platform WASM Support**
 
-- macOS (x64, arm64)
-- Linux (x64, arm64)
-- Windows (x64)
-- Automated builds via GitHub Actions
-- Prebuilt binaries for fast installation
+- Single WASM binary works on all platforms
+- No native compilation required for users
+- macOS, Linux, Windows support
+- Pre-compiled WASM included in npm package
 
 ## What's Different from v0.x
 
-| Aspect              | v0.x                 | v1.x                        |
-| ------------------- | -------------------- | --------------------------- |
-| **Architecture**    | Multiple SDL devices | Single native engine        |
-| **Mixing**          | Device-level hacks   | Proper C++ mixing           |
-| **Max Sources**     | ~12 devices          | Unlimited (CPU-bound)       |
-| **Performance**     | High overhead        | Optimized native code       |
-| **SDL Integration** | Via @kmamal/sdl      | Direct SDL2 C++ API         |
-| **Nodes Available** | 4 basic nodes        | 7 nodes + advanced features |
-| **AudioParam**      | Basic                | Full automation support     |
-| **Code Base**       | Pure JavaScript      | C++ + JavaScript            |
+| Aspect                | v0.x                 | v1.x (October 2025)             |
+| --------------------- | -------------------- | ------------------------------- |
+| **Architecture**      | Multiple SDL devices | Single WASM engine              |
+| **Timing**            | JavaScript-managed   | WASM sample-accurate counters   |
+| **Mixing**            | Device-level hacks   | Proper WASM mixing (all inputs) |
+| **Max Sources**       | ~12 devices          | Unlimited (CPU-bound)           |
+| **Performance**       | High overhead        | WASM SIMD optimized             |
+| **SDL Integration**   | Via @kmamal/sdl      | Via @kmamal/sdl (I/O only)      |
+| **Nodes Available**   | 4 basic nodes        | 16+ nodes                       |
+| **AudioParam**        | Basic                | Sample-accurate automation      |
+| **Audio Decoding**    | FFmpeg subprocess    | WASM decoders (5 formats)       |
+| **Build Requirement** | C++ compiler         | None (pre-compiled WASM)        |
+| **Code Base**         | Pure JavaScript      | WASM + JavaScript               |
 
-## Next Steps
+## Development
 
-### To Build and Test:
+### To Build WASM:
+
+```bash
+# 1. Install Emscripten SDK
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+source ./emsdk_env.sh
+
+# 2. Build WASM modules
+cd webaudio-node
+npm run build:wasm
+```
+
+### To Test:
 
 ```bash
 # 1. Install dependencies
 npm install
 
-# 2. Build native addon
-npm run download-sdl
-npm run build
-
-# 3. Run tests
+# 2. Run tests
 npm test
 
 # Or run specific tests
 node test/basic-playback.js
-node test/benchmark.js
 ```
 
 ### To Deploy:
 
-```bash
-# 1. Commit all changes
-git add .
-git commit -m "Implement high-performance native audio engine v1.0"
-
-# 2. Create git tag for release build
-git tag v1.0.0
-
-# 3. Push tag to trigger GitHub Actions
-git push origin native_bindings
-git push origin v1.0.0
-
-# GitHub Actions will build binaries for all platforms and create a release
-```
-
-### To Publish to npm:
-
-```bash
-# After GitHub Actions completes and creates the release
-npm publish
-```
+WASM binaries are pre-compiled and included in the npm package. No build step required for users.
 
 ## Future Enhancements
 

@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - October 2025
+
+### Critical Fixes
+
+#### WASM-Based Timing Architecture
+- **All audio timing now handled in WASM** using sample-accurate `current_sample` counters
+- JavaScript no longer manages timing - only handles I/O through SDL
+- Zero timing drift, perfect sample accuracy
+- BufferSourceNode scheduling is now sample-accurate
+- AudioParam automation uses sample-accurate scheduling internally
+
+#### Gain Node Multi-Input Mixing Fix
+- **CRITICAL BUG FIX:** Gain nodes were only processing their first input connection
+- Now properly mixes ALL connected inputs together, matching Web Audio API spec
+- Fixes scenarios where multiple audio sources connect to a single gain node
+- All connected sources now contribute to the output correctly
+
+#### Unified WASM Module
+- Single `dist/webaudio.wasm` binary contains all audio processing
+- Includes: audio graph engine, all nodes, and all 5 audio decoders
+- Size: ~267KB compressed
+- Eliminates need for separate decoder binaries
+
+### Changed
+- Architecture migrated from native C++ addon to WebAssembly
+- All timing logic moved from JavaScript to WASM
+- SDL integration now happens in JavaScript layer for I/O only
+- Documentation updated to reflect WASM-first architecture
+
 ## [1.0.0] - 2025-10-25
 
 ### 🎉 First Stable Release

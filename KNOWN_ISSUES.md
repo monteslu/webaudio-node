@@ -1,84 +1,42 @@
 # Known Issues
 
-## BiquadFilterNode and DynamicsCompressorNode produce silence in OfflineAudioContext
+## Recently Fixed (October 2025)
 
-**Status**: Open bug
-**Severity**: High
-**Affects**: Offline rendering only
+### ✅ FIXED: Gain Node Input Mixing Bug
 
-### Description
+**Status**: FIXED in October 2025
+**Severity**: Was Critical - now resolved
 
-When using `AudioBufferSourceNode` as input to `BiquadFilterNode` or `DynamicsCompressorNode` in an `OfflineAudioContext`, the output is completely silent (all zeros).
+Gain nodes were previously only processing their first input connection. This has been fixed - gain nodes now properly mix ALL connected inputs together, matching the Web Audio API specification. All audio sources connected to a gain node now contribute to the output correctly.
 
-### Working Configurations
+## Current Issues
 
-✅ **These work correctly:**
+### Performance: Multi-channel Processing (4ch/6ch/8ch)
 
-- BufferSource → destination
-- BufferSource → GainNode → destination
-- OscillatorNode → BiquadFilterNode → destination
-- OscillatorNode → DynamicsCompressorNode → destination
-- All nodes work correctly in regular `AudioContext` (non-offline)
+**Status**: Known limitation
+**Severity**: Low (affects advanced use cases)
+**Affects**: Contexts with more than 2 channels
 
-❌ **These produce silence:**
+Processing nodes with 4, 6, or 8 channels can be 30-64% slower than the Rust-based node-web-audio-api implementation. This is due to architectural differences in how multi-channel audio is vectorized.
 
-- BufferSource → BiquadFilterNode → destination (offline only)
-- BufferSource → DynamicsCompressorNode → destination (offline only)
+**Workaround**: Most applications use stereo (2 channels) and are unaffected. For multi-channel applications, performance is still acceptable but not optimal.
 
-### Reproduction
+**Status**: This is an architectural limitation and would require significant refactoring to address.
 
-```javascript
-import { AudioContext, OfflineAudioContext } from 'webaudio-node';
+### Performance: Analyser Node Process() Overhead
 
-// Decode an MP3
-const ctx = new AudioContext({ sampleRate: 48000 });
-await ctx.resume();
-const decoded = await ctx.decodeAudioData(mp3Data);
-await ctx.close();
+**Status**: Known limitation
+**Severity**: Low (does not affect actual FFT performance)
 
-// Try to process in offline context
-const offline = new OfflineAudioContext({
-    numberOfChannels: 2,
-    length: 48000,
-    sampleRate: 48000
-});
+The AnalyserNode has 14-19% overhead when writing samples to its circular buffer due to mutex synchronization. However, this does not affect actual FFT performance - benchmarks show we are 64-77% faster than competition on real FFT workloads (Convolver).
 
-// Copy buffer to offline context
-const buffer = offline.createBuffer(2, 48000, 48000);
-for (let ch = 0; ch < 2; ch++) {
-    buffer.copyToChannel(decoded.getChannelData(ch), ch);
-}
+**Note**: This only affects the overhead of routing audio through an AnalyserNode, not the actual analysis operations like `getFloatFrequencyData()`.
 
-const source = offline.createBufferSource();
-source.buffer = buffer;
+### Decoding: MP3 Processing Performance
 
-const filter = offline.createBiquadFilter();
-filter.type = 'lowpass';
-filter.frequency.value = 2000;
+**Status**: Known limitation
+**Severity**: Low (decoding is still fast, just not as optimized as alternatives)
 
-source.connect(filter);
-filter.connect(offline.destination);
-source.start(0);
+MP3 decoding is currently 2-3x slower than highly optimized alternatives. However, most audio files decode in tens of milliseconds, which is acceptable for most use cases.
 
-const rendered = await offline.startRendering();
-// rendered.getChannelData(0) is all zeros! ❌
-```
-
-### Workaround
-
-For offline processing of decoded audio, avoid using BiquadFilterNode and DynamicsCompressorNode. Use GainNode and other nodes that currently work.
-
-### Investigation Needed
-
-This appears to be a bug in the C++ OfflineAudioEngine implementation. The filters work fine with oscillator sources but not with buffer sources. Possible causes:
-
-1. Buffer timing/scheduling issue in offline rendering
-2. Filter state initialization problem when input is from a buffer
-3. Sample data not being properly passed from buffer source to filter nodes
-
-### Related Files
-
-- `src/native/offline_audio_engine.cpp` - Offline rendering implementation
-- `src/native/nodes/buffer_source_node.cpp` - Buffer source node
-- `src/native/nodes/biquad_filter_node.cpp` - Biquad filter
-- `src/native/nodes/dynamics_compressor_node.cpp` - Dynamics compressor
+**Status**: Low priority - focus is on real-time audio processing performance rather than decoding optimization.

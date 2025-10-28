@@ -1,5 +1,67 @@
 # Optimization Log - 2025
 
+## October 2025: Critical Bug Fixes and Architecture Changes
+
+### Fix #4: Gain Node Multi-Input Mixing (Critical Bug Fix)
+
+**Date**: October 2025
+**Status**: FIXED
+**Severity**: Critical - affects all multi-source scenarios
+
+#### Problem
+
+Gain nodes were only processing their FIRST input connection. When multiple audio sources connected to a single gain node, only the first source would be heard. All subsequent connections were silently ignored.
+
+This violated the Web Audio API specification, which states that nodes with multiple inputs should mix all inputs together.
+
+#### Impact
+
+**Broken scenarios:**
+- Multiple oscillators → single gain node (only first oscillator heard)
+- Master gain bus with multiple tracks
+- Any audio mixing through gain nodes
+
+#### Root Cause
+
+In `src/wasm/nodes/gain_node.cpp`, the `Process()` function was only processing the first input connection instead of iterating through all connections and mixing them.
+
+#### Fix
+
+Updated gain node to properly iterate through ALL input connections and mix them together:
+
+```cpp
+// src/wasm/nodes/gain_node.cpp
+void GainNode::Process(float* output, int frame_count) {
+    // Clear output buffer
+    memset(output, 0, frame_count * channels * sizeof(float));
+
+    // Mix ALL inputs together (was only processing first input)
+    for (const auto& input : inputs) {
+        if (input && input->is_connected) {
+            float temp_buffer[frame_count * channels];
+            input->Process(temp_buffer, frame_count);
+
+            // Mix into output with gain applied
+            for (int i = 0; i < frame_count * channels; i++) {
+                output[i] += temp_buffer[i] * gain;
+            }
+        }
+    }
+}
+```
+
+#### Result
+
+- ✅ All input connections now properly mixed
+- ✅ Matches Web Audio API specification
+- ✅ Fixes multi-source audio scenarios
+- ✅ No performance regression
+
+**Files Changed:**
+- `src/wasm/nodes/gain_node.cpp` - Fixed to iterate all inputs
+
+---
+
 ## Summary: From Losing to Winning All Benchmarks
 
 **Goal**: Beat `node-web-audio-api` on all performance benchmarks

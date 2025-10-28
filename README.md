@@ -27,8 +27,8 @@ High-performance, browser-compatible Web Audio API for Node.js. Perfect for audi
 - **WASM with SIMD optimizations** - beats Rust implementation in 83% of benchmarks
 - **~2,600x faster than realtime** offline rendering
 - **Production-quality resampling** - 130-350x realtime with Speex quality level 3
-- **Chunk-ahead buffering** for smooth real-time playback
-- Zero JavaScript overhead in audio rendering
+- **Sample-accurate timing** - all audio timing managed in WASM using sample counters
+- Zero JavaScript overhead in audio rendering - JS only handles I/O through SDL
 
 🎮 **Perfect for Games**
 
@@ -392,11 +392,14 @@ Audio graph rendering uses WebAssembly compiled from optimized C++:
 
 ```
 ┌─────────────────┐
-│  JavaScript API │  (Node creation, connections)
+│  JavaScript API │  (Node creation, connections, I/O via SDL)
 └────────┬────────┘
          │
 ┌────────▼────────┐
-│  WASM Engine    │  (Graph rendering, SIMD mixing)
+│  WASM Engine    │  (Graph rendering, SIMD mixing, timing)
+│                 │  • Sample-accurate timing with current_sample counters
+│                 │  • All scheduling handled in WASM
+│                 │  • Unified binary: graph + nodes + decoders
 └────────┬────────┘
          │
 ┌────────▼────────┐
@@ -406,12 +409,14 @@ Audio graph rendering uses WebAssembly compiled from optimized C++:
 
 **Key features:**
 
-- C++ audio graph compiled to WASM
+- Single unified WASM binary (`dist/webaudio.wasm`) contains all audio processing
+- All audio timing managed in WASM using sample-accurate `current_sample` counters
+- JavaScript only handles I/O through SDL - no timing logic in JS
 - SIMD optimizations (4-8x parallel processing)
-- Chunk-ahead buffering for real-time playback
-- Zero JavaScript overhead in audio callback
+- Proper gain node mixing - all inputs mixed together per Web Audio spec
+- Sample-accurate BufferSourceNode scheduling
 
-See [docs/threading.md](docs/threading.md) for architectural details.
+See [docs/architecture.md](docs/architecture.md) for architectural details.
 
 ## 🔧 Development
 
