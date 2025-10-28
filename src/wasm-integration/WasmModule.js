@@ -12,11 +12,16 @@ const rootDir = path.join(__dirname, '..', '..');
 const createUnifiedWebAudioModule = (await import(path.join(rootDir, 'dist', 'webaudio.mjs')))
     .default;
 
-// Export factory function to create new WASM instances (preferred for OfflineAudioContext)
+// Singleton WASM module
+let _wasmModuleSingleton = null;
+
+// Initialize singleton on module load
+_wasmModuleSingleton = await createUnifiedWebAudioModule();
+
+// Export singleton
+export const wasmModule = _wasmModuleSingleton;
+
+// Export factory function to create new WASM instances
 export async function createWasmModule() {
     return await createUnifiedWebAudioModule();
 }
-
-// LEGACY: Export singleton for MediaStreamSourceNode (real-time audio context)
-// TODO: Refactor MediaStreamSourceNode to use per-context WASM instance
-export const wasmModule = await createUnifiedWebAudioModule();

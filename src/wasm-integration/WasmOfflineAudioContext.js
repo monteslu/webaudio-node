@@ -47,16 +47,16 @@ export class WasmOfflineAudioContext {
         this.length = length;
         this._channels = numberOfChannels;
 
-        // Create WASM audio engine (uses default singleton for sync creation)
+        // Create WASM audio engine (uses singleton WASM module)
         this._engine = new WasmAudioEngine(numberOfChannels, length, sampleRate);
+
+        this.state = 'suspended';
+        this._rendering = false;
 
         // Create destination node and listener
         const destNodeId = this._engine.createNode('destination');
         this.destination = new AudioDestinationNode(this, destNodeId);
         this.listener = new AudioListener(this);
-
-        this.state = 'suspended';
-        this._rendering = false;
     }
 
     get currentTime() {
@@ -64,7 +64,7 @@ export class WasmOfflineAudioContext {
         return 0;
     }
 
-    // Node creation methods (synchronous per WebAudio spec)
+    // Node creation methods
     createOscillator(options) {
         return new OscillatorNode(this, options);
     }

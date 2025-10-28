@@ -46,7 +46,7 @@ async function pickDevices() {
     const recordingDevices = devices.filter(d => d.type === 'recording');
     const playbackDevices = devices.filter(d => d.type === 'playback');
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
         const screen = blessed.screen({
             smartCSR: true,
             title: 'Device Selection'
@@ -90,7 +90,7 @@ async function pickDevices() {
                 if (selectedInput) {
                     content += `  {green-fg}✓ Input: ${selectedInput.name}{/green-fg}\n\n`;
                 } else {
-                    content += `  {green-fg}✓ Input: System Default{/green-fg}\n\n`;
+                    content += '  {green-fg}✓ Input: System Default{/green-fg}\n\n';
                 }
                 content += '  Press number key to select, or Enter for system default:\n\n';
                 playbackDevices.forEach((d, i) => {
@@ -205,7 +205,7 @@ async function runMicrophoneEffect(effectType, devices = { input: null, output: 
         // Set output device if specified
         if (devices.output) {
             // Hash the device name to get sinkId (same hashing function as in WasmAudioContext)
-            const hashString = (str) => {
+            const hashString = str => {
                 let hash = 0;
                 for (let i = 0; i < str.length; i++) {
                     const char = str.charCodeAt(i);

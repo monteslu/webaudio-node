@@ -45,13 +45,13 @@ process.on('unhandledRejection', (reason, promise) => {
 // Import implementations
 let implementations = [];
 
-// Try to load webaudio-node (local) FIRST - avoid resource exhaustion from other implementations
+// Try to load webaudio-node (local) FIRST
 try {
-    const webaudioNode = await import('../../index.js');
+    const { createWebAudioInstance } = await import('../../src/factory.js');
+
     implementations.push({
         name: 'webaudio-node',
-        OfflineAudioContext: webaudioNode.OfflineAudioContext,
-        AudioContext: webaudioNode.AudioContext,
+        factory: createWebAudioInstance, // Factory creates fresh WASM instance
         color: '\x1b[32m' // Green
     });
     console.log('✓ Loaded webaudio-node (local)');
@@ -132,25 +132,28 @@ for (const impl of implementations) {
     results[impl.name] = {};
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running offline rendering benchmark...');
-        results[impl.name].offline = await benchmarkOfflineRendering(impl.OfflineAudioContext, 10);
+        results[impl.name].offline = await benchmarkOfflineRendering(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Offline rendering failed: ${e.message}`);
         results[impl.name].offline = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running mixing benchmark...');
-        results[impl.name].mixing = await benchmarkMixing(impl.OfflineAudioContext, 100, 5);
+        results[impl.name].mixing = await benchmarkMixing(instance.OfflineAudioContext, 100, 5);
     } catch (e) {
         console.log(`  ✗ Mixing failed: ${e.message}`);
         results[impl.name].mixing = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running automation benchmark...');
         results[impl.name].automation = await benchmarkAutomation(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             1000,
             5
         );
@@ -160,18 +163,20 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running memory benchmark...');
-        results[impl.name].memory = await benchmarkMemory(impl.OfflineAudioContext, 100);
+        results[impl.name].memory = await benchmarkMemory(instance.OfflineAudioContext, 100);
     } catch (e) {
         console.log(`  ✗ Memory failed: ${e.message}`);
         results[impl.name].memory = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running MP3 processing benchmark...');
         results[impl.name].mp3 = await benchmarkMP3Processing(
-            impl.AudioContext,
-            impl.OfflineAudioContext,
+            instance.AudioContext,
+            instance.OfflineAudioContext,
             'test/benchmarks/test-audio.mp3',
             5
         );
@@ -181,49 +186,55 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running delay benchmark...');
-        results[impl.name].delay = await benchmarkDelay(impl.OfflineAudioContext, 10);
+        results[impl.name].delay = await benchmarkDelay(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Delay failed: ${e.message}`);
         results[impl.name].delay = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running waveshaper benchmark...');
-        results[impl.name].waveshaper = await benchmarkWaveShaper(impl.OfflineAudioContext, 10);
+        results[impl.name].waveshaper = await benchmarkWaveShaper(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ WaveShaper failed: ${e.message}`);
         results[impl.name].waveshaper = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running complex graph benchmark...');
-        results[impl.name].complexGraph = await benchmarkComplexGraph(impl.OfflineAudioContext, 5);
+        results[impl.name].complexGraph = await benchmarkComplexGraph(instance.OfflineAudioContext, 5);
     } catch (e) {
         console.log(`  ✗ Complex graph failed: ${e.message}`);
         results[impl.name].complexGraph = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running filter chain benchmark...');
-        results[impl.name].filterChain = await benchmarkFilterChain(impl.OfflineAudioContext, 10);
+        results[impl.name].filterChain = await benchmarkFilterChain(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Filter chain failed: ${e.message}`);
         results[impl.name].filterChain = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running channel operations benchmark...');
-        results[impl.name].channelOps = await benchmarkChannelOps(impl.OfflineAudioContext, 10);
+        results[impl.name].channelOps = await benchmarkChannelOps(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Channel ops failed: ${e.message}`);
         results[impl.name].channelOps = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running node creation benchmark...');
         results[impl.name].nodeCreation = await benchmarkNodeCreation(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             100
         );
     } catch (e) {
@@ -232,33 +243,37 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running convolver (reverb) benchmark...');
-        results[impl.name].convolver = await benchmarkConvolver(impl.OfflineAudioContext, 3);
+        results[impl.name].convolver = await benchmarkConvolver(instance.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ Convolver failed: ${e.message}`);
         results[impl.name].convolver = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running compressor benchmark...');
-        results[impl.name].compressor = await benchmarkCompressor(impl.OfflineAudioContext, 10);
+        results[impl.name].compressor = await benchmarkCompressor(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Compressor failed: ${e.message}`);
         results[impl.name].compressor = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running stereo panner benchmark...');
-        results[impl.name].stereoPanner = await benchmarkStereoPanner(impl.OfflineAudioContext, 10);
+        results[impl.name].stereoPanner = await benchmarkStereoPanner(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Stereo panner failed: ${e.message}`);
         results[impl.name].stereoPanner = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running buffer playback benchmark...');
         results[impl.name].bufferPlayback = await benchmarkBufferPlayback(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             3
         );
     } catch (e) {
@@ -267,41 +282,46 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running analyser benchmark...');
-        results[impl.name].analyser = await benchmarkAnalyser(impl.OfflineAudioContext, 10);
+        results[impl.name].analyser = await benchmarkAnalyser(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Analyser failed: ${e.message}`);
         results[impl.name].analyser = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running oscillators benchmark...');
-        results[impl.name].oscillators = await benchmarkOscillators(impl.OfflineAudioContext, 10);
+        results[impl.name].oscillators = await benchmarkOscillators(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Oscillators failed: ${e.message}`);
         results[impl.name].oscillators = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running IIR filter benchmark...');
-        results[impl.name].iirFilter = await benchmarkIIRFilter(impl.OfflineAudioContext, 3);
+        results[impl.name].iirFilter = await benchmarkIIRFilter(instance.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ IIR filter failed: ${e.message}`);
         results[impl.name].iirFilter = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running 3D panner benchmark...');
-        results[impl.name].panner3D = await benchmark3DPanner(impl.OfflineAudioContext, 10);
+        results[impl.name].panner3D = await benchmark3DPanner(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ 3D panner failed: ${e.message}`);
         results[impl.name].panner3D = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running heavy processing benchmark...');
         results[impl.name].heavyProcessing = await benchmarkHeavyProcessing(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             3
         );
     } catch (e) {
@@ -310,17 +330,19 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running stress test benchmark...');
-        results[impl.name].stressTest = await benchmarkStressTest(impl.OfflineAudioContext, 5);
+        results[impl.name].stressTest = await benchmarkStressTest(instance.OfflineAudioContext, 5);
     } catch (e) {
         console.log(`  ✗ Stress test failed: ${e.message}`);
         results[impl.name].stressTest = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running ConstantSource benchmark...');
         results[impl.name].constantSource = await benchmarkConstantSource(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -329,25 +351,28 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running gain ramping benchmark...');
-        results[impl.name].gainRamping = await benchmarkGainRamping(impl.OfflineAudioContext, 10);
+        results[impl.name].gainRamping = await benchmarkGainRamping(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Gain ramping failed: ${e.message}`);
         results[impl.name].gainRamping = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running PeriodicWave benchmark...');
-        results[impl.name].periodicWave = await benchmarkPeriodicWave(impl.OfflineAudioContext, 3);
+        results[impl.name].periodicWave = await benchmarkPeriodicWave(instance.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ PeriodicWave failed: ${e.message}`);
         results[impl.name].periodicWave = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running delay modulation benchmark...');
         results[impl.name].delayModulation = await benchmarkDelayModulation(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -356,9 +381,10 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running filter modulation benchmark...');
         results[impl.name].filterModulation = await benchmarkFilterModulation(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -367,9 +393,10 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running envelope generator benchmark...');
         results[impl.name].envelopeGenerator = await benchmarkEnvelopeGenerator(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -378,9 +405,10 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running ring modulation benchmark...');
         results[impl.name].ringModulation = await benchmarkRingModulation(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -389,9 +417,10 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running granular synthesis benchmark...');
         results[impl.name].granularSynthesis = await benchmarkGranularSynthesis(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             3
         );
     } catch (e) {
@@ -400,33 +429,37 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running filter types benchmark...');
-        results[impl.name].filterTypes = await benchmarkFilterTypes(impl.OfflineAudioContext, 10);
+        results[impl.name].filterTypes = await benchmarkFilterTypes(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Filter types failed: ${e.message}`);
         results[impl.name].filterTypes = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running multichannel benchmark...');
-        results[impl.name].multichannel = await benchmarkMultichannel(impl.OfflineAudioContext, 10);
+        results[impl.name].multichannel = await benchmarkMultichannel(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Multichannel failed: ${e.message}`);
         results[impl.name].multichannel = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running sample rates benchmark...');
-        results[impl.name].sampleRates = await benchmarkSampleRates(impl.OfflineAudioContext, 10);
+        results[impl.name].sampleRates = await benchmarkSampleRates(instance.OfflineAudioContext, 10);
     } catch (e) {
         console.log(`  ✗ Sample rates failed: ${e.message}`);
         results[impl.name].sampleRates = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running channel counts benchmark...');
         results[impl.name].channelCounts = await benchmarkChannelCounts(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -435,9 +468,10 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running AudioListener benchmark...');
         results[impl.name].audioListener = await benchmarkAudioListener(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -446,9 +480,10 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running distance models benchmark...');
         results[impl.name].distanceModels = await benchmarkDistanceModels(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -457,17 +492,19 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running oversampling benchmark...');
-        results[impl.name].oversampling = await benchmarkOversampling(impl.OfflineAudioContext, 3);
+        results[impl.name].oversampling = await benchmarkOversampling(instance.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ Oversampling failed: ${e.message}`);
         results[impl.name].oversampling = null;
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running FFT sizes benchmark...');
         results[impl.name].analyserProcessOverhead = await benchmarkAnalyserProcessOverhead(
-            impl.OfflineAudioContext,
+            instance.OfflineAudioContext,
             10
         );
     } catch (e) {
@@ -476,8 +513,9 @@ for (const impl of implementations) {
     }
 
     try {
+        const instance = impl.factory ? await impl.factory() : impl;
         console.log('  Running impulse sizes benchmark...');
-        results[impl.name].impulseSizes = await benchmarkImpulseSizes(impl.OfflineAudioContext, 3);
+        results[impl.name].impulseSizes = await benchmarkImpulseSizes(instance.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ Impulse sizes failed: ${e.message}`);
         results[impl.name].impulseSizes = null;
