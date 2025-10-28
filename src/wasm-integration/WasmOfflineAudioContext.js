@@ -158,7 +158,7 @@ export class WasmOfflineAudioContext {
         this.state = 'running';
 
         try {
-            // Render audio using WASM engine
+            // Render audio using WASM engine (returns planar/de-interleaved data)
             const audioData = await this._engine.render();
 
             // Create AudioBuffer with the rendered data
@@ -168,12 +168,11 @@ export class WasmOfflineAudioContext {
                 sampleRate: this.sampleRate
             });
 
-            // De-interleave the audio data into separate channels
+            // Copy already de-interleaved data (planar format: all ch0, then all ch1, etc.)
             for (let channel = 0; channel < this._channels; channel++) {
                 const channelData = audioBuffer.getChannelData(channel);
-                for (let frame = 0; frame < this.length; frame++) {
-                    channelData[frame] = audioData[frame * this._channels + channel];
-                }
+                const offset = channel * this.length;
+                channelData.set(audioData.subarray(offset, offset + this.length));
             }
 
             this.state = 'closed';

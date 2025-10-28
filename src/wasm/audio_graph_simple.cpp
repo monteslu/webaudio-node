@@ -953,6 +953,65 @@ void setWaveShaperOversample(int graph_id, int node_id, const char* oversample_s
     }
 }
 
+// De-interleave audio from interleaved (L,R,L,R...) to planar (L,L,L...R,R,R...)
+// Uses SIMD for optimal performance
+EMSCRIPTEN_KEEPALIVE
+void deinterleaveAudio(float* interleaved, float* planar, int frame_count, int num_channels) {
+    if (num_channels == 1) {
+        // Mono - just copy
+        memcpy(planar, interleaved, frame_count * sizeof(float));
+        return;
+    }
+
+    if (num_channels == 2) {
+        // Stereo - optimized SIMD path
+#ifdef __wasm_simd128__
+        int simd_count = frame_count / 4; // Process 4 frames at a time
+        int simd_frames = simd_count * 4;
+
+        float* left = planar;
+        float* right = planar + frame_count;
+
+        for (int i = 0; i < simd_frames; i += 4) {
+            // Load 8 floats: L0,R0,L1,R1,L2,R2,L3,R3
+            v128_t data0 = wasm_v128_load(&interleaved[i * 2]);
+            v128_t data1 = wasm_v128_load(&interleaved[i * 2 + 4]);
+
+            // Shuffle to separate L and R
+            // data0: L0,R0,L1,R1  data1: L2,R2,L3,R3
+            // Want:  L0,L1,L2,L3 and R0,R1,R2,R3
+            v128_t left_vec = wasm_i32x4_shuffle(data0, data1, 0, 2, 4, 6);  // L0,L1,L2,L3
+            v128_t right_vec = wasm_i32x4_shuffle(data0, data1, 1, 3, 5, 7); // R0,R1,R2,R3
+
+            wasm_v128_store(&left[i], left_vec);
+            wasm_v128_store(&right[i], right_vec);
+        }
+
+        // Handle remaining frames
+        for (int i = simd_frames; i < frame_count; i++) {
+            left[i] = interleaved[i * 2];
+            right[i] = interleaved[i * 2 + 1];
+        }
+#else
+        // Scalar fallback for stereo
+        float* left = planar;
+        float* right = planar + frame_count;
+        for (int i = 0; i < frame_count; i++) {
+            left[i] = interleaved[i * 2];
+            right[i] = interleaved[i * 2 + 1];
+        }
+#endif
+    } else {
+        // Generic multi-channel (scalar - less common case)
+        for (int ch = 0; ch < num_channels; ch++) {
+            float* channel_out = planar + ch * frame_count;
+            for (int i = 0; i < frame_count; i++) {
+                channel_out[i] = interleaved[i * num_channels + ch];
+            }
+        }
+    }
+}
+
 // Stubs for compatibility
 EMSCRIPTEN_KEEPALIVE void connectToParam(int, int, int, const char*, int) {}
 EMSCRIPTEN_KEEPALIVE void disconnectNodes(int, int, int) {}

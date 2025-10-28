@@ -298,9 +298,9 @@ export class WasmAudioEngine {
     }
 
     async render() {
-        // Allocate output buffer in WASM memory
+        // Allocate output buffer in WASM memory (interleaved)
         const totalSamples = this.length * this.numberOfChannels;
-        const outputPtr = this.wasmModule._malloc(totalSamples * 4);
+        const interleavedPtr = this.wasmModule._malloc(totalSamples * 4);
 
         // Process in blocks (standard Web Audio quantum size)
         const blockSize = 128;
@@ -313,19 +313,26 @@ export class WasmAudioEngine {
             // Call WASM processGraph - ALL graph traversal and processing happens in WASM!
             this.wasmModule._processGraph(
                 this.graphId,
-                outputPtr + startFrame * this.numberOfChannels * 4,
+                interleavedPtr + startFrame * this.numberOfChannels * 4,
                 framesToProcess
             );
         }
 
-        // Copy result to JavaScript array using subarray (fast and avoids alignment issues)
-        const floatIndex = outputPtr >> 2;
+        // Allocate buffer for de-interleaved output (planar format)
+        const planarPtr = this.wasmModule._malloc(totalSamples * 4);
+
+        // De-interleave in WASM (SIMD-optimized!) instead of JavaScript
+        this.wasmModule._deinterleaveAudio(interleavedPtr, planarPtr, this.length, this.numberOfChannels);
+
+        // Copy planar result to JavaScript array
+        const floatIndex = planarPtr >> 2;
         const result = new Float32Array(
             this.wasmModule.HEAPF32.subarray(floatIndex, floatIndex + totalSamples)
         );
 
         // Free WASM memory
-        this.wasmModule._free(outputPtr);
+        this.wasmModule._free(interleavedPtr);
+        this.wasmModule._free(planarPtr);
 
         return result;
     }

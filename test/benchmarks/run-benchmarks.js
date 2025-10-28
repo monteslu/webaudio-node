@@ -1154,7 +1154,7 @@ printHeader('Analyser FFT Sizes');
 
 printHeader('Convolver Impulse Response Sizes');
 {
-    const impulseDurations = [0.1, 0.5, 1.0, 2.0, 4.0];
+    const impulseDurations = [0.1, 0.5, 1.0, 2.0]; // 4.0s removed - too slow for both implementations
     for (const impulseDuration of impulseDurations) {
         console.log(
             `\n${bold}${impulseDuration}s (${Math.floor(48000 * impulseDuration)} samples):${reset}`
