@@ -151,6 +151,9 @@ export class WasmAudioContext {
             // Restore timing (approximate)
             this._startTime = Date.now() - savedTime * 1000;
 
+            // Sync WASM timing to restored time (WASM will auto-increment from here)
+            this._engine.setCurrentTime(savedTime);
+
             // Pre-render and start playback
             this._renderAndEnqueueChunk(this.sampleRate * 2);
             this._audioDevice.play();
@@ -285,7 +288,7 @@ export class WasmAudioContext {
         const totalSamples = numFrames * this._channels;
         const floatBuffer = this._renderBuffer.subarray(0, totalSamples);
 
-        // Render audio using WASM engine
+        // Render audio using WASM engine (time auto-increments in WASM)
         this._engine.renderBlock(floatBuffer, numFrames);
 
         // Use pre-allocated Buffer view (no copy!)

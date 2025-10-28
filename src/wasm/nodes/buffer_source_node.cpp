@@ -19,6 +19,13 @@ struct BufferSourceNodeState {
 
     // Playback position
     int current_frame;
+
+    // Scheduled timing
+    double scheduled_start_time;
+    double scheduled_stop_time;
+    double current_time;
+    bool has_started;
+    bool has_stopped;
 };
 
 extern "C" {
@@ -34,6 +41,11 @@ BufferSourceNodeState* createBufferSourceNode(int sample_rate, int channels) {
     state->buffer_frames = 0;
     state->buffer_channels = 0;
     state->current_frame = 0;
+    state->scheduled_start_time = -1.0;
+    state->scheduled_stop_time = -1.0;
+    state->current_time = 0.0;
+    state->has_started = false;
+    state->has_stopped = false;
     return state;
 }
 
@@ -68,16 +80,38 @@ void setBufferSourceBuffer(BufferSourceNodeState* state, float* buffer_data, int
 }
 
 EMSCRIPTEN_KEEPALIVE
-void startBufferSource(BufferSourceNodeState* state) {
+void startBufferSource(BufferSourceNodeState* state, double when) {
     if (!state) return;
-    state->is_active = true;
+    state->scheduled_start_time = when;
+    state->has_started = false;
+    state->has_stopped = false;
     state->current_frame = 0;
+    // Don't activate immediately - will activate when current_time >= scheduled_start_time
 }
 
 EMSCRIPTEN_KEEPALIVE
-void stopBufferSource(BufferSourceNodeState* state) {
+void setBufferSourceCurrentTime(BufferSourceNodeState* state, double time) {
     if (!state) return;
-    state->is_active = false;
+    state->current_time = time;
+
+    // Check if we should start
+    if (!state->has_started && state->scheduled_start_time >= 0.0 && state->current_time >= state->scheduled_start_time) {
+        state->has_started = true;
+        state->is_active = true;
+    }
+
+    // Check if we should stop
+    if (state->has_started && !state->has_stopped && state->scheduled_stop_time >= 0.0 && state->current_time >= state->scheduled_stop_time) {
+        state->has_stopped = true;
+        state->is_active = false;
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void stopBufferSource(BufferSourceNodeState* state, double when) {
+    if (!state) return;
+    state->scheduled_stop_time = when;
+    // Will actually stop when current_time >= scheduled_stop_time (checked in setBufferSourceCurrentTime)
 }
 
 EMSCRIPTEN_KEEPALIVE

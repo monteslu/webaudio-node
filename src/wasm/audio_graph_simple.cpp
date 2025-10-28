@@ -51,9 +51,10 @@ extern "C" {
     BufferSourceNodeState* createBufferSourceNode(int sample_rate, int channels);
     void destroyBufferSourceNode(BufferSourceNodeState* state);
     void setBufferSourceBuffer(BufferSourceNodeState* state, float* buffer_data, int buffer_frames, int buffer_channels);
-    void startBufferSource(BufferSourceNodeState* state);
-    void stopBufferSource(BufferSourceNodeState* state);
+    void startBufferSource(BufferSourceNodeState* state, double when);
+    void stopBufferSource(BufferSourceNodeState* state, double when);
     void setBufferSourceLoop(BufferSourceNodeState* state, bool loop);
+    void setBufferSourceCurrentTime(BufferSourceNodeState* state, double time);
     void processBufferSourceNode(BufferSourceNodeState* state, float* output, int frame_count);
 
     // BiquadFilter
@@ -204,6 +205,7 @@ struct AudioGraph {
     std::map<int, BufferData> buffers; // buffer_id -> buffer data
     int next_id;
     int dest_id;
+    uint64_t current_sample; // Track current sample for timing
 };
 
 static std::map<int, AudioGraph*> graphs;
@@ -217,6 +219,7 @@ int createAudioGraph(int sample_rate, int channels, int buffer_size) {
     graph->sample_rate = sample_rate;
     graph->channels = channels;
     graph->next_id = 1;
+    graph->current_sample = 0;
 
     // Create destination
     Node dest;
@@ -434,7 +437,7 @@ void startNode(int graph_id, int node_id, double when) {
     if (node.type == 1 && node.state && node.state->osc_state) { // oscillator
         startOscillator(node.state->osc_state);
     } else if (node.type == 3 && node.state && node.state->buffer_source_state) { // buffer_source
-        startBufferSource(node.state->buffer_source_state);
+        startBufferSource(node.state->buffer_source_state, when);
     } else if (node.type == 8 && node.state && node.state->constant_source_state) { // constant_source
         startConstantSource(node.state->constant_source_state);
     } else if (node.type == 16 && node.state && node.state->media_stream_source_state) { // media_stream_source
@@ -455,7 +458,7 @@ void stopNode(int graph_id, int node_id, double when) {
     if (node.type == 1 && node.state && node.state->osc_state) { // oscillator
         stopOscillator(node.state->osc_state);
     } else if (node.type == 3 && node.state && node.state->buffer_source_state) { // buffer_source
-        stopBufferSource(node.state->buffer_source_state);
+        stopBufferSource(node.state->buffer_source_state, when);
     } else if (node.type == 8 && node.state && node.state->constant_source_state) { // constant_source
         stopConstantSource(node.state->constant_source_state);
     } else if (node.type == 16 && node.state && node.state->media_stream_source_state) { // media_stream_source
@@ -588,6 +591,9 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         if (!node.state || !node.state->buffer_source_state) {
             memset(output, 0, frame_count * graph->channels * sizeof(float));
         } else {
+            // Update current time for scheduled start/stop
+            double current_time = static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
+            setBufferSourceCurrentTime(node.state->buffer_source_state, current_time);
             processBufferSourceNode(node.state->buffer_source_state, output, frame_count);
         }
 
@@ -771,11 +777,24 @@ void processGraph(int graph_id, float* output, int frame_count) {
 
     // Process destination node (pulls entire graph)
     processNode(graph, graph->dest_id, output, frame_count, buffers);
+
+    // Increment sample counter for timing
+    graph->current_sample += frame_count;
 }
 
 EMSCRIPTEN_KEEPALIVE
 double getCurrentTime(int graph_id) {
     return 0.0; // Offline rendering
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setGraphCurrentTime(int graph_id, double time) {
+    auto it = graphs.find(graph_id);
+    if (it == graphs.end()) return;
+
+    AudioGraph* graph = it->second;
+    // Convert time to samples for internal tracking
+    graph->current_sample = static_cast<uint64_t>(time * graph->sample_rate);
 }
 
 EMSCRIPTEN_KEEPALIVE

@@ -7,7 +7,7 @@
  */
 
 export async function benchmarkImpulseSizes(OfflineAudioContext, iterations = 10) {
-    const impulseDurations = [0.1, 0.5, 1.0, 2.0, 4.0]; // seconds
+    const impulseDurations = [0.1, 0.5, 1.0, 2.0]; // seconds (4.0 removed - too slow)
     const sampleRate = 48000;
     const duration = 1.0;
     const results = {};

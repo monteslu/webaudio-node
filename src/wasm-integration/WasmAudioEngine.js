@@ -262,6 +262,12 @@ export class WasmAudioEngine {
     }
 
     // Render a single block of audio (for real-time SDL callback)
+    // Set current time for real-time playback (for scheduled start/stop times)
+    setCurrentTime(time) {
+        if (!this.initialized) return;
+        this.wasmModule._setGraphCurrentTime(this.graphId, time);
+    }
+
     renderBlock(outputArray, frameCount) {
         if (!this.initialized) return;
 

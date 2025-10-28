@@ -1,4 +1,4 @@
-import { OfflineAudioContext } from '../index-wasm.js';
+import { createWebAudioInstance } from '../src/factory.js';
 import { readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -6,6 +6,10 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 console.log('\n🎵 WASM: Playing 5 layered instances of rising_sun.mp3...\n');
+console.log('Creating fresh WASM instance...');
+
+const instance = await createWebAudioInstance();
+const { OfflineAudioContext } = instance;
 
 // Render 10 seconds offline
 const sampleRate = 48000;
@@ -16,7 +20,7 @@ const context = new OfflineAudioContext({
     sampleRate: sampleRate
 });
 
-const audioFilePath = join(__dirname, 'samples', 'rising_sun.mp3');
+const audioFilePath = join(__dirname, 'benchmarks', 'rising_sun.mp3');
 const audioData = readFileSync(audioFilePath);
 
 console.log('Decoding audio file...');

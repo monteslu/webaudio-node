@@ -60,18 +60,19 @@ try {
 }
 
 // Try to load node-web-audio-api SECOND
-try {
-    const nodeWebAudio = await import('node-web-audio-api');
-    implementations.push({
-        name: 'node-web-audio-api',
-        OfflineAudioContext: nodeWebAudio.OfflineAudioContext,
-        AudioContext: nodeWebAudio.AudioContext,
-        color: '\x1b[34m' // Blue
-    });
-    console.log('✓ Loaded node-web-audio-api');
-} catch (e) {
-    console.log('✗ Failed to load node-web-audio-api:', e.message);
-}
+// DISABLED: node-web-audio-api hangs on 3D panner benchmark
+// try {
+//     const nodeWebAudio = await import('node-web-audio-api');
+//     implementations.push({
+//         name: 'node-web-audio-api',
+//         OfflineAudioContext: nodeWebAudio.OfflineAudioContext,
+//         AudioContext: nodeWebAudio.AudioContext,
+//         color: '\x1b[34m' // Blue
+//     });
+//     console.log('✓ Loaded node-web-audio-api');
+// } catch (e) {
+//     console.log('✗ Failed to load node-web-audio-api:', e.message);
+// }
 
 if (implementations.length === 0) {
     console.error('\n❌ No implementations loaded. Install dependencies and link webaudio-node.');
