@@ -117,6 +117,7 @@ void processAnalyserNode(
         memcpy(output, input, frame_count * state->channels * sizeof(float));
 
         // Store samples in circular buffer (mix down to mono)
+        const int index_mask = state->fft_size - 1; // Power of 2 optimization
         for (int i = 0; i < frame_count; i++) {
             float sample = 0.0f;
             for (int ch = 0; ch < state->channels; ch++) {
@@ -125,7 +126,7 @@ void processAnalyserNode(
             sample /= state->channels;
 
             state->time_domain_buffer[state->write_index] = sample;
-            state->write_index = (state->write_index + 1) % state->fft_size;
+            state->write_index = (state->write_index + 1) & index_mask; // Fast bitwise AND instead of modulo
         }
     } else {
         memset(output, 0, frame_count * state->channels * sizeof(float));
@@ -137,8 +138,9 @@ void getAnalyserFloatFrequencyData(AnalyserNodeState* state, float* array, int a
     if (!state || !array) return;
 
     // Copy time domain data in correct order
+    const int index_mask = state->fft_size - 1; // Power of 2 optimization
     for (int i = 0; i < state->fft_size; i++) {
-        int index = (state->write_index + i) % state->fft_size;
+        int index = (state->write_index + i) & index_mask; // Fast bitwise AND
         state->fft_buffer[i].real = state->time_domain_buffer[index];
         state->fft_buffer[i].imag = 0.0f;
     }
@@ -175,8 +177,9 @@ void getAnalyserFloatTimeDomainData(AnalyserNodeState* state, float* array, int 
     if (!state || !array) return;
 
     int length = (array_size < state->fft_size) ? array_size : state->fft_size;
+    const int index_mask = state->fft_size - 1; // Power of 2 optimization
     for (int i = 0; i < length; i++) {
-        int index = (state->write_index + i) % state->fft_size;
+        int index = (state->write_index + i) & index_mask; // Fast bitwise AND
         array[i] = state->time_domain_buffer[index];
     }
 }
