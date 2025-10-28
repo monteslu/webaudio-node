@@ -49,6 +49,7 @@ EXPORTED_FUNCTIONS='[
     "_setNodeBufferId",
     "_setNodeStringProperty",
     "_setWaveShaperCurve",
+    "_setWaveShaperOversample",
     "_setNodePeriodicWave",
     "_setNodeProperty",
     "_scheduleParameterValue",

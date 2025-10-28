@@ -127,8 +127,11 @@ export class WasmOfflineAudioContext {
         return new AnalyserNode(this, options);
     }
 
-    createIIRFilter(options) {
-        // IIRFilter already requires options with feedforward/feedback
+    createIIRFilter(feedforward, feedback) {
+        // Support both legacy (feedforward, feedback) and options object
+        const options = typeof feedforward === 'object' && !Array.isArray(feedforward)
+            ? feedforward
+            : { feedforward, feedback };
         return new IIRFilterNode(this, options);
     }
 

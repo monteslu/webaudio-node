@@ -106,6 +106,7 @@ class WaveShaperNode : public AudioNode {
 public:
     WaveShaperNode(int sr, int ch) {}
     void SetCurve(float* curve, int length) {}
+    void SetOversample(const char* oversample) {}
 };
 
 class ConvolverNode : public AudioNode {
@@ -396,6 +397,16 @@ public:
         }
     }
 
+    void SetWaveShaperOversample(uint32_t node_id, const char* oversample) {
+        auto it = nodes_.find(node_id);
+        if (it == nodes_.end()) return;
+
+        WaveShaperNode* wave_shaper = dynamic_cast<WaveShaperNode*>(it->second.get());
+        if (wave_shaper) {
+            wave_shaper->SetOversample(oversample);
+        }
+    }
+
     void SetNodePeriodicWave(uint32_t node_id, float* wavetable, int length) {
         auto it = nodes_.find(node_id);
         if (it == nodes_.end()) return;
@@ -660,6 +671,14 @@ void setWaveShaperCurve(uint32_t graph_id, uint32_t node_id, float* curve, int l
     auto it = graphs_.find(graph_id);
     if (it != graphs_.end()) {
         it->second->SetWaveShaperCurve(node_id, curve, length);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setWaveShaperOversample(uint32_t graph_id, uint32_t node_id, const char* oversample) {
+    auto it = graphs_.find(graph_id);
+    if (it != graphs_.end()) {
+        it->second->SetWaveShaperOversample(node_id, oversample);
     }
 }
 

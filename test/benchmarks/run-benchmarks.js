@@ -172,7 +172,7 @@ for (const impl of implementations) {
         results[impl.name].mp3 = await benchmarkMP3Processing(
             impl.AudioContext,
             impl.OfflineAudioContext,
-            'test-audio.mp3',
+            'test/benchmarks/test-audio.mp3',
             5
         );
     } catch (e) {

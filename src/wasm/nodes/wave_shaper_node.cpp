@@ -38,7 +38,7 @@ void destroyWaveShaperNode(WaveShaperNodeState* state) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void setWaveShaperCurve(WaveShaperNodeState* state, float* curve, int length) {
+void setWaveShaperCurve_node(WaveShaperNodeState* state, float* curve, int length) {
     if (!state) return;
 
     delete[] state->curve;
@@ -54,7 +54,7 @@ void setWaveShaperCurve(WaveShaperNodeState* state, float* curve, int length) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void setWaveShaperOversample(WaveShaperNodeState* state, int oversample) {
+void setWaveShaperOversample_node(WaveShaperNodeState* state, int oversample) {
     if (!state) return;
     state->oversample = oversample;
 }
