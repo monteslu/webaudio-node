@@ -1,11 +1,10 @@
 // WASM Audio Decoders
 // Fast MP3/WAV decoding using dr_libs compiled to WASM
 
-import { wasmModule } from './WasmModule.js';
-
 export class WasmAudioDecoders {
     /**
      * Resample audio data to target sample rate
+     * @param {Object} wasmModule - WASM module instance
      * @param {Float32Array} audioData - Interleaved audio samples
      * @param {number} inputFrames - Number of frames in input
      * @param {number} channels - Number of channels
@@ -13,7 +12,7 @@ export class WasmAudioDecoders {
      * @param {number} targetSampleRate - Target sample rate
      * @returns {Object} { audioData: Float32Array, length: number, sampleRate: number }
      */
-    static resampleAudio(audioData, inputFrames, channels, sourceSampleRate, targetSampleRate) {
+    static resampleAudio(wasmModule, audioData, inputFrames, channels, sourceSampleRate, targetSampleRate) {
         // No resampling needed
         if (sourceSampleRate === targetSampleRate) {
             return {
@@ -27,8 +26,9 @@ export class WasmAudioDecoders {
 
         // Allocate input buffer in WASM memory
         const inputPtr = wasmModule._malloc(inputSize * 4); // Float32 = 4 bytes
-        const inputHeap = new Float32Array(wasmModule.HEAPF32.buffer, inputPtr, inputSize);
-        inputHeap.set(audioData);
+        // CRITICAL: Use subarray() instead of creating view from buffer to avoid stale buffer issues
+        const floatIndex = inputPtr >> 2;
+        wasmModule.HEAPF32.set(audioData, floatIndex);
 
         // Prepare output frame count pointer
         const outputFramesPtr = wasmModule._malloc(4);
@@ -58,8 +58,9 @@ export class WasmAudioDecoders {
         // Copy resampled data from WASM heap
         const totalOutputSamples = outputFrames * channels;
         const resampledData = new Float32Array(totalOutputSamples);
-        const wasmData = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalOutputSamples);
-        resampledData.set(wasmData);
+        // CRITICAL: Use subarray() to avoid stale buffer issues
+        const outFloatIndex = outputPtr >> 2;
+        resampledData.set(wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalOutputSamples));
 
         // Free resampled buffer in WASM
         wasmModule._freeDecodedBuffer(outputPtr);
@@ -71,14 +72,14 @@ export class WasmAudioDecoders {
         };
     }
 
-    static async decodeMP3(arrayBuffer, targetSampleRate = null) {
+    static async decodeMP3(wasmModule, arrayBuffer, targetSampleRate = null) {
         const uint8Data = new Uint8Array(arrayBuffer);
         const inputSize = uint8Data.length;
 
         // Allocate input buffer in WASM memory
         const inputPtr = wasmModule._malloc(inputSize);
-        const inputHeap = new Uint8Array(wasmModule.HEAPU8.buffer, inputPtr, inputSize);
-        inputHeap.set(uint8Data);
+        // CRITICAL: Use HEAPU8 directly instead of creating view from buffer to avoid stale buffer issues
+        wasmModule.HEAPU8.set(uint8Data, inputPtr);
 
         // Prepare output pointers
         const outputPtrPtr = wasmModule._malloc(4); // pointer to float*
@@ -116,8 +117,9 @@ export class WasmAudioDecoders {
 
         // Copy decoded data from WASM heap
         const decodedData = new Float32Array(totalSamples);
-        const wasmData = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
-        decodedData.set(wasmData);
+        // CRITICAL: Use subarray() to avoid stale buffer issues
+        const outFloatIndex = outputPtr >> 2;
+        decodedData.set(wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalSamples));
 
         // Free decoded buffer in WASM
         wasmModule._freeDecodedBuffer(outputPtr);
@@ -125,6 +127,7 @@ export class WasmAudioDecoders {
         // Resample if target sample rate specified and different from source
         if (targetSampleRate && targetSampleRate !== sampleRate) {
             const resampled = this.resampleAudio(
+                wasmModule,
                 decodedData,
                 totalSamples / channels,
                 channels,
@@ -147,14 +150,14 @@ export class WasmAudioDecoders {
         };
     }
 
-    static async decodeWAV(arrayBuffer, targetSampleRate = null) {
+    static async decodeWAV(wasmModule, arrayBuffer, targetSampleRate = null) {
         const uint8Data = new Uint8Array(arrayBuffer);
         const inputSize = uint8Data.length;
 
         // Allocate input buffer in WASM memory
         const inputPtr = wasmModule._malloc(inputSize);
-        const inputHeap = new Uint8Array(wasmModule.HEAPU8.buffer, inputPtr, inputSize);
-        inputHeap.set(uint8Data);
+        // CRITICAL: Use HEAPU8 directly instead of creating view from buffer to avoid stale buffer issues
+        wasmModule.HEAPU8.set(uint8Data, inputPtr);
 
         // Prepare output pointers
         const outputPtrPtr = wasmModule._malloc(4);
@@ -192,8 +195,9 @@ export class WasmAudioDecoders {
 
         // Copy decoded data from WASM heap
         const decodedData = new Float32Array(totalSamples);
-        const wasmData = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
-        decodedData.set(wasmData);
+        // CRITICAL: Use subarray() to avoid stale buffer issues
+        const outFloatIndex = outputPtr >> 2;
+        decodedData.set(wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalSamples));
 
         // Free decoded buffer in WASM
         wasmModule._freeDecodedBuffer(outputPtr);
@@ -201,6 +205,7 @@ export class WasmAudioDecoders {
         // Resample if target sample rate specified and different from source
         if (targetSampleRate && targetSampleRate !== sampleRate) {
             const resampled = this.resampleAudio(
+                wasmModule,
                 decodedData,
                 totalSamples / channels,
                 channels,
@@ -223,13 +228,13 @@ export class WasmAudioDecoders {
         };
     }
 
-    static async decodeFLAC(arrayBuffer, targetSampleRate = null) {
+    static async decodeFLAC(wasmModule, arrayBuffer, targetSampleRate = null) {
         const uint8Data = new Uint8Array(arrayBuffer);
         const inputSize = uint8Data.length;
 
         const inputPtr = wasmModule._malloc(inputSize);
-        const inputHeap = new Uint8Array(wasmModule.HEAPU8.buffer, inputPtr, inputSize);
-        inputHeap.set(uint8Data);
+        // CRITICAL: Use HEAPU8 directly instead of creating view from buffer to avoid stale buffer issues
+        wasmModule.HEAPU8.set(uint8Data, inputPtr);
 
         const outputPtrPtr = wasmModule._malloc(4);
         const totalSamplesPtr = wasmModule._malloc(4);
@@ -261,14 +266,16 @@ export class WasmAudioDecoders {
         wasmModule._free(sampleRatePtr);
 
         const decodedData = new Float32Array(totalSamples);
-        const wasmData = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
-        decodedData.set(wasmData);
+        // CRITICAL: Use subarray() to avoid stale buffer issues
+        const outFloatIndex = outputPtr >> 2;
+        decodedData.set(wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalSamples));
 
         wasmModule._freeDecodedBuffer(outputPtr);
 
         // Resample if target sample rate specified and different from source
         if (targetSampleRate && targetSampleRate !== sampleRate) {
             const resampled = this.resampleAudio(
+                wasmModule,
                 decodedData,
                 totalSamples / channels,
                 channels,
@@ -291,13 +298,13 @@ export class WasmAudioDecoders {
         };
     }
 
-    static async decodeVorbis(arrayBuffer, targetSampleRate = null) {
+    static async decodeVorbis(wasmModule, arrayBuffer, targetSampleRate = null) {
         const uint8Data = new Uint8Array(arrayBuffer);
         const inputSize = uint8Data.length;
 
         const inputPtr = wasmModule._malloc(inputSize);
-        const inputHeap = new Uint8Array(wasmModule.HEAPU8.buffer, inputPtr, inputSize);
-        inputHeap.set(uint8Data);
+        // CRITICAL: Use HEAPU8 directly instead of creating view from buffer to avoid stale buffer issues
+        wasmModule.HEAPU8.set(uint8Data, inputPtr);
 
         const outputPtrPtr = wasmModule._malloc(4);
         const totalSamplesPtr = wasmModule._malloc(4);
@@ -329,14 +336,16 @@ export class WasmAudioDecoders {
         wasmModule._free(sampleRatePtr);
 
         const decodedData = new Float32Array(totalSamples);
-        const wasmData = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
-        decodedData.set(wasmData);
+        // CRITICAL: Use subarray() to avoid stale buffer issues
+        const outFloatIndex = outputPtr >> 2;
+        decodedData.set(wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalSamples));
 
         wasmModule._freeDecodedBuffer(outputPtr);
 
         // Resample if target sample rate specified and different from source
         if (targetSampleRate && targetSampleRate !== sampleRate) {
             const resampled = this.resampleAudio(
+                wasmModule,
                 decodedData,
                 totalSamples / channels,
                 channels,
@@ -359,13 +368,13 @@ export class WasmAudioDecoders {
         };
     }
 
-    static async decodeAAC(arrayBuffer, targetSampleRate = null) {
+    static async decodeAAC(wasmModule, arrayBuffer, targetSampleRate = null) {
         const uint8Data = new Uint8Array(arrayBuffer);
         const inputSize = uint8Data.length;
 
         const inputPtr = wasmModule._malloc(inputSize);
-        const inputHeap = new Uint8Array(wasmModule.HEAPU8.buffer, inputPtr, inputSize);
-        inputHeap.set(uint8Data);
+        // CRITICAL: Use HEAPU8 directly instead of creating view from buffer to avoid stale buffer issues
+        wasmModule.HEAPU8.set(uint8Data, inputPtr);
 
         const outputPtrPtr = wasmModule._malloc(4);
         const totalSamplesPtr = wasmModule._malloc(4);
@@ -397,14 +406,16 @@ export class WasmAudioDecoders {
         wasmModule._free(sampleRatePtr);
 
         const decodedData = new Float32Array(totalSamples);
-        const wasmData = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
-        decodedData.set(wasmData);
+        // CRITICAL: Use subarray() to avoid stale buffer issues
+        const outFloatIndex = outputPtr >> 2;
+        decodedData.set(wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalSamples));
 
         wasmModule._freeDecodedBuffer(outputPtr);
 
         // Resample if target sample rate specified and different from source
         if (targetSampleRate && targetSampleRate !== sampleRate) {
             const resampled = this.resampleAudio(
+                wasmModule,
                 decodedData,
                 totalSamples / channels,
                 channels,
@@ -427,15 +438,15 @@ export class WasmAudioDecoders {
         };
     }
 
-    static async decode(arrayBuffer, targetSampleRate = null) {
+    static async decode(wasmModule, arrayBuffer, targetSampleRate = null) {
         // Auto-detect format using WASM magic byte detection
         const uint8Data = new Uint8Array(arrayBuffer);
         const inputSize = uint8Data.length;
 
         // Allocate input buffer in WASM memory
         const inputPtr = wasmModule._malloc(inputSize);
-        const inputHeap = new Uint8Array(wasmModule.HEAPU8.buffer, inputPtr, inputSize);
-        inputHeap.set(uint8Data);
+        // CRITICAL: Use HEAPU8 directly instead of creating view from buffer to avoid stale buffer issues
+        wasmModule.HEAPU8.set(uint8Data, inputPtr);
 
         // Prepare output pointers
         const outputPtrPtr = wasmModule._malloc(4);
@@ -475,8 +486,9 @@ export class WasmAudioDecoders {
 
         // Copy decoded data from WASM heap
         const decodedData = new Float32Array(totalSamples);
-        const wasmData = new Float32Array(wasmModule.HEAPF32.buffer, outputPtr, totalSamples);
-        decodedData.set(wasmData);
+        // CRITICAL: Use subarray() to avoid stale buffer issues
+        const outFloatIndex = outputPtr >> 2;
+        decodedData.set(wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalSamples));
 
         // Free decoded buffer in WASM
         wasmModule._freeDecodedBuffer(outputPtr);
@@ -484,6 +496,7 @@ export class WasmAudioDecoders {
         // Resample if target sample rate specified and different from source
         if (targetSampleRate && targetSampleRate !== sampleRate) {
             const resampled = this.resampleAudio(
+                wasmModule,
                 decodedData,
                 totalSamples / channels,
                 channels,

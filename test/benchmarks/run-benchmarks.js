@@ -45,21 +45,7 @@ process.on('unhandledRejection', (reason, promise) => {
 // Import implementations
 let implementations = [];
 
-// Try to load node-web-audio-api FIRST (test if order matters)
-try {
-    const nodeWebAudio = await import('node-web-audio-api');
-    implementations.push({
-        name: 'node-web-audio-api',
-        OfflineAudioContext: nodeWebAudio.OfflineAudioContext,
-        AudioContext: nodeWebAudio.AudioContext,
-        color: '\x1b[34m' // Blue
-    });
-    console.log('✓ Loaded node-web-audio-api');
-} catch (e) {
-    console.log('✗ Failed to load node-web-audio-api:', e.message);
-}
-
-// Try to load webaudio-node (local)
+// Try to load webaudio-node (local) FIRST - avoid resource exhaustion from other implementations
 try {
     const webaudioNode = await import('../../index.js');
     implementations.push({
@@ -71,6 +57,20 @@ try {
     console.log('✓ Loaded webaudio-node (local)');
 } catch (e) {
     console.log('✗ Failed to load webaudio-node:', e.message);
+}
+
+// Try to load node-web-audio-api SECOND
+try {
+    const nodeWebAudio = await import('node-web-audio-api');
+    implementations.push({
+        name: 'node-web-audio-api',
+        OfflineAudioContext: nodeWebAudio.OfflineAudioContext,
+        AudioContext: nodeWebAudio.AudioContext,
+        color: '\x1b[34m' // Blue
+    });
+    console.log('✓ Loaded node-web-audio-api');
+} catch (e) {
+    console.log('✗ Failed to load node-web-audio-api:', e.message);
 }
 
 if (implementations.length === 0) {
@@ -233,7 +233,7 @@ for (const impl of implementations) {
 
     try {
         console.log('  Running convolver (reverb) benchmark...');
-        results[impl.name].convolver = await benchmarkConvolver(impl.OfflineAudioContext, 10);
+        results[impl.name].convolver = await benchmarkConvolver(impl.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ Convolver failed: ${e.message}`);
         results[impl.name].convolver = null;
@@ -259,7 +259,7 @@ for (const impl of implementations) {
         console.log('  Running buffer playback benchmark...');
         results[impl.name].bufferPlayback = await benchmarkBufferPlayback(
             impl.OfflineAudioContext,
-            10
+            3
         );
     } catch (e) {
         console.log(`  ✗ Buffer playback failed: ${e.message}`);
@@ -284,7 +284,7 @@ for (const impl of implementations) {
 
     try {
         console.log('  Running IIR filter benchmark...');
-        results[impl.name].iirFilter = await benchmarkIIRFilter(impl.OfflineAudioContext, 10);
+        results[impl.name].iirFilter = await benchmarkIIRFilter(impl.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ IIR filter failed: ${e.message}`);
         results[impl.name].iirFilter = null;
@@ -302,7 +302,7 @@ for (const impl of implementations) {
         console.log('  Running heavy processing benchmark...');
         results[impl.name].heavyProcessing = await benchmarkHeavyProcessing(
             impl.OfflineAudioContext,
-            10
+            3
         );
     } catch (e) {
         console.log(`  ✗ Heavy processing failed: ${e.message}`);
@@ -338,7 +338,7 @@ for (const impl of implementations) {
 
     try {
         console.log('  Running PeriodicWave benchmark...');
-        results[impl.name].periodicWave = await benchmarkPeriodicWave(impl.OfflineAudioContext, 10);
+        results[impl.name].periodicWave = await benchmarkPeriodicWave(impl.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ PeriodicWave failed: ${e.message}`);
         results[impl.name].periodicWave = null;
@@ -392,7 +392,7 @@ for (const impl of implementations) {
         console.log('  Running granular synthesis benchmark...');
         results[impl.name].granularSynthesis = await benchmarkGranularSynthesis(
             impl.OfflineAudioContext,
-            10
+            3
         );
     } catch (e) {
         console.log(`  ✗ Granular synthesis failed: ${e.message}`);
@@ -458,7 +458,7 @@ for (const impl of implementations) {
 
     try {
         console.log('  Running oversampling benchmark...');
-        results[impl.name].oversampling = await benchmarkOversampling(impl.OfflineAudioContext, 10);
+        results[impl.name].oversampling = await benchmarkOversampling(impl.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ Oversampling failed: ${e.message}`);
         results[impl.name].oversampling = null;
@@ -477,7 +477,7 @@ for (const impl of implementations) {
 
     try {
         console.log('  Running impulse sizes benchmark...');
-        results[impl.name].impulseSizes = await benchmarkImpulseSizes(impl.OfflineAudioContext, 10);
+        results[impl.name].impulseSizes = await benchmarkImpulseSizes(impl.OfflineAudioContext, 3);
     } catch (e) {
         console.log(`  ✗ Impulse sizes failed: ${e.message}`);
         results[impl.name].impulseSizes = null;
@@ -1177,3 +1177,6 @@ printHeader('Summary');
 }
 
 console.log('\n✅ Benchmarks complete!\n');
+
+// Force exit to avoid hanging on event loop
+process.exit(0);

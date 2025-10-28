@@ -1,41 +1,43 @@
 // Thin wrapper around WASM AudioGraph
 // All heavy lifting (graph traversal, mixing, processing) is done in WASM
 
-import { wasmModule } from './WasmModule.js';
+import { wasmModule as defaultWasmModule } from './WasmModule.js';
 
 // Helper to safely copy data to WASM heap, handling potential memory growth
-function copyToWasmHeap(data, ptr) {
+function copyToWasmHeap(wasmModule, data, ptr) {
     // Ensure data is a Float32Array
     const floatArray = data instanceof Float32Array ? data : new Float32Array(data);
 
-    // Create fresh heap view from current WASM memory
-    const heap = new Float32Array(wasmModule.HEAPU8.buffer);
+    // Use HEAPF32 directly (Emscripten updates it automatically on memory growth)
     const floatIndex = ptr >> 2;
 
     // Validate bounds BEFORE copying
-    if (floatIndex + floatArray.length > heap.length) {
-        console.error(`[copyToWasmHeap ERROR]`);
+    if (floatIndex + floatArray.length > wasmModule.HEAPF32.length) {
+        console.error('[copyToWasmHeap ERROR]');
         console.error(`  ptr=${ptr} (0x${ptr.toString(16)})`);
         console.error(`  floatIndex=${floatIndex}`);
         console.error(`  data.length=${floatArray.length}`);
         console.error(`  required end=${floatIndex + floatArray.length}`);
-        console.error(`  heap.length=${heap.length}`);
-        console.error(`  buffer.byteLength=${wasmModule.HEAPU8.buffer.byteLength}`);
-        console.error(`  Stack trace:`, new Error().stack);
-        throw new Error(`copyToWasmHeap: offset ${floatIndex} + length ${floatArray.length} exceeds heap size ${heap.length}`);
+        console.error(`  HEAPF32.length=${wasmModule.HEAPF32.length}`);
+        console.error(`  buffer.byteLength=${wasmModule.HEAPF32.buffer.byteLength}`);
+        console.error('  Stack trace:', new Error().stack);
+        throw new Error(`copyToWasmHeap: offset ${floatIndex} + length ${floatArray.length} exceeds heap size ${wasmModule.HEAPF32.length}`);
     }
 
-    heap.set(floatArray, floatIndex);
+    wasmModule.HEAPF32.set(floatArray, floatIndex);
 }
 
 export class WasmAudioEngine {
-    constructor(numberOfChannels, length, sampleRate) {
+    constructor(numberOfChannels, length, sampleRate, wasmModule = null) {
         this.numberOfChannels = numberOfChannels;
         this.length = length;
         this.sampleRate = sampleRate;
 
-        // Create WASM AudioGraph immediately (WASM is preloaded)
-        this.graphId = wasmModule._createAudioGraph(
+        // Use provided WASM module or default singleton
+        this.wasmModule = wasmModule || defaultWasmModule;
+
+        // Create WASM AudioGraph
+        this.graphId = this.wasmModule._createAudioGraph(
             this.sampleRate,
             this.numberOfChannels,
             128 // buffer size (standard Web Audio quantum)
@@ -46,26 +48,26 @@ export class WasmAudioEngine {
     createNode(type, _options = {}) {
         // Just forward to WASM - no JavaScript graph management!
         // Allocate string in WASM memory
-        const lengthBytes = wasmModule.lengthBytesUTF8(type) + 1;
-        const typePtr = wasmModule._malloc(lengthBytes);
-        wasmModule.stringToUTF8(type, typePtr, lengthBytes);
+        const lengthBytes = this.wasmModule.lengthBytesUTF8(type) + 1;
+        const typePtr = this.wasmModule._malloc(lengthBytes);
+        this.wasmModule.stringToUTF8(type, typePtr, lengthBytes);
 
-        const nodeId = wasmModule._createNode(this.graphId, typePtr);
-        wasmModule._free(typePtr);
+        const nodeId = this.wasmModule._createNode(this.graphId, typePtr);
+        this.wasmModule._free(typePtr);
         return nodeId;
     }
 
     connectNodes(sourceId, destId, sourceOutput = 0, destInput = 0) {
-        wasmModule._connectNodes(this.graphId, sourceId, destId, sourceOutput, destInput);
+        this.wasmModule._connectNodes(this.graphId, sourceId, destId, sourceOutput, destInput);
     }
 
     connectToParam(sourceId, destId, paramName, sourceOutput = 0) {
-        const lengthBytes = wasmModule.lengthBytesUTF8(paramName) + 1;
-        const paramNamePtr = wasmModule._malloc(lengthBytes);
-        wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
+        const lengthBytes = this.wasmModule.lengthBytesUTF8(paramName) + 1;
+        const paramNamePtr = this.wasmModule._malloc(lengthBytes);
+        this.wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
 
-        wasmModule._connectToParam(this.graphId, sourceId, destId, paramNamePtr, sourceOutput);
-        wasmModule._free(paramNamePtr);
+        this.wasmModule._connectToParam(this.graphId, sourceId, destId, paramNamePtr, sourceOutput);
+        this.wasmModule._free(paramNamePtr);
     }
 
     disconnectNode(_nodeId) {
@@ -73,47 +75,38 @@ export class WasmAudioEngine {
     }
 
     setNodeParameter(nodeId, paramName, value) {
-        const lengthBytes = wasmModule.lengthBytesUTF8(paramName) + 1;
-        const paramNamePtr = wasmModule._malloc(lengthBytes);
-        wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
+        const lengthBytes = this.wasmModule.lengthBytesUTF8(paramName) + 1;
+        const paramNamePtr = this.wasmModule._malloc(lengthBytes);
+        this.wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
 
-        wasmModule._setNodeParameter(this.graphId, nodeId, paramNamePtr, value);
-        wasmModule._free(paramNamePtr);
+        this.wasmModule._setNodeParameter(this.graphId, nodeId, paramNamePtr, value);
+        this.wasmModule._free(paramNamePtr);
     }
 
     setNodeBuffer(nodeId, bufferData, length, channels) {
         // Allocate WASM memory for buffer data
         const totalSamples = length * channels;
-        const bufferPtr = wasmModule._malloc(totalSamples * 4); // 4 bytes per float
+        const bufferPtr = this.wasmModule._malloc(totalSamples * 4); // 4 bytes per float
 
         // Copy data to WASM heap
+        copyToWasmHeap(this.wasmModule, bufferData, bufferPtr);
 
-
-
-        copyToWasmHeap(bufferData, bufferPtr);
-
-        wasmModule._setNodeBuffer(this.graphId, nodeId, bufferPtr, length, channels);
+        this.wasmModule._setNodeBuffer(this.graphId, nodeId, bufferPtr, length, channels);
 
         // Free the temporary buffer - WASM copies the data internally
-        wasmModule._free(bufferPtr);
+        this.wasmModule._free(bufferPtr);
     }
 
     setIIRFilterCoefficients(nodeId, feedforward, feedback) {
         // Allocate WASM memory for feedforward coefficients
-        const ffPtr = wasmModule._malloc(feedforward.length * 4);
-        
-        
-        
-        copyToWasmHeap(feedforward, ffPtr);
+        const ffPtr = this.wasmModule._malloc(feedforward.length * 4);
+        copyToWasmHeap(this.wasmModule, feedforward, ffPtr);
 
         // Allocate WASM memory for feedback coefficients
-        const fbPtr = wasmModule._malloc(feedback.length * 4);
-        
-        
-        
-        copyToWasmHeap(feedback, fbPtr);
+        const fbPtr = this.wasmModule._malloc(feedback.length * 4);
+        copyToWasmHeap(this.wasmModule, feedback, fbPtr);
 
-        wasmModule._setIIRFilterCoefficients(
+        this.wasmModule._setIIRFilterCoefficients(
             this.graphId,
             nodeId,
             ffPtr,
@@ -123,25 +116,25 @@ export class WasmAudioEngine {
         );
 
         // Free the temporary coefficient arrays
-        wasmModule._free(ffPtr);
-        wasmModule._free(fbPtr);
+        this.wasmModule._free(ffPtr);
+        this.wasmModule._free(fbPtr);
     }
 
     scheduleParameterValue(nodeId, paramName, value, time) {
-        const lengthBytes = wasmModule.lengthBytesUTF8(paramName) + 1;
-        const paramNamePtr = wasmModule._malloc(lengthBytes);
-        wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
+        const lengthBytes = this.wasmModule.lengthBytesUTF8(paramName) + 1;
+        const paramNamePtr = this.wasmModule._malloc(lengthBytes);
+        this.wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
 
-        wasmModule._scheduleParameterValue(this.graphId, nodeId, paramNamePtr, value, time);
-        wasmModule._free(paramNamePtr);
+        this.wasmModule._scheduleParameterValue(this.graphId, nodeId, paramNamePtr, value, time);
+        this.wasmModule._free(paramNamePtr);
     }
 
     scheduleParameterRamp(nodeId, paramName, value, time, exponential) {
-        const lengthBytes = wasmModule.lengthBytesUTF8(paramName) + 1;
-        const paramNamePtr = wasmModule._malloc(lengthBytes);
-        wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
+        const lengthBytes = this.wasmModule.lengthBytesUTF8(paramName) + 1;
+        const paramNamePtr = this.wasmModule._malloc(lengthBytes);
+        this.wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
 
-        wasmModule._scheduleParameterRamp(
+        this.wasmModule._scheduleParameterRamp(
             this.graphId,
             nodeId,
             paramNamePtr,
@@ -149,99 +142,90 @@ export class WasmAudioEngine {
             time,
             exponential
         );
-        wasmModule._free(paramNamePtr);
+        this.wasmModule._free(paramNamePtr);
     }
 
     startNode(nodeId, when = 0) {
-        wasmModule._startNode(this.graphId, nodeId, when);
+        this.wasmModule._startNode(this.graphId, nodeId, when);
     }
 
     stopNode(nodeId, when = 0) {
-        wasmModule._stopNode(this.graphId, nodeId, when);
+        this.wasmModule._stopNode(this.graphId, nodeId, when);
     }
 
     registerBuffer(bufferId, bufferData, length, channels) {
         const totalSamples = length * channels;
-        const bufferPtr = wasmModule._malloc(totalSamples * 4);
+        const bufferPtr = this.wasmModule._malloc(totalSamples * 4);
 
         // Use HEAPF32.set() with subarray (avoids alignment issues and is fast)
-        
-        
-        
-        copyToWasmHeap(bufferData, bufferPtr);
+        copyToWasmHeap(this.wasmModule, bufferData, bufferPtr);
 
-        wasmModule._registerBuffer(this.graphId, bufferId, bufferPtr, length, channels);
+        this.wasmModule._registerBuffer(this.graphId, bufferId, bufferPtr, length, channels);
         // Don't free - WASM keeps a reference
     }
 
     setNodeBufferId(nodeId, bufferId) {
-        wasmModule._setNodeBufferId(this.graphId, nodeId, bufferId);
+        this.wasmModule._setNodeBufferId(this.graphId, nodeId, bufferId);
     }
 
     setWaveShaperCurve(nodeId, curve) {
-        const curvePtr = wasmModule._malloc(curve.length * 4);
+        const curvePtr = this.wasmModule._malloc(curve.length * 4);
 
         // Use HEAPF32.set() with subarray (avoids alignment issues and is fast)
+        copyToWasmHeap(this.wasmModule, curve, curvePtr);
 
-
-
-        copyToWasmHeap(curve, curvePtr);
-
-        wasmModule._setWaveShaperCurve(this.graphId, nodeId, curvePtr, curve.length);
+        this.wasmModule._setWaveShaperCurve(this.graphId, nodeId, curvePtr, curve.length);
         // Free the temporary curve - WASM copies the data internally
-        wasmModule._free(curvePtr);
+        this.wasmModule._free(curvePtr);
     }
 
     clearWaveShaperCurve(nodeId) {
         // Set curve to null by passing 0 length
-        wasmModule._setWaveShaperCurve(this.graphId, nodeId, 0, 0);
+        this.wasmModule._setWaveShaperCurve(this.graphId, nodeId, 0, 0);
     }
 
     setNodePeriodicWave(nodeId, wavetable) {
-        const wavetablePtr = wasmModule._malloc(wavetable.length * 4);
+        const wavetablePtr = this.wasmModule._malloc(wavetable.length * 4);
 
         // Use HEAPF32.set() with subarray (avoids alignment issues and is fast)
+        copyToWasmHeap(this.wasmModule, wavetable, wavetablePtr);
 
-
-
-        copyToWasmHeap(wavetable, wavetablePtr);
-
-        wasmModule._setNodePeriodicWave(this.graphId, nodeId, wavetablePtr, wavetable.length);
+        this.wasmModule._setNodePeriodicWave(this.graphId, nodeId, wavetablePtr, wavetable.length);
         // Free the temporary wavetable - WASM copies the data internally
-        wasmModule._free(wavetablePtr);
+        this.wasmModule._free(wavetablePtr);
     }
 
     setWaveShaperOversample(nodeId, oversample) {
         // Convert string oversample to C string
-        const valLengthBytes = wasmModule.lengthBytesUTF8(oversample) + 1;
-        const valPtr = wasmModule._malloc(valLengthBytes);
-        wasmModule.stringToUTF8(oversample, valPtr, valLengthBytes);
+        const valLengthBytes = this.wasmModule.lengthBytesUTF8(oversample) + 1;
+        const valPtr = this.wasmModule._malloc(valLengthBytes);
+        this.wasmModule.stringToUTF8(oversample, valPtr, valLengthBytes);
 
-        wasmModule._setWaveShaperOversample(this.graphId, nodeId, valPtr);
-        wasmModule._free(valPtr);
+        this.wasmModule._setWaveShaperOversample(this.graphId, nodeId, valPtr);
+        this.wasmModule._free(valPtr);
     }
 
     setNodeProperty(nodeId, property, value) {
-        const lengthBytes = wasmModule.lengthBytesUTF8(property) + 1;
-        const propertyPtr = wasmModule._malloc(lengthBytes);
-        wasmModule.stringToUTF8(property, propertyPtr, lengthBytes);
+        const lengthBytes = this.wasmModule.lengthBytesUTF8(property) + 1;
+        const propertyPtr = this.wasmModule._malloc(lengthBytes);
+        this.wasmModule.stringToUTF8(property, propertyPtr, lengthBytes);
 
-        wasmModule._setNodeProperty(this.graphId, nodeId, propertyPtr, value);
-        wasmModule._free(propertyPtr);
+        this.wasmModule._setNodeProperty(this.graphId, nodeId, propertyPtr, value);
+        this.wasmModule._free(propertyPtr);
     }
 
     setNodeStringProperty(nodeId, property, value) {
-        const propLengthBytes = wasmModule.lengthBytesUTF8(property) + 1;
-        const propPtr = wasmModule._malloc(propLengthBytes);
-        wasmModule.stringToUTF8(property, propPtr, propLengthBytes);
+        const propLengthBytes = this.wasmModule.lengthBytesUTF8(property) + 1;
+        const propPtr = this.wasmModule._malloc(propLengthBytes);
+        this.wasmModule.stringToUTF8(property, propPtr, propLengthBytes);
 
-        const valLengthBytes = wasmModule.lengthBytesUTF8(value) + 1;
-        const valPtr = wasmModule._malloc(valLengthBytes);
-        wasmModule.stringToUTF8(value, valPtr, valLengthBytes);
+        const valLengthBytes = this.wasmModule.lengthBytesUTF8(value) + 1;
+        const valPtr = this.wasmModule._malloc(valLengthBytes);
+        this.wasmModule.stringToUTF8(value, valPtr, valLengthBytes);
 
-        wasmModule._setNodeStringProperty(this.graphId, nodeId, propPtr, valPtr);
-        wasmModule._free(propPtr);
-        wasmModule._free(valPtr);
+        this.wasmModule._setNodeStringProperty(this.graphId, nodeId, propPtr, valPtr);
+        this.wasmModule._free(propPtr);
+        this.wasmModule._free(valPtr);
     }
 
     // Analyser methods
@@ -284,23 +268,23 @@ export class WasmAudioEngine {
         const totalSamples = frameCount * this.numberOfChannels;
 
         // Allocate temp buffer in WASM
-        const outputPtr = wasmModule._malloc(totalSamples * 4);
+        const outputPtr = this.wasmModule._malloc(totalSamples * 4);
 
         // Process graph in WASM
-        wasmModule._processGraph(this.graphId, outputPtr, frameCount);
+        this.wasmModule._processGraph(this.graphId, outputPtr, frameCount);
 
         // Copy result to output array using subarray (fast and avoids alignment issues)
         const floatIndex = outputPtr >> 2;
-        outputArray.set(wasmModule.HEAPF32.subarray(floatIndex, floatIndex + totalSamples));
+        outputArray.set(this.wasmModule.HEAPF32.subarray(floatIndex, floatIndex + totalSamples));
 
         // Free temp buffer
-        wasmModule._free(outputPtr);
+        this.wasmModule._free(outputPtr);
     }
 
     async render() {
         // Allocate output buffer in WASM memory
         const totalSamples = this.length * this.numberOfChannels;
-        const outputPtr = wasmModule._malloc(totalSamples * 4);
+        const outputPtr = this.wasmModule._malloc(totalSamples * 4);
 
         // Process in blocks (standard Web Audio quantum size)
         const blockSize = 128;
@@ -311,7 +295,7 @@ export class WasmAudioEngine {
             const framesToProcess = Math.min(blockSize, this.length - startFrame);
 
             // Call WASM processGraph - ALL graph traversal and processing happens in WASM!
-            wasmModule._processGraph(
+            this.wasmModule._processGraph(
                 this.graphId,
                 outputPtr + startFrame * this.numberOfChannels * 4,
                 framesToProcess
@@ -321,18 +305,18 @@ export class WasmAudioEngine {
         // Copy result to JavaScript array using subarray (fast and avoids alignment issues)
         const floatIndex = outputPtr >> 2;
         const result = new Float32Array(
-            wasmModule.HEAPF32.subarray(floatIndex, floatIndex + totalSamples)
+            this.wasmModule.HEAPF32.subarray(floatIndex, floatIndex + totalSamples)
         );
 
         // Free WASM memory
-        wasmModule._free(outputPtr);
+        this.wasmModule._free(outputPtr);
 
         return result;
     }
 
     destroy() {
         if (this.graphId !== null) {
-            wasmModule._destroyAudioGraph(this.graphId);
+            this.wasmModule._destroyAudioGraph(this.graphId);
             this.graphId = null;
         }
     }

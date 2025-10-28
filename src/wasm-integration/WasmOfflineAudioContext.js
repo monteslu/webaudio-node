@@ -43,18 +43,16 @@ export class WasmOfflineAudioContext {
             throw new Error('length must be a positive number');
         }
 
-        // Create WASM audio engine (WASM is preloaded, so this is synchronous)
-        this._engine = new WasmAudioEngine(numberOfChannels, length, sampleRate);
-
         this.sampleRate = sampleRate;
         this.length = length;
         this._channels = numberOfChannels;
 
-        // Create destination node immediately
+        // Create WASM audio engine (uses default singleton for sync creation)
+        this._engine = new WasmAudioEngine(numberOfChannels, length, sampleRate);
+
+        // Create destination node and listener
         const destNodeId = this._engine.createNode('destination');
         this.destination = new AudioDestinationNode(this, destNodeId);
-
-        // Create AudioListener (for PannerNode spatialization)
         this.listener = new AudioListener(this);
 
         this.state = 'suspended';
@@ -204,7 +202,7 @@ export class WasmOfflineAudioContext {
         try {
             // Decode using WASM decoders and resample to context's sample rate
             // This matches Web Audio API spec behavior
-            const decoded = await WasmAudioDecoders.decode(audioData, this.sampleRate);
+            const decoded = await WasmAudioDecoders.decode(this._engine.wasmModule, audioData, this.sampleRate);
 
             // Create AudioBuffer with decoded data at context's sample rate
             const audioBuffer = new AudioBuffer({

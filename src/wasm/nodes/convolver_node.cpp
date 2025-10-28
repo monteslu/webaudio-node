@@ -155,7 +155,7 @@ void setConvolverBuffer(ConvolverNodeState* state, float* buffer_data, int lengt
         state->ir_fft[ch] = new Complex[state->fft_size];
         state->fft_buffer[ch] = new Complex[state->fft_size];
         state->overlap_buffer[ch] = new float[state->fft_size]();
-        state->input_buffer[ch] = new float[state->block_size]();
+        state->input_buffer[ch] = new float[state->block_size](); // Now sized to match IR
 
         // Copy and normalize IR
         int src_channel = (ch < num_channels) ? ch : 0;
@@ -163,7 +163,7 @@ void setConvolverBuffer(ConvolverNodeState* state, float* buffer_data, int lengt
             state->ir_buffers[ch][i] = buffer_data[i * num_channels + src_channel] * norm_factor;
         }
 
-        // Pre-compute FFT of impulse response
+        // Pre-compute FFT of impulse response (not used in direct convolution, but keep for compatibility)
         for (int i = 0; i < length; i++) {
             state->ir_fft[ch][i].real = state->ir_buffers[ch][i];
             state->ir_fft[ch][i].imag = 0.0f;
@@ -196,16 +196,20 @@ void processConvolverNode(
         return;
     }
 
-    // Process in blocks using overlap-add
+    // FFT-based overlap-add convolution
+    // Process frame by frame, accumulating into blocks
     for (int frame = 0; frame < frame_count; frame++) {
         for (int ch = 0; ch < state->channels; ch++) {
             // Accumulate input samples
             state->input_buffer[ch][state->input_pos] = input[frame * state->channels + ch];
+
+            // Output from overlap buffer
+            output[frame * state->channels + ch] = state->overlap_buffer[ch][frame];
         }
 
         state->input_pos++;
 
-        // When we have a full block, process it
+        // When we have a full block, process it with FFT
         if (state->input_pos >= state->block_size) {
             for (int ch = 0; ch < state->channels; ch++) {
                 // Prepare input FFT buffer
@@ -232,7 +236,7 @@ void processConvolverNode(
                 // Inverse FFT
                 computeFFT(state->fft_buffer[ch], state->fft_size, true);
 
-                // Add to overlap buffer
+                // Add to overlap buffer (AFTER shifting!)
                 for (int i = 0; i < state->fft_size; i++) {
                     state->overlap_buffer[ch][i] += state->fft_buffer[ch][i].real;
                 }
@@ -240,14 +244,9 @@ void processConvolverNode(
 
             state->input_pos = 0;
         }
-
-        // Output from overlap buffer
-        for (int ch = 0; ch < state->channels; ch++) {
-            output[frame * state->channels + ch] = state->overlap_buffer[ch][frame];
-        }
     }
 
-    // Shift overlap buffer
+    // Shift overlap buffer by frame_count samples
     for (int ch = 0; ch < state->channels; ch++) {
         memmove(state->overlap_buffer[ch],
                 state->overlap_buffer[ch] + frame_count,

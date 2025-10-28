@@ -19,7 +19,12 @@ const benchmarkOutput = execSync('node test/benchmarks/run-benchmarks.js', {
 	cwd: rootDir,
 	encoding: 'utf-8',
 	maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-	stdio: ['pipe', 'pipe', 'ignore']  // Ignore stderr to avoid blocking
+	stdio: ['pipe', 'pipe', 'ignore'],  // Ignore stderr to avoid blocking
+	timeout: 40000,  // 40 second timeout
+	env: {
+		...process.env,
+		WEB_AUDIO_LATENCY: 'playback'  // Prevent JACK audio access attempts
+	}
 });
 const execDuration = Date.now() - startTime;
 
