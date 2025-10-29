@@ -5,6 +5,7 @@
 #include <cstring>
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <cmath>
 
 #ifndef M_PI
@@ -250,7 +251,10 @@ struct AudioGraph {
     // Pre-allocated buffers for graph processing (eliminates malloc overhead)
     std::vector<float> temp_buffer; // Reusable temp buffer for mixing
     std::vector<float> mix_buffer; // Separate buffer for gain node mixing (prevents recursion conflicts)
-    std::map<int, std::vector<float>> node_buffers; // Cached node outputs per frame (prevents reprocessing)
+
+    // Cached node outputs (prevents reprocessing within same frame)
+    // Using unordered_map for O(1) lookups instead of O(log n)
+    std::unordered_map<int, std::vector<float>> node_buffers;
     int current_frame_count; // Track buffer size for reallocation checks
 };
 
@@ -575,7 +579,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count)
 
     Node& node = node_it->second;
 
-    // Check if already processed this frame (use pre-allocated node_buffers)
+    // Check if already processed this frame
     auto cached_it = graph->node_buffers.find(node_id);
     if (cached_it != graph->node_buffers.end()) {
         memcpy(output, cached_it->second.data(), frame_count * graph->channels * sizeof(float));
@@ -866,7 +870,9 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count)
     }
 
     // Cache result to prevent reprocessing if this node has multiple dependents
-    graph->node_buffers[node_id] = std::vector<float>(output, output + frame_count * graph->channels);
+    // Reuse existing vector to avoid reallocation
+    auto& cached_buffer = graph->node_buffers[node_id];
+    cached_buffer.assign(output, output + frame_count * graph->channels);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -885,7 +891,7 @@ void processGraph(int graph_id, float* output, int frame_count) {
         graph->realtime_time_initialized = true;
     }
 
-    // Clear cached node buffers at start of each frame
+    // Clear cache for next frame
     graph->node_buffers.clear();
 
     // Ensure temp_buffer and mix_buffer are large enough
