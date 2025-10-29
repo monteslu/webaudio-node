@@ -197,8 +197,6 @@ async function playAudioFile(filePath) {
 
 async function runMicrophoneEffect(effectType, devices = { input: null, output: null }) {
     try {
-        const sdl = (await import('@kmamal/sdl')).default;
-
         // Create audio context
         const ctx = new AudioContext({ sampleRate: 44100, channels: 2 });
 
@@ -285,6 +283,11 @@ async function runMicrophoneEffect(effectType, devices = { input: null, output: 
         // Add 'd' key to dump debug info to file
         screen.key(['d'], async () => {
             const timestamp = Date.now();
+
+            // Calculate current metrics
+            const inputLevel = source.getCurrentLevel();
+            const lastAvailableInRing = source.getAvailableSamples();
+
             const debugInfo = `
 MICROPHONE ${effectType.toUpperCase()} EFFECT - DEBUG SNAPSHOT
 Generated: ${new Date().toISOString()}
@@ -299,8 +302,6 @@ INPUT LEVEL:
   Current RMS: ${inputLevel.toFixed(6)}
 
 MICROPHONE INPUT:
-  Buffers processed: ${bufferCount}
-  Total samples written to ring: ${totalSamplesWritten}
   Samples in ring buffer: ${lastAvailableInRing}
 
 AUDIO CONTEXT:
@@ -381,7 +382,6 @@ AUDIO GRAPH:
             const queuedSeconds = queuedBytesInfo / (ctx.sampleRate * ctx._channels * 4);
 
             const inputDeviceName = devices.input ? devices.input.name : 'System Default';
-            const outputDeviceName = devices.output ? devices.output.name : 'System Default';
 
             const content = `
   {bold}🎤 ${effectType.toUpperCase()} - ${inputDeviceName}{/bold}

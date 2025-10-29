@@ -1,8 +1,14 @@
 # webaudio-node Performance Analysis
 
-## Current Status: ~75% Win Rate (Est. 140+/186 tests)
+> **⚠️ DEPRECATED:** These results are from the **legacy C++ native addon implementation**.
+>
+> **For current WASM performance results, see:**
+> - [Automated Benchmarks](../../docs/automated_benchmarks.md) - **Current: 90.2% win rate (55/61)**
+> - [Main README Performance Section](../../README.md#-performance)
 
-Last updated: 2025-10-26 (After Session 4: Mono-to-Multi SIMD)
+## Archived Status: ~75% Win Rate (Est. 140+/186 tests)
+
+Last updated: 2025-10-26 (After Session 4: Mono-to-Multi SIMD - Legacy C++ Implementation)
 
 ---
 

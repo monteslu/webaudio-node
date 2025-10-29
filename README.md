@@ -24,9 +24,9 @@ High-performance, browser-compatible Web Audio API for Node.js. Perfect for audi
 
 🚀 **High Performance**
 
-- **WASM with SIMD optimizations** - beats Rust implementation in 83% of benchmarks
+- **WASM with SIMD optimizations** - beats Rust implementation in 90% of benchmarks (55/61)
 - **~2,600x faster than realtime** offline rendering
-- **Production-quality resampling** - 130-350x realtime with Speex quality level 3
+- **Fast resampling** - Speex quality level 1 (200-850x realtime for common sample rates)
 - **Sample-accurate timing** - all audio timing managed in WASM using sample counters
 - Zero JavaScript overhead in audio rendering - JS only handles I/O through SDL
 
@@ -508,8 +508,8 @@ webaudio-node/
 
 **Key differences:**
 
-- **Performance**: webaudio-node is faster overall in most workloads (see [detailed benchmarks](./docs/automated_benchmarks.md))
-- **Resampling**: Speex quality 3 (production-grade) vs basic linear interpolation
+- **Performance**: webaudio-node is faster overall in most workloads (90% win rate - see [detailed benchmarks](./docs/automated_benchmarks.md))
+- **Resampling**: Speex quality 1 (fast, good quality) vs advanced resampling
 - **Node Coverage**: 16/17 applicable nodes (94%) implemented
 - **Installation**: Pre-compiled WASM (no build toolchain required)
 
