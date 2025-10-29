@@ -17,7 +17,8 @@ const rootDir = path.join(__dirname, '..');
 
 export async function createWebAudioInstance() {
     // Load WASM module factory and create fresh instance
-    const createUnifiedWebAudioModule = (await import(path.join(rootDir, 'dist', 'webaudio.mjs'))).default;
+    const createUnifiedWebAudioModule = (await import(path.join(rootDir, 'dist', 'webaudio.mjs')))
+        .default;
     const freshWasmModule = await createUnifiedWebAudioModule();
 
     // Create isolated context classes
@@ -54,7 +55,12 @@ export async function createWebAudioInstance() {
             }
 
             // Create engine with fresh WASM module
-            this._engine = new WasmAudioEngine(numberOfChannels, length, sampleRate, freshWasmModule);
+            this._engine = new WasmAudioEngine(
+                numberOfChannels,
+                length,
+                sampleRate,
+                freshWasmModule
+            );
             this.state = 'suspended';
             this._rendering = false;
 
@@ -67,7 +73,11 @@ export async function createWebAudioInstance() {
         async decodeAudioData(audioData, successCallback, errorCallback) {
             try {
                 // Use fresh WASM module for decoding
-                const decoded = await WasmAudioDecoders.decode(freshWasmModule, audioData, this.sampleRate);
+                const decoded = await WasmAudioDecoders.decode(
+                    freshWasmModule,
+                    audioData,
+                    this.sampleRate
+                );
 
                 const audioBuffer = new AudioBuffer({
                     length: decoded.length,
@@ -110,7 +120,10 @@ export async function createWebAudioInstance() {
                     defaultSampleRate = tempDevice.frequency || 44100;
                     tempDevice.close();
                 } catch (err) {
-                    console.warn('Could not detect system sample rate, using 44100 Hz:', err.message);
+                    console.warn(
+                        'Could not detect system sample rate, using 44100 Hz:',
+                        err.message
+                    );
                 }
             }
 
@@ -144,7 +157,11 @@ export async function createWebAudioInstance() {
         async decodeAudioData(audioData, successCallback, errorCallback) {
             try {
                 // Use fresh WASM module for decoding
-                const decoded = await WasmAudioDecoders.decode(freshWasmModule, audioData, this.sampleRate);
+                const decoded = await WasmAudioDecoders.decode(
+                    freshWasmModule,
+                    audioData,
+                    this.sampleRate
+                );
 
                 const audioBuffer = new AudioBuffer({
                     length: decoded.length,

@@ -9,6 +9,8 @@ import { benchmarkMixing } from './bench-mixing.js';
 import { benchmarkAutomation } from './bench-automation.js';
 import { benchmarkMemory } from './bench-memory.js';
 import { benchmarkMP3Processing } from './bench-mp3-processing.js';
+import { benchmarkMP3Decode } from './bench-mp3-decode.js';
+import { benchmarkProcessingChain } from './bench-processing-chain.js';
 import { benchmarkDelay } from './bench-delay.js';
 import { benchmarkWaveShaper } from './bench-waveshaper.js';
 import { benchmarkComplexGraph } from './bench-complex-graph.js';
@@ -80,7 +82,8 @@ const benchmarks = [
     { name: 'Offline Rendering (1 second of audio)', fn: benchmarkOfflineRendering },
     { name: 'Mixing Performance (100 simultaneous sources)', fn: benchmarkMixing },
     { name: 'AudioParam Automation (1000 events)', fn: benchmarkAutomation },
-    { name: 'MP3 Processing (decode + gain, no filters due to webaudio-node bug)', fn: benchmarkMP3Processing },
+    { name: 'MP3 Decode', fn: benchmarkMP3Decode },
+    { name: 'Audio Processing Chain (filter + compressor + gain)', fn: benchmarkProcessingChain },
     { name: 'Delay Node (1 second with feedback)', fn: benchmarkDelay },
     { name: 'WaveShaper (1 second with 2x oversampling)', fn: benchmarkWaveShaper },
     { name: 'Complex Graph (4 parallel chains)', fn: benchmarkComplexGraph },
@@ -109,7 +112,10 @@ const benchmarks = [
     { name: 'Multichannel (5.1 surround)', fn: benchmarkMultichannel },
     { name: 'Sample Rates Comparison', fn: benchmarkSampleRates },
     { name: 'Channel Counts Comparison', fn: benchmarkChannelCounts },
-    { name: 'AudioListener (8 sources, 50 position/orientation changes)', fn: benchmarkAudioListener },
+    {
+        name: 'AudioListener (8 sources, 50 position/orientation changes)',
+        fn: benchmarkAudioListener
+    },
     { name: 'Panner Distance Models', fn: benchmarkDistanceModels },
     { name: 'WaveShaper Oversampling Levels', fn: benchmarkOversampling },
     { name: 'Analyser FFT Sizes', fn: benchmarkFFTSizes },
@@ -122,7 +128,15 @@ const results = [];
 for (const impl of implementations) {
     for (const benchmark of benchmarks) {
         try {
-            const result = await benchmark.fn(impl.OfflineAudioContext);
+            let result;
+
+            // Special handling for benchmarks that need AudioContext or mp3 path
+            if (benchmark.name === 'MP3 Decode') {
+                result = await benchmark.fn(impl.AudioContext, 'test/benchmarks/test-audio.mp3', 5);
+            } else {
+                // Standard benchmarks use OfflineAudioContext
+                result = await benchmark.fn(impl.OfflineAudioContext);
+            }
 
             // Handle both simple results and multi-variant results
             if (result.variants) {

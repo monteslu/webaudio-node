@@ -5,11 +5,46 @@
 #include <cstring>
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <cmath>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+// Parameter ID enumeration - eliminates string malloc/copy/free overhead
+enum ParamID {
+    PARAM_FREQUENCY = 0,
+    PARAM_DETUNE = 1,
+    PARAM_GAIN = 2,
+    PARAM_Q = 3,
+    PARAM_DELAY_TIME = 4,
+    PARAM_PAN = 5,
+    PARAM_OFFSET = 6,
+    PARAM_TYPE = 7,
+    PARAM_PLAYBACK_OFFSET = 8,
+    PARAM_PLAYBACK_DURATION = 9,
+    PARAM_LOOP = 10,
+    PARAM_LOOP_START = 11,
+    PARAM_LOOP_END = 12,
+    PARAM_REF_DISTANCE = 13,
+    PARAM_MAX_DISTANCE = 14,
+    PARAM_ROLLOFF_FACTOR = 15,
+    PARAM_CONE_INNER_ANGLE = 16,
+    PARAM_CONE_OUTER_ANGLE = 17,
+    PARAM_CONE_OUTER_GAIN = 18,
+    PARAM_THRESHOLD = 19,
+    PARAM_KNEE = 20,
+    PARAM_RATIO = 21,
+    PARAM_ATTACK = 22,
+    PARAM_RELEASE = 23,
+    PARAM_POSITION_X = 24,
+    PARAM_POSITION_Y = 25,
+    PARAM_POSITION_Z = 26,
+    PARAM_ORIENTATION_X = 27,
+    PARAM_ORIENTATION_Y = 28,
+    PARAM_ORIENTATION_Z = 29
+};
 
 // Simple oscillator implementation with SIMD
 #ifdef __wasm_simd128__
@@ -38,8 +73,9 @@ extern "C" {
     // Oscillator
     OscillatorNodeState* createOscillatorNode(int sample_rate, int channels, int wave_type);
     void destroyOscillatorNode(OscillatorNodeState* state);
-    void startOscillator(OscillatorNodeState* state);
-    void stopOscillator(OscillatorNodeState* state);
+    void startOscillator(OscillatorNodeState* state, double when);
+    void stopOscillator(OscillatorNodeState* state, double when);
+    void setOscillatorCurrentTime(OscillatorNodeState* state, double time);
     void processOscillatorNode(OscillatorNodeState* state, float* output, int frame_count, float frequency, float detune);
 
     // Gain
@@ -200,16 +236,29 @@ struct BufferData {
 struct AudioGraph {
     int sample_rate;
     int channels;
-    std::map<int, Node> nodes;
-    std::map<int, std::vector<int>> connections; // dest_id -> list of source_ids
-    std::map<int, BufferData> buffers; // buffer_id -> buffer data
+    std::unordered_map<int, Node> nodes;
+    std::unordered_map<int, std::vector<int>> connections; // dest_id -> list of source_ids
+    std::unordered_map<int, BufferData> buffers; // buffer_id -> buffer data
     int next_id;
     int dest_id;
     uint64_t current_sample; // Track current sample for timing
     bool is_realtime; // True for AudioContext (JS manages time), false for OfflineAudioContext (WASM manages time)
+
+    // Real-time timing offset to compensate for pre-render buffering
+    uint64_t realtime_start_sample;  // Sample offset when timing was first queried
+    bool realtime_time_initialized;  // Whether start offset has been captured
+
+    // Pre-allocated buffers for graph processing (eliminates malloc overhead)
+    std::vector<float> temp_buffer; // Reusable temp buffer for mixing
+    std::vector<float> mix_buffer; // Separate buffer for gain node mixing (prevents recursion conflicts)
+
+    // Cached node outputs (prevents reprocessing within same frame)
+    // Using unordered_map for O(1) lookups instead of O(log n)
+    std::unordered_map<int, std::vector<float>> node_buffers;
+    int current_frame_count; // Track buffer size for reallocation checks
 };
 
-static std::map<int, AudioGraph*> graphs;
+static std::unordered_map<int, AudioGraph*> graphs;
 static int next_graph_id = 1;
 
 extern "C" {
@@ -222,6 +271,12 @@ int createAudioGraph(int sample_rate, int channels, int buffer_size, bool is_rea
     graph->next_id = 1;
     graph->current_sample = 0;
     graph->is_realtime = is_realtime;
+    graph->realtime_start_sample = 0;
+    graph->realtime_time_initialized = false;
+
+    // Pre-allocate processing buffers (assume max 128 frames for Web Audio quantum)
+    graph->current_frame_count = 128;
+    graph->temp_buffer.resize(128 * channels);
 
     // Create destination
     Node dest;
@@ -437,7 +492,7 @@ void startNode(int graph_id, int node_id, double when) {
 
     Node& node = node_it->second;
     if (node.type == 1 && node.state && node.state->osc_state) { // oscillator
-        startOscillator(node.state->osc_state);
+        startOscillator(node.state->osc_state, when);
     } else if (node.type == 3 && node.state && node.state->buffer_source_state) { // buffer_source
         startBufferSource(node.state->buffer_source_state, when);
     } else if (node.type == 8 && node.state && node.state->constant_source_state) { // constant_source
@@ -458,7 +513,7 @@ void stopNode(int graph_id, int node_id, double when) {
 
     Node& node = node_it->second;
     if (node.type == 1 && node.state && node.state->osc_state) { // oscillator
-        stopOscillator(node.state->osc_state);
+        stopOscillator(node.state->osc_state, when);
     } else if (node.type == 3 && node.state && node.state->buffer_source_state) { // buffer_source
         stopBufferSource(node.state->buffer_source_state, when);
     } else if (node.type == 8 && node.state && node.state->constant_source_state) { // constant_source
@@ -469,7 +524,7 @@ void stopNode(int graph_id, int node_id, double when) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void setNodeParameter(int graph_id, int node_id, const char* param_name, float value) {
+void setNodeParameter(int graph_id, int node_id, int param_id, float value) {
     auto it = graphs.find(graph_id);
     if (it == graphs.end()) return;
 
@@ -480,36 +535,34 @@ void setNodeParameter(int graph_id, int node_id, const char* param_name, float v
     Node& node = node_it->second;
     if (!node.state) return;
 
-    std::string param(param_name);
-
     if (node.type == 1) { // oscillator
-        if (param == "frequency") node.state->frequency = value;
-        else if (param == "detune") node.state->detune = value;
+        if (param_id == PARAM_FREQUENCY) node.state->frequency = value;
+        else if (param_id == PARAM_DETUNE) node.state->detune = value;
     } else if (node.type == 2) { // gain
-        if (param == "gain") node.state->gain = value;
+        if (param_id == PARAM_GAIN) node.state->gain = value;
     } else if (node.type == 4 && node.state->biquad_state) { // biquad_filter
-        if (param == "frequency") {
+        if (param_id == PARAM_FREQUENCY) {
             node.state->filter_frequency = value;
             setBiquadFilterFrequency(node.state->biquad_state, value);
-        } else if (param == "Q") {
+        } else if (param_id == PARAM_Q) {
             node.state->filter_q = value;
             setBiquadFilterQ(node.state->biquad_state, value);
-        } else if (param == "gain") {
+        } else if (param_id == PARAM_GAIN) {
             node.state->filter_gain = value;
             setBiquadFilterGain(node.state->biquad_state, value);
         }
     } else if (node.type == 5 && node.state->delay_state) { // delay
-        if (param == "delayTime") {
+        if (param_id == PARAM_DELAY_TIME) {
             node.state->delay_time = value;
             setDelayTime(node.state->delay_state, value);
         }
     } else if (node.type == 7 && node.state->stereo_panner_state) { // stereo_panner
-        if (param == "pan") {
+        if (param_id == PARAM_PAN) {
             node.state->pan = value;
             setStereoPannerPan(node.state->stereo_panner_state, value);
         }
     } else if (node.type == 8 && node.state->constant_source_state) { // constant_source
-        if (param == "offset") {
+        if (param_id == PARAM_OFFSET) {
             node.state->offset = value;
             setConstantSourceOffset(node.state->constant_source_state, value);
         }
@@ -517,7 +570,7 @@ void setNodeParameter(int graph_id, int node_id, const char* param_name, float v
 }
 
 // Process a single node
-void processNode(AudioGraph* graph, int node_id, float* output, int frame_count, std::map<int, std::vector<float>>& buffers) {
+void processNode(AudioGraph* graph, int node_id, float* output, int frame_count) {
     auto node_it = graph->nodes.find(node_id);
     if (node_it == graph->nodes.end()) {
         memset(output, 0, frame_count * graph->channels * sizeof(float));
@@ -527,8 +580,9 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
     Node& node = node_it->second;
 
     // Check if already processed this frame
-    if (buffers.find(node_id) != buffers.end()) {
-        memcpy(output, buffers[node_id].data(), frame_count * graph->channels * sizeof(float));
+    auto cached_it = graph->node_buffers.find(node_id);
+    if (cached_it != graph->node_buffers.end()) {
+        memcpy(output, cached_it->second.data(), frame_count * graph->channels * sizeof(float));
         return;
     }
 
@@ -539,14 +593,26 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
 
         auto conn_it = graph->connections.find(node_id);
         if (conn_it != graph->connections.end()) {
-            std::vector<float> temp_buffer(frame_count * graph->channels);
+            // Use pre-allocated temp_buffer instead of allocating new vector
+            const int buffer_size = frame_count * graph->channels;
 
             for (int source_id : conn_it->second) {
-                processNode(graph, source_id, temp_buffer.data(), frame_count, buffers);
+                processNode(graph, source_id, graph->temp_buffer.data(), frame_count);
 
-                // Mix
-                for (int i = 0; i < frame_count * graph->channels; i++) {
-                    output[i] += temp_buffer[i];
+                // Mix with SIMD optimization
+                int i = 0;
+#ifdef __wasm_simd128__
+                // Process 4 samples at a time with SIMD
+                for (; i + 4 <= buffer_size; i += 4) {
+                    v128_t out = wasm_v128_load(&output[i]);
+                    v128_t in = wasm_v128_load(&graph->temp_buffer[i]);
+                    v128_t mixed = wasm_f32x4_add(out, in);
+                    wasm_v128_store(&output[i], mixed);
+                }
+#endif
+                // Scalar tail for remaining samples
+                for (; i < buffer_size; ++i) {
+                    output[i] += graph->temp_buffer[i];
                 }
             }
         }
@@ -555,6 +621,17 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         if (!node.state || !node.state->osc_state) {
             memset(output, 0, frame_count * graph->channels * sizeof(float));
         } else {
+            // Update current time for scheduled start/stop
+            // Use relative time for real-time contexts (same logic as getGraphCurrentTime)
+            double current_time;
+            if (graph->is_realtime && graph->realtime_time_initialized) {
+                current_time = static_cast<double>(graph->current_sample - graph->realtime_start_sample)
+                             / static_cast<double>(graph->sample_rate);
+            } else {
+                current_time = static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
+            }
+            setOscillatorCurrentTime(node.state->osc_state, current_time);
+
             // Call external SIMD-optimized oscillator
             processOscillatorNode(
                 node.state->osc_state,
@@ -576,14 +653,26 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
             if (has_input) {
                 // Mix all inputs together
                 memset(output, 0, frame_count * graph->channels * sizeof(float));
-                std::vector<float> temp_buffer(frame_count * graph->channels);
+                const int buffer_size = frame_count * graph->channels;
 
                 for (int source_id : conn_it->second) {
-                    processNode(graph, source_id, temp_buffer.data(), frame_count, buffers);
+                    // Use mix_buffer instead of temp_buffer to avoid recursion conflicts
+                    processNode(graph, source_id, graph->mix_buffer.data(), frame_count);
 
-                    // Mix this source into output
-                    for (int i = 0; i < frame_count * graph->channels; i++) {
-                        output[i] += temp_buffer[i];
+                    // Mix this source into output with SIMD optimization
+                    int i = 0;
+#ifdef __wasm_simd128__
+                    // Process 4 samples at a time with SIMD
+                    for (; i + 4 <= buffer_size; i += 4) {
+                        v128_t out = wasm_v128_load(&output[i]);
+                        v128_t in = wasm_v128_load(&graph->mix_buffer[i]);
+                        v128_t mixed = wasm_f32x4_add(out, in);
+                        wasm_v128_store(&output[i], mixed);
+                    }
+#endif
+                    // Scalar tail for remaining samples
+                    for (; i < buffer_size; ++i) {
+                        output[i] += graph->mix_buffer[i];
                     }
                 }
             }
@@ -604,7 +693,14 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
             memset(output, 0, frame_count * graph->channels * sizeof(float));
         } else {
             // Update current time for scheduled start/stop
-            double current_time = static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
+            // Use relative time for real-time contexts (same logic as getGraphCurrentTime)
+            double current_time;
+            if (graph->is_realtime && graph->realtime_time_initialized) {
+                current_time = static_cast<double>(graph->current_sample - graph->realtime_start_sample)
+                             / static_cast<double>(graph->sample_rate);
+            } else {
+                current_time = static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
+            }
             setBufferSourceCurrentTime(node.state->buffer_source_state, current_time);
             processBufferSourceNode(node.state->buffer_source_state, output, frame_count);
         }
@@ -614,7 +710,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->biquad_state) {
             processBiquadFilterNode(node.state->biquad_state, output, output, frame_count, has_input);
@@ -627,7 +723,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->delay_state) {
             processDelayNode(node.state->delay_state, output, output, frame_count, has_input);
@@ -640,7 +736,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->waveshaper_state) {
             processWaveShaperNode(node.state->waveshaper_state, output, output, frame_count, has_input);
@@ -653,7 +749,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->stereo_panner_state) {
             processStereoPannerNode(node.state->stereo_panner_state, output, output, frame_count, graph->channels, has_input);
@@ -673,7 +769,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->convolver_state) {
             processConvolverNode(node.state->convolver_state, output, output, frame_count, has_input);
@@ -686,7 +782,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->compressor_state) {
             processDynamicsCompressorNode(node.state->compressor_state, output, output, frame_count, has_input);
@@ -699,7 +795,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->analyser_state) {
             processAnalyserNode(node.state->analyser_state, output, output, frame_count, has_input);
@@ -712,7 +808,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->panner_state) {
             processPannerNode(node.state->panner_state, output, output, frame_count, has_input);
@@ -725,7 +821,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->iir_filter_state) {
             processIIRFilterNode(node.state->iir_filter_state, output, output, frame_count, has_input);
@@ -738,7 +834,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->channel_splitter_state) {
             processChannelSplitterNode(node.state->channel_splitter_state, output, output, frame_count, graph->channels, has_input);
@@ -751,7 +847,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->channel_merger_state) {
             processChannelMergerNodeSimple(node.state->channel_merger_state, output, output, frame_count, graph->channels, has_input);
@@ -773,8 +869,10 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         memset(output, 0, frame_count * graph->channels * sizeof(float));
     }
 
-    // Cache result
-    buffers[node_id] = std::vector<float>(output, output + frame_count * graph->channels);
+    // Cache result to prevent reprocessing if this node has multiple dependents
+    // Reuse existing vector to avoid reallocation
+    auto& cached_buffer = graph->node_buffers[node_id];
+    cached_buffer.assign(output, output + frame_count * graph->channels);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -785,10 +883,27 @@ void processGraph(int graph_id, float* output, int frame_count) {
     }
 
     AudioGraph* graph = it->second;
-    std::map<int, std::vector<float>> buffers;
+
+    // Initialize real-time timing offset on first render
+    // Capture the sample position when we first start processing to establish "time zero"
+    if (graph->is_realtime && !graph->realtime_time_initialized) {
+        graph->realtime_start_sample = graph->current_sample;
+        graph->realtime_time_initialized = true;
+    }
+
+    // Clear cache for next frame
+    graph->node_buffers.clear();
+
+    // Ensure temp_buffer and mix_buffer are large enough
+    const int buffer_size = frame_count * graph->channels;
+    if (graph->current_frame_count != frame_count) {
+        graph->current_frame_count = frame_count;
+        graph->temp_buffer.resize(buffer_size);
+        graph->mix_buffer.resize(buffer_size);
+    }
 
     // Process destination node (pulls entire graph)
-    processNode(graph, graph->dest_id, output, frame_count, buffers);
+    processNode(graph, graph->dest_id, output, frame_count);
 
     // Always increment sample counter after processing
     // For offline contexts: this advances time automatically
@@ -803,6 +918,22 @@ double getGraphCurrentTime(int graph_id) {
     if (it == graphs.end()) return 0.0;
 
     AudioGraph* graph = it->second;
+
+    if (graph->is_realtime) {
+        // On first getCurrentTime() call AFTER rendering has started, capture current sample position as "time zero"
+        // This excludes any pre-render buffering that happened before playback
+        // Don't initialize if current_sample is still 0 (no rendering yet)
+        if (!graph->realtime_time_initialized && graph->current_sample > 0) {
+            graph->realtime_start_sample = graph->current_sample;
+            graph->realtime_time_initialized = true;
+        }
+
+        // Return time relative to when timing was first queried (after pre-render)
+        return static_cast<double>(graph->current_sample - graph->realtime_start_sample)
+               / static_cast<double>(graph->sample_rate);
+    }
+
+    // Offline contexts use absolute sample position
     return static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
 }
 
@@ -812,8 +943,14 @@ void setGraphCurrentTime(int graph_id, double time) {
     if (it == graphs.end()) return;
 
     AudioGraph* graph = it->second;
-    // Convert time to samples for internal tracking
-    graph->current_sample = static_cast<uint64_t>(time * graph->sample_rate);
+
+    if (graph->is_realtime && graph->realtime_time_initialized) {
+        // For real-time contexts with initialized offset, apply the offset
+        graph->current_sample = graph->realtime_start_sample + static_cast<uint64_t>(time * graph->sample_rate);
+    } else {
+        // For offline contexts or uninitialized real-time contexts, set absolute time
+        graph->current_sample = static_cast<uint64_t>(time * graph->sample_rate);
+    }
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -950,6 +1087,65 @@ void setWaveShaperOversample(int graph_id, int node_id, const char* oversample_s
     Node& node = node_it->second;
     if (node.type == 6 && node.state && node.state->waveshaper_state) { // waveshaper
         setWaveShaperOversample_node(node.state->waveshaper_state, oversample_value);
+    }
+}
+
+// De-interleave audio from interleaved (L,R,L,R...) to planar (L,L,L...R,R,R...)
+// Uses SIMD for optimal performance
+EMSCRIPTEN_KEEPALIVE
+void deinterleaveAudio(float* interleaved, float* planar, int frame_count, int num_channels) {
+    if (num_channels == 1) {
+        // Mono - just copy
+        memcpy(planar, interleaved, frame_count * sizeof(float));
+        return;
+    }
+
+    if (num_channels == 2) {
+        // Stereo - optimized SIMD path
+#ifdef __wasm_simd128__
+        int simd_count = frame_count / 4; // Process 4 frames at a time
+        int simd_frames = simd_count * 4;
+
+        float* left = planar;
+        float* right = planar + frame_count;
+
+        for (int i = 0; i < simd_frames; i += 4) {
+            // Load 8 floats: L0,R0,L1,R1,L2,R2,L3,R3
+            v128_t data0 = wasm_v128_load(&interleaved[i * 2]);
+            v128_t data1 = wasm_v128_load(&interleaved[i * 2 + 4]);
+
+            // Shuffle to separate L and R
+            // data0: L0,R0,L1,R1  data1: L2,R2,L3,R3
+            // Want:  L0,L1,L2,L3 and R0,R1,R2,R3
+            v128_t left_vec = wasm_i32x4_shuffle(data0, data1, 0, 2, 4, 6);  // L0,L1,L2,L3
+            v128_t right_vec = wasm_i32x4_shuffle(data0, data1, 1, 3, 5, 7); // R0,R1,R2,R3
+
+            wasm_v128_store(&left[i], left_vec);
+            wasm_v128_store(&right[i], right_vec);
+        }
+
+        // Handle remaining frames
+        for (int i = simd_frames; i < frame_count; i++) {
+            left[i] = interleaved[i * 2];
+            right[i] = interleaved[i * 2 + 1];
+        }
+#else
+        // Scalar fallback for stereo
+        float* left = planar;
+        float* right = planar + frame_count;
+        for (int i = 0; i < frame_count; i++) {
+            left[i] = interleaved[i * 2];
+            right[i] = interleaved[i * 2 + 1];
+        }
+#endif
+    } else {
+        // Generic multi-channel (scalar - less common case)
+        for (int ch = 0; ch < num_channels; ch++) {
+            float* channel_out = planar + ch * frame_count;
+            for (int i = 0; i < frame_count; i++) {
+                channel_out[i] = interleaved[i * num_channels + ch];
+            }
+        }
     }
 }
 

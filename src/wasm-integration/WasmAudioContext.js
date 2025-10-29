@@ -188,9 +188,7 @@ export class WasmAudioContext {
 
     createDelay(maxDelayTime) {
         // Support legacy parameter or options object
-        const options = typeof maxDelayTime === 'number'
-            ? { maxDelayTime }
-            : maxDelayTime;
+        const options = typeof maxDelayTime === 'number' ? { maxDelayTime } : maxDelayTime;
         return new DelayNode(this, options);
     }
 
@@ -228,17 +226,13 @@ export class WasmAudioContext {
 
     createChannelSplitter(numberOfOutputs) {
         // Support legacy parameter or options object
-        const options = typeof numberOfOutputs === 'number'
-            ? { numberOfOutputs }
-            : numberOfOutputs;
+        const options = typeof numberOfOutputs === 'number' ? { numberOfOutputs } : numberOfOutputs;
         return new ChannelSplitterNode(this, options);
     }
 
     createChannelMerger(numberOfInputs) {
         // Support legacy parameter or options object
-        const options = typeof numberOfInputs === 'number'
-            ? { numberOfInputs }
-            : numberOfInputs;
+        const options = typeof numberOfInputs === 'number' ? { numberOfInputs } : numberOfInputs;
         return new ChannelMergerNode(this, options);
     }
 
@@ -351,7 +345,11 @@ export class WasmAudioContext {
         try {
             // Decode using WASM decoders and resample to context's sample rate
             // This matches Web Audio API spec behavior
-            const decoded = await WasmAudioDecoders.decode(audioData, this.sampleRate);
+            const decoded = await WasmAudioDecoders.decode(
+                this._engine.wasmModule,
+                audioData,
+                this.sampleRate
+            );
 
             // Create AudioBuffer with decoded data at context's sample rate
             const audioBuffer = new AudioBuffer({

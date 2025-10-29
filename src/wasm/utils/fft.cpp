@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <map>
 #include <emscripten.h>
 
 #ifdef __wasm_simd128__
@@ -400,11 +401,52 @@ void destroyFFT(FFTState* state) {
     delete state;
 }
 
+// Twiddle factor cache for computeFFT - eliminates millions of cos/sin calls
+struct TwiddleCache {
+    Complex* forward;
+    Complex* inverse;
+    int size;
+};
+
+static std::map<int, TwiddleCache> twiddle_cache;
+
+static void ensureTwiddleFactors(int n) {
+    if (twiddle_cache.find(n) != twiddle_cache.end()) {
+        return; // Already cached
+    }
+
+    TwiddleCache cache;
+    cache.size = n;
+    cache.forward = new Complex[n];
+    cache.inverse = new Complex[n];
+
+    // Pre-compute all twiddle factors for this FFT size
+    for (int size = 2; size <= n; size *= 2) {
+        int half_size = size / 2;
+        for (int j = 0; j < half_size; j++) {
+            float angle_fwd = -2.0f * M_PI * j / size;
+            float angle_inv = 2.0f * M_PI * j / size;
+
+            int idx = (size / 2) + j;
+            cache.forward[idx].real = std::cos(angle_fwd);
+            cache.forward[idx].imag = std::sin(angle_fwd);
+            cache.inverse[idx].real = std::cos(angle_inv);
+            cache.inverse[idx].imag = std::sin(angle_inv);
+        }
+    }
+
+    twiddle_cache[n] = cache;
+}
+
 // Simple in-place FFT for AnalyserNode and ConvolverNode
-// This is a Cooley-Tukey radix-2 implementation
+// Optimized Cooley-Tukey radix-2 with pre-computed twiddle factors
 EMSCRIPTEN_KEEPALIVE
 void computeFFT(Complex* data, int n, bool inverse) {
     if (n <= 1) return;
+
+    // Ensure twiddle factors are cached
+    ensureTwiddleFactors(n);
+    const Complex* twiddles = inverse ? twiddle_cache[n].inverse : twiddle_cache[n].forward;
 
     // Bit-reversal permutation
     int j = 0;
@@ -422,22 +464,15 @@ void computeFFT(Complex* data, int n, bool inverse) {
         j += k;
     }
 
-    // FFT computation
-    float direction = inverse ? 1.0f : -1.0f;
-
+    // FFT computation with pre-computed twiddles
     for (int size = 2; size <= n; size *= 2) {
         int half_size = size / 2;
-        float step = direction * 2.0f * M_PI / size;
 
         for (int i = 0; i < n; i += size) {
             for (int j = 0; j < half_size; j++) {
-                float angle = step * j;
-                float cos_val = std::cos(angle);
-                float sin_val = std::sin(angle);
-
-                Complex w;
-                w.real = cos_val;
-                w.imag = sin_val;
+                // Use pre-computed twiddle factor
+                int tw_idx = (size / 2) + j;
+                Complex w = twiddles[tw_idx];
 
                 int idx1 = i + j;
                 int idx2 = i + j + half_size;

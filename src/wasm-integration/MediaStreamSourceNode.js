@@ -37,7 +37,11 @@ export class MediaStreamSourceNode {
 
         // Link the graph node to our WASM state
         // We need to set the node's media_stream_source_state pointer
-        wasmModule._setMediaStreamSourceState(context._engine.graphId, this.nodeId, this._wasmState);
+        wasmModule._setMediaStreamSourceState(
+            context._engine.graphId,
+            this.nodeId,
+            this._wasmState
+        );
 
         // Track connections
         this._outputs = [];
@@ -195,11 +199,7 @@ export class MediaStreamSourceNode {
 
         // Allocate WASM memory for input data
         const inputPtr = wasmModule._malloc(sampleCount * 4);
-        const inputHeap = new Float32Array(
-            wasmModule.HEAPF32.buffer,
-            inputPtr,
-            sampleCount
-        );
+        const inputHeap = new Float32Array(wasmModule.HEAPF32.buffer, inputPtr, sampleCount);
         inputHeap.set(floatData);
 
         // Write to ring buffer

@@ -109,7 +109,12 @@ void processIIRFilterNode(
     const int b_len = state->feedforward_length;
     const int a_len = state->feedback_length;
 
+    const int max_len = (b_len > a_len) ? b_len : a_len;
+
     for (int i = 0; i < frame_count; i++) {
+        // Pre-compute history indices for this sample (avoids repeated modulo in inner loops)
+        int current_idx = state->history_index;
+
         for (int ch = 0; ch < state->channels; ch++) {
             const int idx = i * state->channels + ch;
             float x = input[idx];
@@ -118,33 +123,75 @@ void processIIRFilterNode(
             // y[n] = b[0]*x[n] + b[1]*x[n-1] + ... + b[M]*x[n-M]
             //                  - a[1]*y[n-1] - ... - a[N]*y[n-N]
 
-            float y = 0.0f;
+            float y = b[0] * x;
 
             // Feedforward (b coefficients with x history)
-            y += b[0] * x;
-            for (int j = 1; j < b_len; j++) {
-                int hist_idx = (state->history_index - j + 1);
-                if (hist_idx < 0) hist_idx += b_len;
+            // Unrolled for common case of 5 coefficients
+            if (b_len >= 2) {
+                int idx1 = current_idx - 1;
+                if (idx1 < 0) idx1 += max_len;
+                y += b[1] * state->x_history[ch][idx1];
+            }
+            if (b_len >= 3) {
+                int idx2 = current_idx - 2;
+                if (idx2 < 0) idx2 += max_len;
+                y += b[2] * state->x_history[ch][idx2];
+            }
+            if (b_len >= 4) {
+                int idx3 = current_idx - 3;
+                if (idx3 < 0) idx3 += max_len;
+                y += b[3] * state->x_history[ch][idx3];
+            }
+            if (b_len >= 5) {
+                int idx4 = current_idx - 4;
+                if (idx4 < 0) idx4 += max_len;
+                y += b[4] * state->x_history[ch][idx4];
+            }
+            // Handle remaining coefficients
+            for (int j = 5; j < b_len; j++) {
+                int hist_idx = current_idx - j;
+                if (hist_idx < 0) hist_idx += max_len;
                 y += b[j] * state->x_history[ch][hist_idx];
             }
 
             // Feedback (a coefficients with y history, skip a[0] as it's normalized to 1)
-            for (int j = 1; j < a_len; j++) {
-                int hist_idx = (state->history_index - j + 1);
-                if (hist_idx < 0) hist_idx += a_len;
+            // Unrolled for common case of 5 coefficients
+            if (a_len >= 2) {
+                int idx1 = current_idx - 1;
+                if (idx1 < 0) idx1 += max_len;
+                y -= a[1] * state->y_history[ch][idx1];
+            }
+            if (a_len >= 3) {
+                int idx2 = current_idx - 2;
+                if (idx2 < 0) idx2 += max_len;
+                y -= a[2] * state->y_history[ch][idx2];
+            }
+            if (a_len >= 4) {
+                int idx3 = current_idx - 3;
+                if (idx3 < 0) idx3 += max_len;
+                y -= a[3] * state->y_history[ch][idx3];
+            }
+            if (a_len >= 5) {
+                int idx4 = current_idx - 4;
+                if (idx4 < 0) idx4 += max_len;
+                y -= a[4] * state->y_history[ch][idx4];
+            }
+            // Handle remaining coefficients
+            for (int j = 5; j < a_len; j++) {
+                int hist_idx = current_idx - j;
+                if (hist_idx < 0) hist_idx += max_len;
                 y -= a[j] * state->y_history[ch][hist_idx];
             }
 
             // Update history
-            state->x_history[ch][state->history_index] = x;
-            state->y_history[ch][state->history_index] = y;
+            state->x_history[ch][current_idx] = x;
+            state->y_history[ch][current_idx] = y;
 
             output[idx] = y;
         }
 
         // Update circular buffer index
         state->history_index++;
-        int max_len = (b_len > a_len) ? b_len : a_len;
         if (state->history_index >= max_len) {
             state->history_index = 0;
         }

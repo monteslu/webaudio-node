@@ -3,28 +3,67 @@
 
 import { wasmModule as defaultWasmModule } from './WasmModule.js';
 
+// Parameter name to ID mapping - matches C++ ParamID enum
+// Eliminates malloc/copy/free overhead on every parameter change
+const PARAM_ID_MAP = {
+    frequency: 0,
+    detune: 1,
+    gain: 2,
+    Q: 3,
+    delayTime: 4,
+    pan: 5,
+    offset: 6,
+    type: 7,
+    playbackOffset: 8,
+    playbackDuration: 9,
+    loop: 10,
+    loopStart: 11,
+    loopEnd: 12,
+    refDistance: 13,
+    maxDistance: 14,
+    rolloffFactor: 15,
+    coneInnerAngle: 16,
+    coneOuterAngle: 17,
+    coneOuterGain: 18,
+    threshold: 19,
+    knee: 20,
+    ratio: 21,
+    attack: 22,
+    release: 23,
+    positionX: 24,
+    positionY: 25,
+    positionZ: 26,
+    orientationX: 27,
+    orientationY: 28,
+    orientationZ: 29
+};
+
 // Helper to safely copy data to WASM heap, handling potential memory growth
 function copyToWasmHeap(wasmModule, data, ptr) {
     // Ensure data is a Float32Array
     const floatArray = data instanceof Float32Array ? data : new Float32Array(data);
 
-    // Use HEAPF32 directly (Emscripten updates it automatically on memory growth)
+    // Create a fresh Float32Array view directly from the current heap buffer
+    // This ensures we're always using the latest buffer after any potential memory growth
+    // Use HEAPU8.buffer to get the current ArrayBuffer (HEAPU8 is always defined in Emscripten)
     const floatIndex = ptr >> 2;
+    const heapView = new Float32Array(wasmModule.HEAPU8.buffer, ptr, floatArray.length);
 
     // Validate bounds BEFORE copying
-    if (floatIndex + floatArray.length > wasmModule.HEAPF32.length) {
+    if (floatIndex + floatArray.length > wasmModule.HEAPU8.buffer.byteLength >> 2) {
         console.error('[copyToWasmHeap ERROR]');
         console.error(`  ptr=${ptr} (0x${ptr.toString(16)})`);
         console.error(`  floatIndex=${floatIndex}`);
         console.error(`  data.length=${floatArray.length}`);
         console.error(`  required end=${floatIndex + floatArray.length}`);
-        console.error(`  HEAPF32.length=${wasmModule.HEAPF32.length}`);
-        console.error(`  buffer.byteLength=${wasmModule.HEAPF32.buffer.byteLength}`);
+        console.error(`  heap buffer byteLength=${wasmModule.HEAPU8.buffer.byteLength}`);
         console.error('  Stack trace:', new Error().stack);
-        throw new Error(`copyToWasmHeap: offset ${floatIndex} + length ${floatArray.length} exceeds heap size ${wasmModule.HEAPF32.length}`);
+        throw new Error(
+            `copyToWasmHeap: offset ${floatIndex} + length ${floatArray.length} exceeds heap size`
+        );
     }
 
-    wasmModule.HEAPF32.set(floatArray, floatIndex);
+    heapView.set(floatArray);
 }
 
 export class WasmAudioEngine {
@@ -76,12 +115,14 @@ export class WasmAudioEngine {
     }
 
     setNodeParameter(nodeId, paramName, value) {
-        const lengthBytes = this.wasmModule.lengthBytesUTF8(paramName) + 1;
-        const paramNamePtr = this.wasmModule._malloc(lengthBytes);
-        this.wasmModule.stringToUTF8(paramName, paramNamePtr, lengthBytes);
+        // Map parameter name to integer ID - eliminates malloc/copy/free overhead
+        const paramId = PARAM_ID_MAP[paramName];
+        if (paramId === undefined) {
+            console.warn(`Unknown parameter: ${paramName}`);
+            return;
+        }
 
-        this.wasmModule._setNodeParameter(this.graphId, nodeId, paramNamePtr, value);
-        this.wasmModule._free(paramNamePtr);
+        this.wasmModule._setNodeParameter(this.graphId, nodeId, paramId, value);
     }
 
     setNodeBuffer(nodeId, bufferData, length, channels) {
@@ -296,9 +337,9 @@ export class WasmAudioEngine {
     }
 
     async render() {
-        // Allocate output buffer in WASM memory
+        // Allocate output buffer in WASM memory (interleaved)
         const totalSamples = this.length * this.numberOfChannels;
-        const outputPtr = this.wasmModule._malloc(totalSamples * 4);
+        const interleavedPtr = this.wasmModule._malloc(totalSamples * 4);
 
         // Process in blocks (standard Web Audio quantum size)
         const blockSize = 128;
@@ -311,19 +352,31 @@ export class WasmAudioEngine {
             // Call WASM processGraph - ALL graph traversal and processing happens in WASM!
             this.wasmModule._processGraph(
                 this.graphId,
-                outputPtr + startFrame * this.numberOfChannels * 4,
+                interleavedPtr + startFrame * this.numberOfChannels * 4,
                 framesToProcess
             );
         }
 
-        // Copy result to JavaScript array using subarray (fast and avoids alignment issues)
-        const floatIndex = outputPtr >> 2;
+        // Allocate buffer for de-interleaved output (planar format)
+        const planarPtr = this.wasmModule._malloc(totalSamples * 4);
+
+        // De-interleave in WASM (SIMD-optimized!) instead of JavaScript
+        this.wasmModule._deinterleaveAudio(
+            interleavedPtr,
+            planarPtr,
+            this.length,
+            this.numberOfChannels
+        );
+
+        // Copy planar result to JavaScript array
+        const floatIndex = planarPtr >> 2;
         const result = new Float32Array(
             this.wasmModule.HEAPF32.subarray(floatIndex, floatIndex + totalSamples)
         );
 
         // Free WASM memory
-        this.wasmModule._free(outputPtr);
+        this.wasmModule._free(interleavedPtr);
+        this.wasmModule._free(planarPtr);
 
         return result;
     }

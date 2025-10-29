@@ -127,9 +127,10 @@ export class WasmOfflineAudioContext {
 
     createIIRFilter(feedforward, feedback) {
         // Support both legacy (feedforward, feedback) and options object
-        const options = typeof feedforward === 'object' && !Array.isArray(feedforward)
-            ? feedforward
-            : { feedforward, feedback };
+        const options =
+            typeof feedforward === 'object' && !Array.isArray(feedforward)
+                ? feedforward
+                : { feedforward, feedback };
         return new IIRFilterNode(this, options);
     }
 
@@ -158,7 +159,7 @@ export class WasmOfflineAudioContext {
         this.state = 'running';
 
         try {
-            // Render audio using WASM engine
+            // Render audio using WASM engine (returns planar/de-interleaved data)
             const audioData = await this._engine.render();
 
             // Create AudioBuffer with the rendered data
@@ -168,12 +169,11 @@ export class WasmOfflineAudioContext {
                 sampleRate: this.sampleRate
             });
 
-            // De-interleave the audio data into separate channels
+            // Copy already de-interleaved data (planar format: all ch0, then all ch1, etc.)
             for (let channel = 0; channel < this._channels; channel++) {
                 const channelData = audioBuffer.getChannelData(channel);
-                for (let frame = 0; frame < this.length; frame++) {
-                    channelData[frame] = audioData[frame * this._channels + channel];
-                }
+                const offset = channel * this.length;
+                channelData.set(audioData.subarray(offset, offset + this.length));
             }
 
             this.state = 'closed';
@@ -202,7 +202,11 @@ export class WasmOfflineAudioContext {
         try {
             // Decode using WASM decoders and resample to context's sample rate
             // This matches Web Audio API spec behavior
-            const decoded = await WasmAudioDecoders.decode(this._engine.wasmModule, audioData, this.sampleRate);
+            const decoded = await WasmAudioDecoders.decode(
+                this._engine.wasmModule,
+                audioData,
+                this.sampleRate
+            );
 
             // Create AudioBuffer with decoded data at context's sample rate
             const audioBuffer = new AudioBuffer({
