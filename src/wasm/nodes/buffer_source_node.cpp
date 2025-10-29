@@ -5,6 +5,7 @@
 #include <wasm_simd128.h>
 #include <cstring>
 #include <cstdio>
+#include <cmath>
 
 // AudioBufferSourceNode state
 struct BufferSourceNodeState {

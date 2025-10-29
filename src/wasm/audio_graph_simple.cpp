@@ -72,8 +72,9 @@ extern "C" {
     // Oscillator
     OscillatorNodeState* createOscillatorNode(int sample_rate, int channels, int wave_type);
     void destroyOscillatorNode(OscillatorNodeState* state);
-    void startOscillator(OscillatorNodeState* state);
-    void stopOscillator(OscillatorNodeState* state);
+    void startOscillator(OscillatorNodeState* state, double when);
+    void stopOscillator(OscillatorNodeState* state, double when);
+    void setOscillatorCurrentTime(OscillatorNodeState* state, double time);
     void processOscillatorNode(OscillatorNodeState* state, float* output, int frame_count, float frequency, float detune);
 
     // Gain
@@ -241,6 +242,16 @@ struct AudioGraph {
     int dest_id;
     uint64_t current_sample; // Track current sample for timing
     bool is_realtime; // True for AudioContext (JS manages time), false for OfflineAudioContext (WASM manages time)
+
+    // Real-time timing offset to compensate for pre-render buffering
+    uint64_t realtime_start_sample;  // Sample offset when timing was first queried
+    bool realtime_time_initialized;  // Whether start offset has been captured
+
+    // Pre-allocated buffers for graph processing (eliminates malloc overhead)
+    std::vector<float> temp_buffer; // Reusable temp buffer for mixing
+    std::vector<float> mix_buffer; // Separate buffer for gain node mixing (prevents recursion conflicts)
+    std::map<int, std::vector<float>> node_buffers; // Cached node outputs per frame (prevents reprocessing)
+    int current_frame_count; // Track buffer size for reallocation checks
 };
 
 static std::map<int, AudioGraph*> graphs;
@@ -256,6 +267,12 @@ int createAudioGraph(int sample_rate, int channels, int buffer_size, bool is_rea
     graph->next_id = 1;
     graph->current_sample = 0;
     graph->is_realtime = is_realtime;
+    graph->realtime_start_sample = 0;
+    graph->realtime_time_initialized = false;
+
+    // Pre-allocate processing buffers (assume max 128 frames for Web Audio quantum)
+    graph->current_frame_count = 128;
+    graph->temp_buffer.resize(128 * channels);
 
     // Create destination
     Node dest;
@@ -471,7 +488,7 @@ void startNode(int graph_id, int node_id, double when) {
 
     Node& node = node_it->second;
     if (node.type == 1 && node.state && node.state->osc_state) { // oscillator
-        startOscillator(node.state->osc_state);
+        startOscillator(node.state->osc_state, when);
     } else if (node.type == 3 && node.state && node.state->buffer_source_state) { // buffer_source
         startBufferSource(node.state->buffer_source_state, when);
     } else if (node.type == 8 && node.state && node.state->constant_source_state) { // constant_source
@@ -492,7 +509,7 @@ void stopNode(int graph_id, int node_id, double when) {
 
     Node& node = node_it->second;
     if (node.type == 1 && node.state && node.state->osc_state) { // oscillator
-        stopOscillator(node.state->osc_state);
+        stopOscillator(node.state->osc_state, when);
     } else if (node.type == 3 && node.state && node.state->buffer_source_state) { // buffer_source
         stopBufferSource(node.state->buffer_source_state, when);
     } else if (node.type == 8 && node.state && node.state->constant_source_state) { // constant_source
@@ -549,7 +566,7 @@ void setNodeParameter(int graph_id, int node_id, int param_id, float value) {
 }
 
 // Process a single node
-void processNode(AudioGraph* graph, int node_id, float* output, int frame_count, std::map<int, std::vector<float>>& buffers) {
+void processNode(AudioGraph* graph, int node_id, float* output, int frame_count) {
     auto node_it = graph->nodes.find(node_id);
     if (node_it == graph->nodes.end()) {
         memset(output, 0, frame_count * graph->channels * sizeof(float));
@@ -558,9 +575,10 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
 
     Node& node = node_it->second;
 
-    // Check if already processed this frame
-    if (buffers.find(node_id) != buffers.end()) {
-        memcpy(output, buffers[node_id].data(), frame_count * graph->channels * sizeof(float));
+    // Check if already processed this frame (use pre-allocated node_buffers)
+    auto cached_it = graph->node_buffers.find(node_id);
+    if (cached_it != graph->node_buffers.end()) {
+        memcpy(output, cached_it->second.data(), frame_count * graph->channels * sizeof(float));
         return;
     }
 
@@ -571,14 +589,15 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
 
         auto conn_it = graph->connections.find(node_id);
         if (conn_it != graph->connections.end()) {
-            std::vector<float> temp_buffer(frame_count * graph->channels);
+            // Use pre-allocated temp_buffer instead of allocating new vector
+            const int buffer_size = frame_count * graph->channels;
 
             for (int source_id : conn_it->second) {
-                processNode(graph, source_id, temp_buffer.data(), frame_count, buffers);
+                processNode(graph, source_id, graph->temp_buffer.data(), frame_count);
 
-                // Mix
-                for (int i = 0; i < frame_count * graph->channels; i++) {
-                    output[i] += temp_buffer[i];
+                // Mix with SIMD optimization potential
+                for (int i = 0; i < buffer_size; i++) {
+                    output[i] += graph->temp_buffer[i];
                 }
             }
         }
@@ -587,6 +606,17 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         if (!node.state || !node.state->osc_state) {
             memset(output, 0, frame_count * graph->channels * sizeof(float));
         } else {
+            // Update current time for scheduled start/stop
+            // Use relative time for real-time contexts (same logic as getGraphCurrentTime)
+            double current_time;
+            if (graph->is_realtime && graph->realtime_time_initialized) {
+                current_time = static_cast<double>(graph->current_sample - graph->realtime_start_sample)
+                             / static_cast<double>(graph->sample_rate);
+            } else {
+                current_time = static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
+            }
+            setOscillatorCurrentTime(node.state->osc_state, current_time);
+
             // Call external SIMD-optimized oscillator
             processOscillatorNode(
                 node.state->osc_state,
@@ -608,14 +638,14 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
             if (has_input) {
                 // Mix all inputs together
                 memset(output, 0, frame_count * graph->channels * sizeof(float));
-                std::vector<float> temp_buffer(frame_count * graph->channels);
 
                 for (int source_id : conn_it->second) {
-                    processNode(graph, source_id, temp_buffer.data(), frame_count, buffers);
+                    // Use mix_buffer instead of temp_buffer to avoid recursion conflicts
+                    processNode(graph, source_id, graph->mix_buffer.data(), frame_count);
 
                     // Mix this source into output
                     for (int i = 0; i < frame_count * graph->channels; i++) {
-                        output[i] += temp_buffer[i];
+                        output[i] += graph->mix_buffer[i];
                     }
                 }
             }
@@ -636,7 +666,14 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
             memset(output, 0, frame_count * graph->channels * sizeof(float));
         } else {
             // Update current time for scheduled start/stop
-            double current_time = static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
+            // Use relative time for real-time contexts (same logic as getGraphCurrentTime)
+            double current_time;
+            if (graph->is_realtime && graph->realtime_time_initialized) {
+                current_time = static_cast<double>(graph->current_sample - graph->realtime_start_sample)
+                             / static_cast<double>(graph->sample_rate);
+            } else {
+                current_time = static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
+            }
             setBufferSourceCurrentTime(node.state->buffer_source_state, current_time);
             processBufferSourceNode(node.state->buffer_source_state, output, frame_count);
         }
@@ -646,7 +683,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->biquad_state) {
             processBiquadFilterNode(node.state->biquad_state, output, output, frame_count, has_input);
@@ -659,7 +696,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->delay_state) {
             processDelayNode(node.state->delay_state, output, output, frame_count, has_input);
@@ -672,7 +709,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->waveshaper_state) {
             processWaveShaperNode(node.state->waveshaper_state, output, output, frame_count, has_input);
@@ -685,7 +722,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->stereo_panner_state) {
             processStereoPannerNode(node.state->stereo_panner_state, output, output, frame_count, graph->channels, has_input);
@@ -705,7 +742,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->convolver_state) {
             processConvolverNode(node.state->convolver_state, output, output, frame_count, has_input);
@@ -718,7 +755,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->compressor_state) {
             processDynamicsCompressorNode(node.state->compressor_state, output, output, frame_count, has_input);
@@ -731,7 +768,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->analyser_state) {
             processAnalyserNode(node.state->analyser_state, output, output, frame_count, has_input);
@@ -744,7 +781,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->panner_state) {
             processPannerNode(node.state->panner_state, output, output, frame_count, has_input);
@@ -757,7 +794,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->iir_filter_state) {
             processIIRFilterNode(node.state->iir_filter_state, output, output, frame_count, has_input);
@@ -770,7 +807,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->channel_splitter_state) {
             processChannelSplitterNode(node.state->channel_splitter_state, output, output, frame_count, graph->channels, has_input);
@@ -783,7 +820,7 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         bool has_input = (conn_it != graph->connections.end() && !conn_it->second.empty());
         if (has_input) {
             int source_id = conn_it->second[0];
-            processNode(graph, source_id, output, frame_count, buffers);
+            processNode(graph, source_id, output, frame_count);
         }
         if (node.state && node.state->channel_merger_state) {
             processChannelMergerNodeSimple(node.state->channel_merger_state, output, output, frame_count, graph->channels, has_input);
@@ -805,8 +842,8 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count,
         memset(output, 0, frame_count * graph->channels * sizeof(float));
     }
 
-    // Cache result
-    buffers[node_id] = std::vector<float>(output, output + frame_count * graph->channels);
+    // Cache result to prevent reprocessing if this node has multiple dependents
+    graph->node_buffers[node_id] = std::vector<float>(output, output + frame_count * graph->channels);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -817,10 +854,27 @@ void processGraph(int graph_id, float* output, int frame_count) {
     }
 
     AudioGraph* graph = it->second;
-    std::map<int, std::vector<float>> buffers;
+
+    // Initialize real-time timing offset on first render
+    // Capture the sample position when we first start processing to establish "time zero"
+    if (graph->is_realtime && !graph->realtime_time_initialized) {
+        graph->realtime_start_sample = graph->current_sample;
+        graph->realtime_time_initialized = true;
+    }
+
+    // Clear cached node buffers at start of each frame
+    graph->node_buffers.clear();
+
+    // Ensure temp_buffer and mix_buffer are large enough
+    const int buffer_size = frame_count * graph->channels;
+    if (graph->current_frame_count != frame_count) {
+        graph->current_frame_count = frame_count;
+        graph->temp_buffer.resize(buffer_size);
+        graph->mix_buffer.resize(buffer_size);
+    }
 
     // Process destination node (pulls entire graph)
-    processNode(graph, graph->dest_id, output, frame_count, buffers);
+    processNode(graph, graph->dest_id, output, frame_count);
 
     // Always increment sample counter after processing
     // For offline contexts: this advances time automatically
@@ -835,6 +889,22 @@ double getGraphCurrentTime(int graph_id) {
     if (it == graphs.end()) return 0.0;
 
     AudioGraph* graph = it->second;
+
+    if (graph->is_realtime) {
+        // On first getCurrentTime() call AFTER rendering has started, capture current sample position as "time zero"
+        // This excludes any pre-render buffering that happened before playback
+        // Don't initialize if current_sample is still 0 (no rendering yet)
+        if (!graph->realtime_time_initialized && graph->current_sample > 0) {
+            graph->realtime_start_sample = graph->current_sample;
+            graph->realtime_time_initialized = true;
+        }
+
+        // Return time relative to when timing was first queried (after pre-render)
+        return static_cast<double>(graph->current_sample - graph->realtime_start_sample)
+               / static_cast<double>(graph->sample_rate);
+    }
+
+    // Offline contexts use absolute sample position
     return static_cast<double>(graph->current_sample) / static_cast<double>(graph->sample_rate);
 }
 
@@ -844,8 +914,14 @@ void setGraphCurrentTime(int graph_id, double time) {
     if (it == graphs.end()) return;
 
     AudioGraph* graph = it->second;
-    // Convert time to samples for internal tracking
-    graph->current_sample = static_cast<uint64_t>(time * graph->sample_rate);
+
+    if (graph->is_realtime && graph->realtime_time_initialized) {
+        // For real-time contexts with initialized offset, apply the offset
+        graph->current_sample = graph->realtime_start_sample + static_cast<uint64_t>(time * graph->sample_rate);
+    } else {
+        // For offline contexts or uninitialized real-time contexts, set absolute time
+        graph->current_sample = static_cast<uint64_t>(time * graph->sample_rate);
+    }
 }
 
 EMSCRIPTEN_KEEPALIVE

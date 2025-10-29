@@ -5,6 +5,7 @@
 #include <wasm_simd128.h>
 #include <cmath>
 #include <cstring>
+#include <cstdio>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -32,6 +33,13 @@ struct OscillatorNodeState {
     // Custom wavetable
     float* custom_wavetable;
     int wavetable_size;
+
+    // Scheduled timing
+    double scheduled_start_time;
+    double scheduled_stop_time;
+    double current_time;
+    bool has_started;
+    bool has_stopped;
 };
 
 extern "C" {
@@ -50,6 +58,11 @@ OscillatorNodeState* createOscillatorNode(
     state->phase = 0.0;
     state->custom_wavetable = nullptr;
     state->wavetable_size = 0;
+    state->scheduled_start_time = -1.0;
+    state->scheduled_stop_time = -1.0;
+    state->current_time = 0.0;
+    state->has_started = false;
+    state->has_stopped = false;
     return state;
 }
 
@@ -65,16 +78,20 @@ void destroyOscillatorNode(OscillatorNodeState* state) {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void startOscillator(OscillatorNodeState* state) {
+void startOscillator(OscillatorNodeState* state, double when) {
     if (!state) return;
-    state->is_active = true;
+    state->scheduled_start_time = when;
+    state->has_started = false;
+    state->has_stopped = false;
     state->phase = 0.0;
+    // Don't activate immediately - will activate when current_time >= scheduled_start_time
 }
 
 EMSCRIPTEN_KEEPALIVE
-void stopOscillator(OscillatorNodeState* state) {
+void stopOscillator(OscillatorNodeState* state, double when) {
     if (!state) return;
-    state->is_active = false;
+    state->scheduled_stop_time = when;
+    // Will actually stop when current_time >= scheduled_stop_time (checked in setOscillatorCurrentTime)
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -97,6 +114,24 @@ void setPeriodicWave(OscillatorNodeState* state, float* wavetable, int size) {
     memcpy(state->custom_wavetable, wavetable, size * sizeof(float));
     state->wavetable_size = size;
     state->wave_type = WaveType::CUSTOM;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setOscillatorCurrentTime(OscillatorNodeState* state, double time) {
+    if (!state) return;
+    state->current_time = time;
+
+    // Check if we should start
+    if (!state->has_started && state->scheduled_start_time >= 0.0 && state->current_time >= state->scheduled_start_time) {
+        state->has_started = true;
+        state->is_active = true;
+    }
+
+    // Check if we should stop
+    if (state->has_started && !state->has_stopped && state->scheduled_stop_time >= 0.0 && state->current_time >= state->scheduled_stop_time) {
+        state->has_stopped = true;
+        state->is_active = false;
+    }
 }
 
 // Generate single sample based on wave type
