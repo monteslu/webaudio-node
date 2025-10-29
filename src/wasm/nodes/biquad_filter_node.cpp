@@ -257,7 +257,43 @@ void processBiquadFilterNode(
         float y1_val = state->y1[ch];
         float y2_val = state->y2[ch];
 
-        for (int i = 0; i < frame_count; i++) {
+        int i = 0;
+
+        // Unrolled loop: process 4 samples at a time to reduce loop overhead
+        for (; i + 4 <= frame_count; i += 4) {
+            // Sample 0
+            int idx0 = i * state->channels + ch;
+            float x0 = input[idx0];
+            float y0 = b0 * x0 + b1 * x1_val + b2 * x2_val - a1 * y1_val - a2 * y2_val;
+            output[idx0] = y0;
+
+            // Sample 1
+            int idx1 = (i + 1) * state->channels + ch;
+            float x1 = input[idx1];
+            float y1 = b0 * x1 + b1 * x0 + b2 * x1_val - a1 * y0 - a2 * y1_val;
+            output[idx1] = y1;
+
+            // Sample 2
+            int idx2 = (i + 2) * state->channels + ch;
+            float x2 = input[idx2];
+            float y2 = b0 * x2 + b1 * x1 + b2 * x0 - a1 * y1 - a2 * y0;
+            output[idx2] = y2;
+
+            // Sample 3
+            int idx3 = (i + 3) * state->channels + ch;
+            float x3 = input[idx3];
+            float y3 = b0 * x3 + b1 * x2 + b2 * x1 - a1 * y2 - a2 * y1;
+            output[idx3] = y3;
+
+            // Update state for next iteration
+            x2_val = x2;
+            x1_val = x3;
+            y2_val = y2;
+            y1_val = y3;
+        }
+
+        // Scalar tail for remaining samples
+        for (; i < frame_count; i++) {
             const int idx = i * state->channels + ch;
             const float x = input[idx];
 
