@@ -236,9 +236,9 @@ struct BufferData {
 struct AudioGraph {
     int sample_rate;
     int channels;
-    std::map<int, Node> nodes;
-    std::map<int, std::vector<int>> connections; // dest_id -> list of source_ids
-    std::map<int, BufferData> buffers; // buffer_id -> buffer data
+    std::unordered_map<int, Node> nodes;
+    std::unordered_map<int, std::vector<int>> connections; // dest_id -> list of source_ids
+    std::unordered_map<int, BufferData> buffers; // buffer_id -> buffer data
     int next_id;
     int dest_id;
     uint64_t current_sample; // Track current sample for timing
@@ -258,7 +258,7 @@ struct AudioGraph {
     int current_frame_count; // Track buffer size for reallocation checks
 };
 
-static std::map<int, AudioGraph*> graphs;
+static std::unordered_map<int, AudioGraph*> graphs;
 static int next_graph_id = 1;
 
 extern "C" {
