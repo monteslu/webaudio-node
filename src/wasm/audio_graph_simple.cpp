@@ -595,8 +595,19 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count)
             for (int source_id : conn_it->second) {
                 processNode(graph, source_id, graph->temp_buffer.data(), frame_count);
 
-                // Mix with SIMD optimization potential
-                for (int i = 0; i < buffer_size; i++) {
+                // Mix with SIMD optimization
+                int i = 0;
+#ifdef __wasm_simd128__
+                // Process 4 samples at a time with SIMD
+                for (; i + 4 <= buffer_size; i += 4) {
+                    v128_t out = wasm_v128_load(&output[i]);
+                    v128_t in = wasm_v128_load(&graph->temp_buffer[i]);
+                    v128_t mixed = wasm_f32x4_add(out, in);
+                    wasm_v128_store(&output[i], mixed);
+                }
+#endif
+                // Scalar tail for remaining samples
+                for (; i < buffer_size; ++i) {
                     output[i] += graph->temp_buffer[i];
                 }
             }
@@ -638,13 +649,25 @@ void processNode(AudioGraph* graph, int node_id, float* output, int frame_count)
             if (has_input) {
                 // Mix all inputs together
                 memset(output, 0, frame_count * graph->channels * sizeof(float));
+                const int buffer_size = frame_count * graph->channels;
 
                 for (int source_id : conn_it->second) {
                     // Use mix_buffer instead of temp_buffer to avoid recursion conflicts
                     processNode(graph, source_id, graph->mix_buffer.data(), frame_count);
 
-                    // Mix this source into output
-                    for (int i = 0; i < frame_count * graph->channels; i++) {
+                    // Mix this source into output with SIMD optimization
+                    int i = 0;
+#ifdef __wasm_simd128__
+                    // Process 4 samples at a time with SIMD
+                    for (; i + 4 <= buffer_size; i += 4) {
+                        v128_t out = wasm_v128_load(&output[i]);
+                        v128_t in = wasm_v128_load(&graph->mix_buffer[i]);
+                        v128_t mixed = wasm_f32x4_add(out, in);
+                        wasm_v128_store(&output[i], mixed);
+                    }
+#endif
+                    // Scalar tail for remaining samples
+                    for (; i < buffer_size; ++i) {
                         output[i] += graph->mix_buffer[i];
                     }
                 }
