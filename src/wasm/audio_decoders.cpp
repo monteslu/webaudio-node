@@ -319,14 +319,15 @@ float* resampleAudio(const float* input, size_t inputFrames, int channels,
     }
 
     // Initialize Speex resampler
-    // Quality 3 = desktop quality (good balance of speed and quality)
-    // This is what Firefox uses for Web Audio API resampling
+    // Quality 1 = fast with decent quality (balance of speed and quality)
+    // Quality 3 was adding 277% overhead for 44.1kHz->48kHz conversion
+    // Quality 0 improved MP3 decode but may have quality issues
     int err = 0;
     SpeexResamplerState* resampler = speex_resampler_init(
         channels,
         sourceSampleRate,
         targetSampleRate,
-        3,  // quality: 0=worst/fastest, 10=best/slowest, 3=desktop default
+        1,  // quality: 0=worst/fastest, 10=best/slowest
         &err
     );
 

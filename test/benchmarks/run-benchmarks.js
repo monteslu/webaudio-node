@@ -2,7 +2,8 @@ import { benchmarkOfflineRendering } from './bench-offline-rendering.js';
 import { benchmarkMixing } from './bench-mixing.js';
 import { benchmarkAutomation } from './bench-automation.js';
 import { benchmarkMemory } from './bench-memory.js';
-import { benchmarkMP3Processing } from './bench-mp3-processing.js';
+import { benchmarkMP3Decode } from './bench-mp3-decode.js';
+import { benchmarkProcessingChain } from './bench-processing-chain.js';
 import { benchmarkDelay } from './bench-delay.js';
 import { benchmarkWaveShaper } from './bench-waveshaper.js';
 import { benchmarkComplexGraph } from './bench-complex-graph.js';
@@ -183,16 +184,26 @@ for (const impl of implementations) {
 
     try {
         const instance = impl.factory ? await impl.factory() : impl;
-        console.log('  Running MP3 processing benchmark...');
-        results[impl.name].mp3 = await withTimeout(benchmarkMP3Processing(
+        console.log('  Running MP3 decode benchmark...');
+        results[impl.name].mp3Decode = await withTimeout(benchmarkMP3Decode(
             instance.AudioContext,
-            instance.OfflineAudioContext,
             'test/benchmarks/test-audio.mp3',
             5
         ));
     } catch (e) {
-        console.log(`  ✗ MP3 processing failed: ${e.message}`);
-        results[impl.name].mp3 = null;
+        console.log(`  ✗ MP3 decode failed: ${e.message}`);
+        results[impl.name].mp3Decode = null;
+    }
+
+    try {
+        const instance = impl.factory ? await impl.factory() : impl;
+        console.log('  Running processing chain benchmark...');
+        results[impl.name].processingChain = await withTimeout(benchmarkProcessingChain(
+            instance.OfflineAudioContext
+        ));
+    } catch (e) {
+        console.log(`  ✗ Processing chain failed: ${e.message}`);
+        results[impl.name].processingChain = null;
     }
 
     try {
@@ -597,17 +608,31 @@ printHeader('Memory Usage (100 sources, shared buffer)');
     printTable(headers, rows);
 }
 
-printHeader('MP3 Processing (decode + gain, no filters due to webaudio-node bug)');
+printHeader('MP3 Decode');
 {
-    const headers = ['Implementation', 'Decode (ms)', 'Process (ms)', 'Total (ms)'];
+    const headers = ['Implementation', 'Avg Time (ms)', 'Min Time (ms)'];
     const rows = implementations.map(impl => {
-        const r = results[impl.name].mp3;
-        if (!r) return [impl.name, 'FAILED', '-', '-'];
+        const r = results[impl.name].mp3Decode;
+        if (!r) return [impl.name, 'FAILED', '-'];
         return [
             impl.name,
-            formatNumber(r.avgDecodeTimeMs, 2),
-            formatNumber(r.avgProcessTimeMs, 2),
-            formatNumber(r.avgTotalTimeMs, 2)
+            formatNumber(r.avgTimeMs, 2),
+            formatNumber(r.minTimeMs, 2)
+        ];
+    });
+    printTable(headers, rows);
+}
+
+printHeader('Audio Processing Chain (filter + compressor + gain)');
+{
+    const headers = ['Implementation', 'Avg Time (ms)', 'Realtime Multiplier'];
+    const rows = implementations.map(impl => {
+        const r = results[impl.name].processingChain;
+        if (!r) return [impl.name, 'FAILED', '-'];
+        return [
+            impl.name,
+            formatNumber(r.avgTimeMs, 2),
+            formatNumber(r.realtimeMultiplier, 1) + 'x'
         ];
     });
     printTable(headers, rows);
