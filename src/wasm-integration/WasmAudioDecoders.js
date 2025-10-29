@@ -46,7 +46,14 @@ export class WasmAudioDecoders {
      * @param {number} targetSampleRate - Target sample rate
      * @returns {Object} { audioData: Float32Array, length: number, sampleRate: number }
      */
-    static resampleAudio(wasmModule, audioData, inputFrames, channels, sourceSampleRate, targetSampleRate) {
+    static resampleAudio(
+        wasmModule,
+        audioData,
+        inputFrames,
+        channels,
+        sourceSampleRate,
+        targetSampleRate
+    ) {
         // No resampling needed
         if (sourceSampleRate === targetSampleRate) {
             return {
@@ -94,7 +101,9 @@ export class WasmAudioDecoders {
         const resampledData = new Float32Array(totalOutputSamples);
         // CRITICAL: Use subarray() to avoid stale buffer issues
         const outFloatIndex = outputPtr >> 2;
-        resampledData.set(wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalOutputSamples));
+        resampledData.set(
+            wasmModule.HEAPF32.subarray(outFloatIndex, outFloatIndex + totalOutputSamples)
+        );
 
         // Free resampled buffer in WASM
         wasmModule._freeDecodedBuffer(outputPtr);

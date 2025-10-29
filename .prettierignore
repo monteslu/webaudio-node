@@ -7,5 +7,5 @@ tmp/
 sdl/
 package-lock.json
 
-# Generated documentation
-docs/automated_benchmarks.md
+# Ignore all markdown files
+*.md

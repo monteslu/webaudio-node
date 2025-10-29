@@ -13,7 +13,7 @@ masterGain.gain.value = 0.3;
 masterGain.connect(context.destination);
 
 // Create 5 oscillators at different frequencies (musical chord: C major)
-const frequencies = [261.63, 329.63, 392.00, 523.25, 659.25]; // C4, E4, G4, C5, E5
+const frequencies = [261.63, 329.63, 392.0, 523.25, 659.25]; // C4, E4, G4, C5, E5
 const oscillators = [];
 
 console.log('Creating 5 oscillators with different frequencies:');
@@ -54,4 +54,4 @@ await new Promise(resolve => setTimeout(resolve, 12000));
 await context.close();
 
 console.log('\n✅ If you heard notes joining to form a chord, layering works!');
-console.log('If you only heard one note, there\'s still a problem.\n');
+console.log("If you only heard one note, there's still a problem.\n");

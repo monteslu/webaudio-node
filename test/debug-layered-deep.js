@@ -16,7 +16,9 @@ const audioData = readFileSync(audioFilePath);
 
 console.log('Decoding audio file...');
 const buffer = await context.decodeAudioData(audioData.buffer);
-console.log(`Buffer: ${buffer.duration.toFixed(2)}s, ${buffer.sampleRate}Hz, ${buffer.numberOfChannels}ch\n`);
+console.log(
+    `Buffer: ${buffer.duration.toFixed(2)}s, ${buffer.sampleRate}Hz, ${buffer.numberOfChannels}ch\n`
+);
 
 // Create master gain
 const masterGain = context.createGain();
@@ -38,7 +40,9 @@ for (let i = 0; i < numInstances; i++) {
     source.connect(instanceGain);
     instanceGain.connect(masterGain);
 
-    console.log(`  Source ${i + 1}: nodeId=${source._nodeId}, buffer=${source.buffer ? 'SET' : 'NULL'}`);
+    console.log(
+        `  Source ${i + 1}: nodeId=${source._nodeId}, buffer=${source.buffer ? 'SET' : 'NULL'}`
+    );
     sources.push({ source, instanceGain });
 }
 
@@ -50,7 +54,9 @@ console.log(`currentTime after resume: ${context.currentTime}`);
 console.log('\nScheduling sources:');
 for (let i = 0; i < numInstances; i++) {
     const startTime = context.currentTime + i;
-    console.log(`  Source ${i + 1} (nodeId=${sources[i].source._nodeId}): start(${startTime.toFixed(6)})`);
+    console.log(
+        `  Source ${i + 1} (nodeId=${sources[i].source._nodeId}): start(${startTime.toFixed(6)})`
+    );
     sources[i].source.start(startTime);
 }
 

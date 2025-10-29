@@ -275,7 +275,10 @@ async function runMicrophoneEffect(effectType, devices = { input: null, output: 
             const available = source.getAvailableSamples();
             const level = source.getCurrentLevel();
             const capturing = source._isCapturing;
-            box.setContent(box.getContent() + `\n\n  {yellow-fg}WASM check: ${available} samples, level=${level.toFixed(4)}, capturing=${capturing}{/yellow-fg}`);
+            box.setContent(
+                box.getContent() +
+                    `\n\n  {yellow-fg}WASM check: ${available} samples, level=${level.toFixed(4)}, capturing=${capturing}{/yellow-fg}`
+            );
             screen.render();
             setTimeout(() => updateUI(), 2000);
         });
@@ -330,7 +333,10 @@ AUDIO GRAPH:
                 writeFileSync('/tmp/mic-debug-latest.txt', debugInfo);
                 const { default: clipboardy } = await import('clipboardy');
                 await clipboardy.write(debugInfo);
-                box.setContent(box.getContent() + '\n\n  {green-fg}✓ Saved to /tmp/mic-debug-latest.txt & clipboard{/green-fg}');
+                box.setContent(
+                    box.getContent() +
+                        '\n\n  {green-fg}✓ Saved to /tmp/mic-debug-latest.txt & clipboard{/green-fg}'
+                );
             } catch (err) {
                 box.setContent(box.getContent() + `\n\n  {red-fg}✗ Error: ${err.message}{/red-fg}`);
             }
@@ -391,7 +397,7 @@ AUDIO GRAPH:
   {cyan-fg}INPUT:{/cyan-fg} InRing:${source.getAvailableSamples()} Capturing:${source._isCapturing ? 'Y' : 'N'}
   {cyan-fg}CTX:{/cyan-fg} ${ctx.state} ${ctx.sampleRate}Hz Time:${ctx.currentTime.toFixed(1)}s
   {cyan-fg}SDL:{/cyan-fg} Queued:${queuedSeconds.toFixed(2)}s ${ctx._audioDevice ? (ctx._audioDevice.paused ? 'PAUSED' : 'PLAYING') : 'OFF'}
-  {cyan-fg}GRAPH:{/cyan-fg} Src:${source.nodeId} Dst:${ctx.destination._nodeId || ctx.destination.nodeId} Effect:${effectOutput ? (effectOutput._nodeId || effectOutput.nodeId) : 'N/A'}
+  {cyan-fg}GRAPH:{/cyan-fg} Src:${source.nodeId} Dst:${ctx.destination._nodeId || ctx.destination.nodeId} Effect:${effectOutput ? effectOutput._nodeId || effectOutput.nodeId : 'N/A'}
   {cyan-fg}WASM:{/cyan-fg} State:${source._wasmState} SrcCh:${source._channels} CtxCh:${ctx._channels} Active:${source._isCapturing ? 'Y' : 'N'}
 
   {gray-fg}W=Check WASM | D=Copy debug | Q=Quit{/gray-fg}
@@ -409,7 +415,6 @@ AUDIO GRAPH:
 
         process.on('SIGINT', cleanup);
         process.on('SIGTERM', cleanup);
-
     } catch (error) {
         console.error('❌ Error:', error.message);
         console.error('\nMake sure:');

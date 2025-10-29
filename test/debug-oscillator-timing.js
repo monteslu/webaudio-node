@@ -27,7 +27,7 @@ console.log(`  currentTime: ${context.currentTime}`);
 
 // Start oscillators at 0s, 0.5s, 1.0s
 for (let i = 0; i < 3; i++) {
-    const startTime = context.currentTime + (i * 0.5);
+    const startTime = context.currentTime + i * 0.5;
     console.log(`\nScheduling oscillator ${i + 1} to start at ${startTime.toFixed(3)}`);
     oscillators[i].start(startTime);
     oscillators[i].stop(startTime + 2); // Play for 2 seconds

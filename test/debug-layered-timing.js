@@ -55,7 +55,9 @@ for (let i = 0; i < numInstances; i++) {
     const currentTime = context.currentTime;
     const startTime = currentTime + i;
     sources[i].source.start(startTime);
-    console.log(`  Instance ${i + 1}: currentTime=${currentTime.toFixed(6)}, scheduled at ${startTime.toFixed(6)}`);
+    console.log(
+        `  Instance ${i + 1}: currentTime=${currentTime.toFixed(6)}, scheduled at ${startTime.toFixed(6)}`
+    );
 }
 
 console.log(`\nDEBUG: currentTime after scheduling: ${context.currentTime}`);

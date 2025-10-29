@@ -112,7 +112,10 @@ const benchmarks = [
     { name: 'Multichannel (5.1 surround)', fn: benchmarkMultichannel },
     { name: 'Sample Rates Comparison', fn: benchmarkSampleRates },
     { name: 'Channel Counts Comparison', fn: benchmarkChannelCounts },
-    { name: 'AudioListener (8 sources, 50 position/orientation changes)', fn: benchmarkAudioListener },
+    {
+        name: 'AudioListener (8 sources, 50 position/orientation changes)',
+        fn: benchmarkAudioListener
+    },
     { name: 'Panner Distance Models', fn: benchmarkDistanceModels },
     { name: 'WaveShaper Oversampling Levels', fn: benchmarkOversampling },
     { name: 'Analyser FFT Sizes', fn: benchmarkFFTSizes },
@@ -129,11 +132,7 @@ for (const impl of implementations) {
 
             // Special handling for benchmarks that need AudioContext or mp3 path
             if (benchmark.name === 'MP3 Decode') {
-                result = await benchmark.fn(
-                    impl.AudioContext,
-                    'test/benchmarks/test-audio.mp3',
-                    5
-                );
+                result = await benchmark.fn(impl.AudioContext, 'test/benchmarks/test-audio.mp3', 5);
             } else {
                 // Standard benchmarks use OfflineAudioContext
                 result = await benchmark.fn(impl.OfflineAudioContext);

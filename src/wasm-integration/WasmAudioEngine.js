@@ -6,36 +6,36 @@ import { wasmModule as defaultWasmModule } from './WasmModule.js';
 // Parameter name to ID mapping - matches C++ ParamID enum
 // Eliminates malloc/copy/free overhead on every parameter change
 const PARAM_ID_MAP = {
-    'frequency': 0,
-    'detune': 1,
-    'gain': 2,
-    'Q': 3,
-    'delayTime': 4,
-    'pan': 5,
-    'offset': 6,
-    'type': 7,
-    'playbackOffset': 8,
-    'playbackDuration': 9,
-    'loop': 10,
-    'loopStart': 11,
-    'loopEnd': 12,
-    'refDistance': 13,
-    'maxDistance': 14,
-    'rolloffFactor': 15,
-    'coneInnerAngle': 16,
-    'coneOuterAngle': 17,
-    'coneOuterGain': 18,
-    'threshold': 19,
-    'knee': 20,
-    'ratio': 21,
-    'attack': 22,
-    'release': 23,
-    'positionX': 24,
-    'positionY': 25,
-    'positionZ': 26,
-    'orientationX': 27,
-    'orientationY': 28,
-    'orientationZ': 29
+    frequency: 0,
+    detune: 1,
+    gain: 2,
+    Q: 3,
+    delayTime: 4,
+    pan: 5,
+    offset: 6,
+    type: 7,
+    playbackOffset: 8,
+    playbackDuration: 9,
+    loop: 10,
+    loopStart: 11,
+    loopEnd: 12,
+    refDistance: 13,
+    maxDistance: 14,
+    rolloffFactor: 15,
+    coneInnerAngle: 16,
+    coneOuterAngle: 17,
+    coneOuterGain: 18,
+    threshold: 19,
+    knee: 20,
+    ratio: 21,
+    attack: 22,
+    release: 23,
+    positionX: 24,
+    positionY: 25,
+    positionZ: 26,
+    orientationX: 27,
+    orientationY: 28,
+    orientationZ: 29
 };
 
 // Helper to safely copy data to WASM heap, handling potential memory growth
@@ -50,7 +50,7 @@ function copyToWasmHeap(wasmModule, data, ptr) {
     const heapView = new Float32Array(wasmModule.HEAPU8.buffer, ptr, floatArray.length);
 
     // Validate bounds BEFORE copying
-    if (floatIndex + floatArray.length > (wasmModule.HEAPU8.buffer.byteLength >> 2)) {
+    if (floatIndex + floatArray.length > wasmModule.HEAPU8.buffer.byteLength >> 2) {
         console.error('[copyToWasmHeap ERROR]');
         console.error(`  ptr=${ptr} (0x${ptr.toString(16)})`);
         console.error(`  floatIndex=${floatIndex}`);
@@ -58,7 +58,9 @@ function copyToWasmHeap(wasmModule, data, ptr) {
         console.error(`  required end=${floatIndex + floatArray.length}`);
         console.error(`  heap buffer byteLength=${wasmModule.HEAPU8.buffer.byteLength}`);
         console.error('  Stack trace:', new Error().stack);
-        throw new Error(`copyToWasmHeap: offset ${floatIndex} + length ${floatArray.length} exceeds heap size`);
+        throw new Error(
+            `copyToWasmHeap: offset ${floatIndex} + length ${floatArray.length} exceeds heap size`
+        );
     }
 
     heapView.set(floatArray);
@@ -359,7 +361,12 @@ export class WasmAudioEngine {
         const planarPtr = this.wasmModule._malloc(totalSamples * 4);
 
         // De-interleave in WASM (SIMD-optimized!) instead of JavaScript
-        this.wasmModule._deinterleaveAudio(interleavedPtr, planarPtr, this.length, this.numberOfChannels);
+        this.wasmModule._deinterleaveAudio(
+            interleavedPtr,
+            planarPtr,
+            this.length,
+            this.numberOfChannels
+        );
 
         // Copy planar result to JavaScript array
         const floatIndex = planarPtr >> 2;
