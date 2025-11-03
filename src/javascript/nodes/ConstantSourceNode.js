@@ -26,7 +26,13 @@ export class ConstantSourceNode extends AudioNode {
         }
 
         // Auto-resume context if suspended (browser-like behavior)
-        if (this.context.state === 'suspended') {
+        // Only auto-resume for real-time contexts (not OfflineAudioContext)
+        // OfflineAudioContext has startRendering() method, real-time contexts don't
+        if (
+            this.context.state === 'suspended' &&
+            typeof this.context.resume === 'function' &&
+            typeof this.context.startRendering !== 'function'
+        ) {
             this.context.resume().catch(err => {
                 console.error('[ConstantSourceNode] Failed to auto-resume:', err);
             });

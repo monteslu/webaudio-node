@@ -1,6 +1,6 @@
 {
     "name": "webaudio-node",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "description": "Full-featured Web Audio API for Node.js with WASM and SIMD optimizations",
     "main": "index.js",
     "type": "module",

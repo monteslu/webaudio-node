@@ -55,7 +55,13 @@ export class AudioBufferSourceNode extends AudioNode {
         // Auto-resume context if suspended (browser-like behavior)
         // Note: We call resume() but don't await it to match browser behavior
         // where start() is synchronous but resume happens in the background
-        if (this.context.state === 'suspended') {
+        // Only auto-resume for real-time contexts (not OfflineAudioContext)
+        // OfflineAudioContext has startRendering() method, real-time contexts don't
+        if (
+            this.context.state === 'suspended' &&
+            typeof this.context.resume === 'function' &&
+            typeof this.context.startRendering !== 'function'
+        ) {
             this.context.resume().catch(err => {
                 console.error('[AudioBufferSourceNode] Failed to auto-resume:', err);
             });

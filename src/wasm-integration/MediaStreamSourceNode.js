@@ -69,7 +69,13 @@ export class MediaStreamSourceNode {
         if (this._isCapturing) return;
 
         // Auto-resume context if suspended (browser-like behavior)
-        if (this.context.state === 'suspended') {
+        // Only auto-resume for real-time contexts (not OfflineAudioContext)
+        // OfflineAudioContext has startRendering() method, real-time contexts don't
+        if (
+            this.context.state === 'suspended' &&
+            typeof this.context.resume === 'function' &&
+            typeof this.context.startRendering !== 'function'
+        ) {
             await this.context.resume();
         }
 
