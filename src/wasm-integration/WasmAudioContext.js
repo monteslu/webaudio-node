@@ -247,35 +247,40 @@ export class WasmAudioContext {
     async resume() {
         if (this.state === 'running') return;
 
-        // Get the device to use (null for default, or specific device from sinkId)
-        const device = this._findDeviceBySinkId(this._sinkId);
+        try {
+            // Get the device to use (null for default, or specific device from sinkId)
+            const device = this._findDeviceBySinkId(this._sinkId);
 
-        // Open SDL audio device (queue-based, not callback-based)
-        // Note: buffered must be a power of 2
-        this._audioDevice = sdl.audio.openDevice(device, {
-            type: 'playback',
-            frequency: this.sampleRate,
-            channels: this._channels,
-            format: 'f32',
-            buffered: 65536 // Power of 2 buffer size (2^16 bytes)
-        });
+            // Open SDL audio device (queue-based, not callback-based)
+            // Note: buffered must be a power of 2
+            this._audioDevice = sdl.audio.openDevice(device, {
+                type: 'playback',
+                frequency: this.sampleRate,
+                channels: this._channels,
+                format: 'f32',
+                buffered: 65536 // Power of 2 buffer size (2^16 bytes)
+            });
 
-        this._startTime = Date.now();
-        this.state = 'running';
+            this._startTime = Date.now();
+            this.state = 'running';
 
-        // Pre-allocate reusable buffer for rendering (avoid allocations in hot path)
-        const maxChunkFrames = Math.ceil(this.sampleRate * 0.2); // 200ms max chunks
-        this._renderBuffer = new Float32Array(maxChunkFrames * this._channels);
-        this._renderBufferAsBuffer = Buffer.from(this._renderBuffer.buffer);
+            // Pre-allocate reusable buffer for rendering (avoid allocations in hot path)
+            const maxChunkFrames = Math.ceil(this.sampleRate * 0.2); // 200ms max chunks
+            this._renderBuffer = new Float32Array(maxChunkFrames * this._channels);
+            this._renderBufferAsBuffer = Buffer.from(this._renderBuffer.buffer);
 
-        // Pre-render initial chunk (200ms) before starting playback
-        this._renderAndEnqueueChunk(Math.ceil(this.sampleRate * 0.2));
+            // Pre-render initial chunk (200ms) before starting playback
+            this._renderAndEnqueueChunk(Math.ceil(this.sampleRate * 0.2));
 
-        // Start playback
-        this._audioDevice.play();
+            // Start playback
+            this._audioDevice.play();
 
-        // Start monitoring loop to render more chunks as needed
-        this._monitorLoop();
+            // Start monitoring loop to render more chunks as needed
+            this._monitorLoop();
+        } catch (error) {
+            console.error('[WasmAudioContext] Failed to resume:', error);
+            throw error;
+        }
     }
 
     _renderAndEnqueueChunk(numFrames) {

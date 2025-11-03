@@ -52,6 +52,15 @@ export class AudioBufferSourceNode extends AudioNode {
             throw new Error('Cannot start without a buffer');
         }
 
+        // Auto-resume context if suspended (browser-like behavior)
+        // Note: We call resume() but don't await it to match browser behavior
+        // where start() is synchronous but resume happens in the background
+        if (this.context.state === 'suspended') {
+            this.context.resume().catch(err => {
+                console.error('[AudioBufferSourceNode] Failed to auto-resume:', err);
+            });
+        }
+
         this._started = true;
 
         // Register buffer with engine if not already registered

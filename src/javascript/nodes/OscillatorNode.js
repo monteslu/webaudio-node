@@ -64,6 +64,14 @@ export class OscillatorNode extends AudioNode {
             throw new Error('Cannot call start more than once');
         }
 
+        // Auto-resume context if suspended (browser-like behavior)
+        // Note: We call resume() but don't await it to match browser behavior
+        if (this.context.state === 'suspended') {
+            this.context.resume().catch(err => {
+                console.error('[OscillatorNode] Failed to auto-resume:', err);
+            });
+        }
+
         this._started = true;
         this.context._engine.startNode(this._nodeId, when);
     }

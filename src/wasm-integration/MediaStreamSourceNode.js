@@ -68,6 +68,11 @@ export class MediaStreamSourceNode {
     async start(deviceOverride) {
         if (this._isCapturing) return;
 
+        // Auto-resume context if suspended (browser-like behavior)
+        if (this.context.state === 'suspended') {
+            await this.context.resume();
+        }
+
         // Allow passing device object directly (for CLI device picker)
         const device = deviceOverride || this._findInputDevice();
 

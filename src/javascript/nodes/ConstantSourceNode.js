@@ -25,6 +25,13 @@ export class ConstantSourceNode extends AudioNode {
             throw new Error('Cannot call start more than once');
         }
 
+        // Auto-resume context if suspended (browser-like behavior)
+        if (this.context.state === 'suspended') {
+            this.context.resume().catch(err => {
+                console.error('[ConstantSourceNode] Failed to auto-resume:', err);
+            });
+        }
+
         this._started = true;
         this.context._engine.startNode(this._nodeId, when);
     }
