@@ -22,7 +22,7 @@ import { AudioBuffer } from '../javascript/AudioBuffer.js';
 import { PeriodicWave } from '../javascript/PeriodicWave.js';
 import { WasmAudioDecoders } from './WasmAudioDecoders.js';
 import { MediaStreamSourceNode } from './MediaStreamSourceNode.js';
-import sdl from '@kmamal/sdl';
+import { getSdl } from '../sdl-init.js';
 
 // Simple hash function for generating stable device IDs
 function hashString(str) {
@@ -42,7 +42,7 @@ export class WasmAudioContext {
         if (!options.sampleRate) {
             try {
                 // Open a temporary device to detect system sample rate
-                const tempDevice = sdl.audio.openDevice({ type: 'playback' });
+                const tempDevice = getSdl().audio.openDevice({ type: 'playback' });
                 defaultSampleRate = tempDevice.frequency || 44100;
                 tempDevice.close();
             } catch (err) {
@@ -82,7 +82,7 @@ export class WasmAudioContext {
     // Returns both audioinput and audiooutput devices
     static enumerateDevices() {
         try {
-            const devices = sdl.audio.devices || [];
+            const devices = getSdl().audio.devices || [];
             return devices.map(device => ({
                 deviceId: hashString(device.name),
                 kind: device.type === 'recording' ? 'audioinput' : 'audiooutput',
@@ -104,7 +104,7 @@ export class WasmAudioContext {
             }
 
             // Find specific device by sinkId
-            const devices = sdl.audio.devices || [];
+            const devices = getSdl().audio.devices || [];
             for (const device of devices) {
                 if (hashString(device.name) === sinkId) {
                     return device;
@@ -141,7 +141,7 @@ export class WasmAudioContext {
 
             // Re-open with new device
             const device = this._findDeviceBySinkId(sinkId);
-            this._audioDevice = sdl.audio.openDevice(device, {
+            this._audioDevice = getSdl().audio.openDevice(device, {
                 type: 'playback',
                 frequency: this.sampleRate,
                 channels: this._channels,
@@ -253,7 +253,7 @@ export class WasmAudioContext {
 
             // Open SDL audio device (queue-based, not callback-based)
             // Note: buffered must be a power of 2
-            this._audioDevice = sdl.audio.openDevice(device, {
+            this._audioDevice = getSdl().audio.openDevice(device, {
                 type: 'playback',
                 frequency: this.sampleRate,
                 channels: this._channels,

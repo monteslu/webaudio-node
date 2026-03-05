@@ -10,7 +10,7 @@ import { WasmAudioDecoders } from './wasm-integration/WasmAudioDecoders.js';
 import { AudioDestinationNode } from './javascript/nodes/AudioDestinationNode.js';
 import { AudioListener } from './javascript/AudioListener.js';
 import { AudioBuffer } from './javascript/AudioBuffer.js';
-import sdl from '@kmamal/sdl';
+import { getSdl } from './sdl-init.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, '..');
@@ -116,7 +116,7 @@ export async function createWebAudioInstance() {
             let defaultSampleRate = 44100;
             if (!options.sampleRate) {
                 try {
-                    const tempDevice = sdl.audio.openDevice({ type: 'playback' });
+                    const tempDevice = getSdl().audio.openDevice({ type: 'playback' });
                     defaultSampleRate = tempDevice.frequency || 44100;
                     tempDevice.close();
                 } catch (err) {

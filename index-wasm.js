@@ -1,4 +1,5 @@
 // WASM-based WebAudio implementation
+export { setSdl, getSdl } from './src/sdl-init.js';
 export { WasmAudioContext as AudioContext } from './src/wasm-integration/WasmAudioContext.js';
 export { WasmOfflineAudioContext as OfflineAudioContext } from './src/wasm-integration/WasmOfflineAudioContext.js';
 export { AudioBuffer } from './src/javascript/AudioBuffer.js';

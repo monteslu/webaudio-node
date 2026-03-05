@@ -1,7 +1,7 @@
 // MediaStreamSourceNode - Captures audio from input devices
 // Browser-compatible API for audio input using SDL with WASM processing
 
-import sdl from '@kmamal/sdl';
+import { getSdl } from '../sdl-init.js';
 import { wasmModule } from './WasmModule.js';
 
 // Helper to find SDL device by hashed ID
@@ -55,7 +55,7 @@ export class MediaStreamSourceNode {
         }
 
         // Find specific device by deviceId
-        const devices = sdl.audio.devices || [];
+        const devices = getSdl().audio.devices || [];
         for (const device of devices) {
             if (device.type === 'recording' && hashString(device.name) === this._deviceId) {
                 return device;
@@ -83,7 +83,7 @@ export class MediaStreamSourceNode {
         const device = deviceOverride || this._findInputDevice();
 
         // Open SDL recording device (recording uses dequeue, not callbacks)
-        this._inputDevice = sdl.audio.openDevice(device, {
+        this._inputDevice = getSdl().audio.openDevice(device, {
             channels: this._channels,
             frequency: this._sampleRate,
             format: 'f32',
