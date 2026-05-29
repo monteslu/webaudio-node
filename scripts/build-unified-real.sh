@@ -60,6 +60,7 @@ EXPORTED_FUNCTIONS='[
     "_scheduleParameterValue",
     "_scheduleParameterRamp",
     "_processGraph",
+    "_deinterleaveAudio",
     "_getGraphCurrentTime",
     "_setGraphCurrentTime",
     "_decodeMP3",

@@ -74,15 +74,18 @@ export class AudioBufferSourceNode extends AudioNode {
             this.context._registeredBuffers = new Set();
         }
 
-        if (!this.context._registeredBuffers.has(this.buffer._id)) {
+        const registeredBufferKey = `${this.buffer._id}:${this.context.sampleRate}`;
+
+        if (!this.context._registeredBuffers.has(registeredBufferKey)) {
             const bufferData = this.buffer._getInterleavedData();
             this.context._engine.registerBuffer(
                 this.buffer._id,
                 bufferData,
                 this.buffer.length,
-                this.buffer.numberOfChannels
+                this.buffer.numberOfChannels,
+                this.buffer.sampleRate
             );
-            this.context._registeredBuffers.add(this.buffer._id);
+            this.context._registeredBuffers.add(registeredBufferKey);
         }
 
         // Set buffer ID (not data) in native code

@@ -2,6 +2,7 @@
 // All heavy lifting (graph traversal, mixing, processing) is done in WASM
 
 import { wasmModule as defaultWasmModule } from './WasmModule.js';
+import { WasmAudioDecoders } from './WasmAudioDecoders.js';
 
 // Parameter name to ID mapping - matches C++ ParamID enum
 // Eliminates malloc/copy/free overhead on every parameter change
@@ -195,14 +196,36 @@ export class WasmAudioEngine {
         this.wasmModule._stopNode(this.graphId, nodeId, when);
     }
 
-    registerBuffer(bufferId, bufferData, length, channels) {
-        const totalSamples = length * channels;
+    registerBuffer(bufferId, bufferData, length, channels, sourceSampleRate = this.sampleRate) {
+        let registeredBuffer = {
+            audioData: bufferData,
+            length
+        };
+
+        if (sourceSampleRate !== this.sampleRate) {
+            registeredBuffer = WasmAudioDecoders.resampleAudio(
+                this.wasmModule,
+                bufferData,
+                length,
+                channels,
+                sourceSampleRate,
+                this.sampleRate
+            );
+        }
+
+        const totalSamples = registeredBuffer.length * channels;
         const bufferPtr = this.wasmModule._malloc(totalSamples * 4);
 
         // Use HEAPF32.set() with subarray (avoids alignment issues and is fast)
-        copyToWasmHeap(this.wasmModule, bufferData, bufferPtr);
+        copyToWasmHeap(this.wasmModule, registeredBuffer.audioData, bufferPtr);
 
-        this.wasmModule._registerBuffer(this.graphId, bufferId, bufferPtr, length, channels);
+        this.wasmModule._registerBuffer(
+            this.graphId,
+            bufferId,
+            bufferPtr,
+            registeredBuffer.length,
+            channels
+        );
         // Don't free - WASM keeps a reference
     }
 
