@@ -1,6 +1,5 @@
 import { AudioNode } from '../AudioNode.js';
 import { AudioParam } from '../AudioParam.js';
-import { WasmAudioDecoders } from '../../wasm-integration/WasmAudioDecoders.js';
 
 export class AudioBufferSourceNode extends AudioNode {
     constructor(context, options = {}) {
@@ -79,26 +78,12 @@ export class AudioBufferSourceNode extends AudioNode {
 
         if (!this.context._registeredBuffers.has(registeredBufferKey)) {
             const bufferData = this.buffer._getInterleavedData();
-            const registeredBuffer =
-                this.buffer.sampleRate === this.context.sampleRate
-                    ? {
-                        audioData: bufferData,
-                        length: this.buffer.length
-                    }
-                    : WasmAudioDecoders.resampleAudio(
-                        this.context._engine.wasmModule,
-                        bufferData,
-                        this.buffer.length,
-                        this.buffer.numberOfChannels,
-                        this.buffer.sampleRate,
-                        this.context.sampleRate
-                    );
-
             this.context._engine.registerBuffer(
                 this.buffer._id,
-                registeredBuffer.audioData,
-                registeredBuffer.length,
-                this.buffer.numberOfChannels
+                bufferData,
+                this.buffer.length,
+                this.buffer.numberOfChannels,
+                this.buffer.sampleRate
             );
             this.context._registeredBuffers.add(registeredBufferKey);
         }
