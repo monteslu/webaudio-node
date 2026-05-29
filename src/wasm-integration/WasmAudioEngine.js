@@ -197,20 +197,21 @@ export class WasmAudioEngine {
     }
 
     registerBuffer(bufferId, bufferData, length, channels, sourceSampleRate = this.sampleRate) {
-        const registeredBuffer =
-            sourceSampleRate === this.sampleRate
-                ? {
-                    audioData: bufferData,
-                    length
-                }
-                : WasmAudioDecoders.resampleAudio(
-                    this.wasmModule,
-                    bufferData,
-                    length,
-                    channels,
-                    sourceSampleRate,
-                    this.sampleRate
-                );
+        let registeredBuffer = {
+            audioData: bufferData,
+            length
+        };
+
+        if (sourceSampleRate !== this.sampleRate) {
+            registeredBuffer = WasmAudioDecoders.resampleAudio(
+                this.wasmModule,
+                bufferData,
+                length,
+                channels,
+                sourceSampleRate,
+                this.sampleRate
+            );
+        }
 
         const totalSamples = registeredBuffer.length * channels;
         const bufferPtr = this.wasmModule._malloc(totalSamples * 4);

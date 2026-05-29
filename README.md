@@ -44,7 +44,7 @@ npm install webaudio-node
 
 ### Requirements
 
-- Node.js 20+
+- Node.js 22+
 - No build step required - uses pre-compiled WASM
 
 ## 🎵 CLI Usage

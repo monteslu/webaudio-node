@@ -378,10 +378,8 @@ console.log('\nTest 18: AudioBufferSourceNode Resampling');
 
     const rendered = await ctx.startRendering();
     const data = rendered.getChannelData(0);
-    const earlyAverage =
-        data.subarray(100, 500).reduce((sum, value) => sum + value, 0) / 400;
-    const lateAverage =
-        data.subarray(1400, 1800).reduce((sum, value) => sum + value, 0) / 400;
+    const earlyAverage = data.subarray(100, 500).reduce((sum, value) => sum + value, 0) / 400;
+    const lateAverage = data.subarray(1400, 1800).reduce((sum, value) => sum + value, 0) / 400;
 
     assert(data.length === outputLength, 'Output length matches resampled duration');
     assert(rendered.sampleRate === outputSampleRate, 'Output sample rate is context sample rate');
