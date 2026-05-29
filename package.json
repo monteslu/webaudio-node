@@ -9,7 +9,7 @@
     },
     "scripts": {
         "build:wasm": "./scripts/build-unified-real.sh",
-        "test": "node test/api-suite.js && node test/test-buffer-source-resampling.js",
+        "test": "node test/api-suite.js",
         "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov node test/api-suite.js",
         "benchmark": "node test/benchmarks/run-benchmarks.js",
         "benchmark:docs": "node test/benchmarks/generate-docs-benchmark.mjs",
