@@ -19,14 +19,21 @@
 #define EXPORT
 #include "../vendor/resample.c"
 
-// Stub out POSIX file I/O functions for uaac.h MP4 parsing (which we don't use)
-// These are only needed for compilation; they won't be called since we decode raw AAC data
-extern "C" {
-    ssize_t read(int fd, void *buf, size_t count) { return -1; }
-    off_t lseek(int fd, off_t offset, int whence) { return -1; }
-}
+// uaac.h's MP4 parsing references POSIX read/lseek (unused — we decode raw AAC).
+// Provide them ONLY for uaac via #define, scoped to the include. The previous
+// version defined GLOBAL extern "C" read/lseek, which SHADOWED libc read/lseek for
+// the entire module — any other code (or an embedder) doing real file/fd I/O would
+// silently get -1. Scope the stubs so libc read/lseek are untouched everywhere
+// else.
+static ssize_t uaac_stub_read(int, void*, size_t) { return -1; }
+static off_t uaac_stub_lseek(int, off_t, int) { return -1; }
+#define read uaac_stub_read
+#define lseek uaac_stub_lseek
 
 #include "../vendor/uaac.h"
+
+#undef read
+#undef lseek
 
 #include <emscripten.h>
 #include <cstdlib>
