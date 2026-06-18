@@ -57,8 +57,7 @@ EXPORTED_FUNCTIONS='[
     "_setWaveShaperOversample",
     "_setNodePeriodicWave",
     "_setNodeProperty",
-    "_scheduleParameterValue",
-    "_scheduleParameterRamp",
+    "_scheduleParamEvent",
     "_processGraph",
     "_deinterleaveAudio",
     "_getGraphCurrentTime",
@@ -90,6 +89,7 @@ echo "This may take a minute due to audio decoder libraries..."
 # Compile everything together - ALL nodes + utils + graph + decoders + media stream
 emcc $CXXFLAGS $INCLUDES \
     src/wasm/utils/fft.cpp \
+    src/wasm/utils/audio_param.cpp \
     src/wasm/nodes/oscillator_node.cpp \
     src/wasm/nodes/gain_node.cpp \
     src/wasm/nodes/buffer_source_node.cpp \

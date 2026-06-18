@@ -181,61 +181,60 @@ float getParamValueAtTime(AudioParamState* state, double time, int sample_rate) 
     std::sort(state->events.begin(), state->events.end(),
         [](const AutomationEvent& a, const AutomationEvent& b) { return a.time < b.time; });
 
-    // Find the active event at this time
-    float value = state->current_value;
-    AutomationEvent* prev_event = nullptr;
+    // Walk the timeline tracking (prevTime, prevValue) = the value just AFTER the
+    // last event at or before `time`. Crucially, when `time` falls INSIDE a ramp
+    // (i.e. the next event is a ramp ending in the future), interpolate toward it
+    // — the previous version broke on the first future event and so only applied
+    // ramps AFTER they ended (a step, not a glide).
+    float prevValue = state->current_value;
+    double prevTime = -1e300;
 
-    for (auto& event : state->events) {
-        if (event.time > time) {
-            break;
+    for (size_t i = 0; i < state->events.size(); ++i) {
+        AutomationEvent& e = state->events[i];
+
+        if (e.time > time) {
+            // We're between prevTime and this future event — interpolate if it's a
+            // ramp (ramps interpolate from prevValue starting at prevTime).
+            if (e.type == EventType::LINEAR_RAMP) {
+                double span = e.time - prevTime;
+                if (span <= 0) return ClampValue(e.value, state->min_value, state->max_value);
+                double t = std::max(0.0, std::min(1.0, (time - prevTime) / span));
+                return ClampValue((float)(prevValue + t * (e.value - prevValue)),
+                                  state->min_value, state->max_value);
+            }
+            if (e.type == EventType::EXPONENTIAL_RAMP) {
+                double span = e.time - prevTime;
+                if (span <= 0 || prevValue <= 0.0f || e.value <= 0.0f)
+                    return ClampValue(prevValue, state->min_value, state->max_value);
+                double t = std::max(0.0, std::min(1.0, (time - prevTime) / span));
+                return ClampValue((float)(prevValue * std::pow((double)e.value / prevValue, t)),
+                                  state->min_value, state->max_value);
+            }
+            // SET_VALUE / SET_CURVE take effect AT their time; before that, hold.
+            // SET_TARGET starts AT its time; before that, hold.
+            return ClampValue(prevValue, state->min_value, state->max_value);
         }
 
-        switch (event.type) {
+        // e.time <= time: this event has taken effect; advance (prevTime,prevValue).
+        switch (e.type) {
             case EventType::SET_VALUE:
-                value = event.value;
-                state->last_computed_value = value;
-                state->last_time = event.time;
-                break;
-
             case EventType::LINEAR_RAMP:
-                if (prev_event) {
-                    double t = (time - prev_event->time) / (event.time - prev_event->time);
-                    t = std::max(0.0, std::min(1.0, t));
-                    value = state->last_computed_value + t * (event.value - state->last_computed_value);
-                } else {
-                    value = event.value;
-                }
-                break;
-
             case EventType::EXPONENTIAL_RAMP:
-                if (prev_event && state->last_computed_value > 0.0f && event.value > 0.0f) {
-                    double t = (time - prev_event->time) / (event.time - prev_event->time);
-                    t = std::max(0.0, std::min(1.0, t));
-                    value = state->last_computed_value * std::pow(event.value / state->last_computed_value, t);
-                } else {
-                    value = event.value;
-                }
-                break;
-
-            case EventType::SET_TARGET:
-                {
-                    double elapsed = time - event.time;
-                    if (elapsed >= 0.0) {
-                        float target = event.value;
-                        double tau = event.time_constant;
-                        value = target + (state->last_computed_value - target) * std::exp(-elapsed / tau);
-                    }
-                }
-                break;
-
             case EventType::SET_CURVE:
-                // TODO: Implement curve automation
-                value = event.value;
+                prevValue = e.value;
+                prevTime = e.time;
                 break;
+            case EventType::SET_TARGET: {
+                double elapsed = time - e.time;
+                double tau = e.time_constant > 1e-9 ? e.time_constant : 1e-9;
+                prevValue = (float)(e.value + (prevValue - e.value) * std::exp(-elapsed / tau));
+                prevTime = time;  // continuous; value already advanced to `time`
+                break;
+            }
         }
-
-        prev_event = &event;
     }
+
+    float value = prevValue;
 
     return ClampValue(value, state->min_value, state->max_value);
 }
