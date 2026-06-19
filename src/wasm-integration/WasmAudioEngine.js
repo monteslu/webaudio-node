@@ -178,16 +178,48 @@ export class WasmAudioEngine {
         // 4 cancelScheduledValues/cancelAndHoldAtTime.
         switch (kind) {
             case 'setValueAtTime':
-                this.wasmModule._scheduleParamEvent(this.graphId, nodeId, paramId, 0, value, time, 0);
+                this.wasmModule._scheduleParamEvent(
+                    this.graphId,
+                    nodeId,
+                    paramId,
+                    0,
+                    value,
+                    time,
+                    0
+                );
                 return;
             case 'linearRampToValueAtTime':
-                this.wasmModule._scheduleParamEvent(this.graphId, nodeId, paramId, 1, value, time, 0);
+                this.wasmModule._scheduleParamEvent(
+                    this.graphId,
+                    nodeId,
+                    paramId,
+                    1,
+                    value,
+                    time,
+                    0
+                );
                 return;
             case 'exponentialRampToValueAtTime':
-                this.wasmModule._scheduleParamEvent(this.graphId, nodeId, paramId, 2, value, time, 0);
+                this.wasmModule._scheduleParamEvent(
+                    this.graphId,
+                    nodeId,
+                    paramId,
+                    2,
+                    value,
+                    time,
+                    0
+                );
                 return;
             case 'setTargetAtTime':
-                this.wasmModule._scheduleParamEvent(this.graphId, nodeId, paramId, 3, value, time, extra || 0);
+                this.wasmModule._scheduleParamEvent(
+                    this.graphId,
+                    nodeId,
+                    paramId,
+                    3,
+                    value,
+                    time,
+                    extra || 0
+                );
                 return;
             case 'cancelScheduledValues':
             case 'cancelAndHoldAtTime':
@@ -198,15 +230,32 @@ export class WasmAudioEngine {
                 // Approximate a value curve as setValueAtTime points across
                 // [time, time+duration]. value=array, time=start, extra=duration.
                 if (Array.isArray(value) && value.length > 0 && extra > 0) {
-                    const n = value.length, dur = extra;
+                    const n = value.length,
+                        dur = extra;
                     for (let i = 0; i < n; i++) {
                         const tt = time + (dur * i) / (n - 1 || 1);
-                        this.wasmModule._scheduleParamEvent(this.graphId, nodeId, paramId, 0, value[i], tt, 0);
+                        this.wasmModule._scheduleParamEvent(
+                            this.graphId,
+                            nodeId,
+                            paramId,
+                            0,
+                            value[i],
+                            tt,
+                            0
+                        );
                     }
                 }
                 return;
             default:
-                this.wasmModule._scheduleParamEvent(this.graphId, nodeId, paramId, 0, value, time, 0);
+                this.wasmModule._scheduleParamEvent(
+                    this.graphId,
+                    nodeId,
+                    paramId,
+                    0,
+                    value,
+                    time,
+                    0
+                );
                 return;
         }
     }
