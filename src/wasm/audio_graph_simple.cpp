@@ -298,9 +298,15 @@ int createAudioGraph(int sample_rate, int channels, int buffer_size, bool is_rea
     graph->realtime_start_sample = 0;
     graph->realtime_time_initialized = false;
 
-    // Pre-allocate processing buffers (assume max 128 frames for Web Audio quantum)
+    // Pre-allocate processing buffers (assume max 128 frames for Web Audio quantum).
+    // BOTH temp_buffer AND mix_buffer must be sized — mix_buffer is the scratch for
+    // the source->gain->destination path (processNode type-2 branch). It was left
+    // empty here and the resize in processGraph only ran when frame_count changed
+    // from 128 (which it never does), so it stayed size 0 and writing a
+    // buffer-source-through-gain into mix_buffer.data() overran -> SIGSEGV.
     graph->current_frame_count = 128;
     graph->temp_buffer.resize(128 * channels);
+    graph->mix_buffer.resize(128 * channels);
 
     // Create destination
     Node dest;
@@ -955,13 +961,16 @@ void processGraph(int graph_id, float* output, int frame_count) {
     // Clear cache for next frame
     graph->node_buffers.clear();
 
-    // Ensure temp_buffer and mix_buffer are large enough
+    // Ensure temp_buffer and mix_buffer are large enough. Grow if the requested
+    // block is bigger than what we have (< not !=, so we never under-size; both
+    // grown together).
     const int buffer_size = frame_count * graph->channels;
-    if (graph->current_frame_count != frame_count) {
-        graph->current_frame_count = frame_count;
+    if ((int)graph->temp_buffer.size() < buffer_size ||
+        (int)graph->mix_buffer.size() < buffer_size) {
         graph->temp_buffer.resize(buffer_size);
         graph->mix_buffer.resize(buffer_size);
     }
+    graph->current_frame_count = frame_count;
 
     // Process destination node (pulls entire graph)
     processNode(graph, graph->dest_id, output, frame_count);
@@ -1080,9 +1089,21 @@ void registerBuffer(int graph_id, int buffer_id, float* buffer_data, int buffer_
 
     AudioGraph* graph = it->second;
 
-    // Store buffer data in registry
+    // COPY the buffer data — own it. buffer_data points into a JS-managed typed
+    // array on the WASM heap; aliasing it and then free()ing it in destroyAudioGraph
+    // (which frees bd.data) is an invalid free of memory we didn't malloc, and the
+    // JS array may be collected/reused out from under us. Copy it (free any prior
+    // buffer for the same id first), guard bad sizes.
+    if (!buffer_data || buffer_frames <= 0 || buffer_channels <= 0) return;
+    size_t total = (size_t)buffer_frames * (size_t)buffer_channels;
+    auto existing = graph->buffers.find(buffer_id);
+    if (existing != graph->buffers.end() && existing->second.data) {
+        free(existing->second.data);
+    }
     BufferData bd;
-    bd.data = buffer_data;  // Pointer to WASM heap, not copied
+    bd.data = (float*)malloc(total * sizeof(float));
+    if (!bd.data) return;
+    memcpy(bd.data, buffer_data, total * sizeof(float));
     bd.frames = buffer_frames;
     bd.channels = buffer_channels;
 

@@ -63,6 +63,15 @@ export class WasmAudioContext {
             true // isRealtime - time managed by JavaScript
         );
 
+        // Route AudioBuffer's lazy de-interleave (getChannelData) through the WASM
+        // SIMD deinterleave instead of a JS per-sample loop.
+        const wasmModule = this._engine.wasmModule;
+        AudioBuffer._deinterleave = (interleaved, planar, frames, channels) => {
+            planar.set(
+                WasmAudioDecoders.deinterleaveAudio(wasmModule, interleaved, frames, channels)
+            );
+        };
+
         // Create destination node immediately
         const destNodeId = this._engine.createNode('destination');
         this.destination = new AudioDestinationNode(this, destNodeId);
@@ -363,16 +372,10 @@ export class WasmAudioContext {
                 sampleRate: this.sampleRate
             });
 
-            // De-interleave audio data into separate channels
-            for (let ch = 0; ch < decoded.channels; ch++) {
-                const channelData = audioBuffer._channels[ch];
-                for (let frame = 0; frame < decoded.length; frame++) {
-                    channelData[frame] = decoded.audioData[frame * decoded.channels + ch];
-                }
-            }
-
-            // Regenerate interleaved buffer from channels
-            audioBuffer._updateInternalBuffer();
+            // The decoder already returns interleaved float — adopt it directly
+            // instead of a per-sample de-interleave + re-interleave (millions of JS
+            // iterations for long tracks). _channels stay lazy.
+            audioBuffer._setInterleavedBuffer(decoded.audioData);
 
             if (successCallback) {
                 successCallback(audioBuffer);

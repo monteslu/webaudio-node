@@ -12,20 +12,60 @@ export class AudioBuffer {
         // Unique buffer ID for sharing
         this._id = nextBufferId++;
 
-        // Internal buffer storage (Float32 interleaved)
+        // Internal buffer storage (Float32 interleaved). _channels (the
+        // de-interleaved per-channel views) are allocated LAZILY — building them
+        // up front is a giant per-sample loop, and most decoded buffers (music,
+        // SFX) are only ever played, never read via getChannelData(). See
+        // _ensureChannels().
         this._buffer = null;
-        this._channels = [];
+        this._channels = null;
+    }
 
-        // Initialize channel data
-        for (let i = 0; i < numberOfChannels; i++) {
-            this._channels.push(new Float32Array(length));
+    // Allocate + fill the de-interleaved per-channel arrays on demand. Cheap to
+    // skip entirely for decode→play; only paid when a game actually reads samples.
+    _ensureChannels() {
+        if (this._channels) return;
+        this._channels = [];
+        for (let i = 0; i < this.numberOfChannels; i++) {
+            this._channels.push(new Float32Array(this.length));
         }
+        // If we were created from a pre-interleaved buffer (decodeAudioData),
+        // de-interleave it into the channel views. Prefer the engine's native
+        // (SIMD in WASM) deinterleave via the AudioBuffer._deinterleave hook the
+        // platform layer installs; fall back to a JS loop if it isn't set.
+        if (this._buffer) {
+            const n = this.numberOfChannels;
+            const frames = this.length;
+            if (AudioBuffer._deinterleave) {
+                // Native writes channel-concatenated planar [c0..., c1..., ...];
+                // copy each channel slice into its Float32Array view.
+                const planar = new Float32Array(frames * n);
+                AudioBuffer._deinterleave(this._buffer, planar, frames, n);
+                for (let ch = 0; ch < n; ch++) {
+                    this._channels[ch].set(planar.subarray(ch * frames, (ch + 1) * frames));
+                }
+            } else {
+                for (let frame = 0; frame < frames; frame++) {
+                    for (let ch = 0; ch < n; ch++) {
+                        this._channels[ch][frame] = this._buffer[frame * n + ch];
+                    }
+                }
+            }
+        }
+    }
+
+    // Fast path for decoders: adopt an already-interleaved Float32Array as the
+    // internal buffer directly, skipping the de-interleave + re-interleave loops
+    // entirely. _channels stay lazy.
+    _setInterleavedBuffer(interleaved) {
+        this._buffer = interleaved;
     }
 
     getChannelData(channel) {
         if (channel < 0 || channel >= this.numberOfChannels) {
             throw new Error('Invalid channel index');
         }
+        this._ensureChannels();
         return this._channels[channel];
     }
 
@@ -33,7 +73,7 @@ export class AudioBuffer {
         if (channelNumber < 0 || channelNumber >= this.numberOfChannels) {
             throw new Error('Invalid channel number');
         }
-
+        this._ensureChannels();
         const channel = this._channels[channelNumber];
         const len = Math.min(destination.length, channel.length - startInChannel);
 
@@ -46,7 +86,7 @@ export class AudioBuffer {
         if (channelNumber < 0 || channelNumber >= this.numberOfChannels) {
             throw new Error('Invalid channel number');
         }
-
+        this._ensureChannels();
         const channel = this._channels[channelNumber];
         const len = Math.min(source.length, channel.length - startInChannel);
 
@@ -58,32 +98,31 @@ export class AudioBuffer {
     }
 
     _updateInternalBuffer() {
-        // Create interleaved buffer for native/WASM code
+        // Re-interleave the per-channel views into _buffer for the native engine.
+        // Only reached when the game wrote samples via copyToChannel / getChannelData
+        // (i.e. _channels exist). Decoded buffers skip this entirely (they keep the
+        // interleaved buffer the decoder produced — see _setInterleavedBuffer).
+        if (!this._channels) return;
         const totalSamples = this.length * this.numberOfChannels;
-
-        // Use Float32Array for compatibility with both Node and WASM
         if (!this._buffer || this._buffer.length !== totalSamples) {
             this._buffer = new Float32Array(totalSamples);
         }
-
-        // Interleave channels
         for (let frame = 0; frame < this.length; frame++) {
             for (let ch = 0; ch < this.numberOfChannels; ch++) {
-                const value = this._channels[ch][frame];
-                const offset = frame * this.numberOfChannels + ch;
-                this._buffer[offset] = value;
+                this._buffer[frame * this.numberOfChannels + ch] = this._channels[ch][frame];
             }
         }
     }
 
     _getInterleavedData() {
+        // Fast path: a decoder already handed us the interleaved buffer — return it
+        // as-is (no per-sample loop). Otherwise build it from the channel views.
+        if (this._buffer && !this._channels) return this._buffer;
         if (!this._buffer) {
+            // No interleaved buffer yet: either channels were written, or this is an
+            // empty buffer. Materialize channels (empty) then interleave.
+            this._ensureChannels();
             this._updateInternalBuffer();
-        }
-        // For Node Buffer compatibility, convert Float32Array to Buffer if needed
-        if (typeof Buffer !== 'undefined' && !(this._buffer instanceof Buffer)) {
-            // Keep as Float32Array for WASM, or could convert to Buffer for Node if needed
-            return this._buffer;
         }
         return this._buffer;
     }

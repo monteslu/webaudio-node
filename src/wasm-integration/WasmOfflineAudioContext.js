@@ -215,16 +215,11 @@ export class WasmOfflineAudioContext {
                 sampleRate: this.sampleRate
             });
 
-            // De-interleave audio data into separate channels
-            for (let ch = 0; ch < decoded.channels; ch++) {
-                const channelData = audioBuffer._channels[ch];
-                for (let frame = 0; frame < decoded.length; frame++) {
-                    channelData[frame] = decoded.audioData[frame * decoded.channels + ch];
-                }
-            }
-
-            // Regenerate interleaved buffer from channels
-            audioBuffer._updateInternalBuffer();
+            // The decoder already returns interleaved float — adopt it directly
+            // instead of a per-sample de-interleave + re-interleave (which, for
+            // multi-minute tracks, is tens of millions of JS iterations blocking
+            // the caller). _channels stay lazy (only built if getChannelData reads).
+            audioBuffer._setInterleavedBuffer(decoded.audioData);
 
             if (successCallback) {
                 successCallback(audioBuffer);
