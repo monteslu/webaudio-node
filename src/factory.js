@@ -21,6 +21,14 @@ export async function createWebAudioInstance() {
         .default;
     const freshWasmModule = await createUnifiedWebAudioModule();
 
+    // Route AudioBuffer's lazy de-interleave (getChannelData) through the WASM SIMD
+    // deinterleave for this fresh module.
+    AudioBuffer._deinterleave = (interleaved, planar, frames, channels) => {
+        planar.set(
+            WasmAudioDecoders.deinterleaveAudio(freshWasmModule, interleaved, frames, channels)
+        );
+    };
+
     // Create isolated context classes
     // These inherit all methods from the parent class but initialize with fresh WASM module
     const IsolatedOfflineAudioContext = class extends WasmOfflineAudioContext {
@@ -85,14 +93,9 @@ export async function createWebAudioInstance() {
                     sampleRate: this.sampleRate
                 });
 
-                for (let ch = 0; ch < decoded.channels; ch++) {
-                    const channelData = audioBuffer._channels[ch];
-                    for (let frame = 0; frame < decoded.length; frame++) {
-                        channelData[frame] = decoded.audioData[frame * decoded.channels + ch];
-                    }
-                }
-
-                audioBuffer._updateInternalBuffer();
+                // Adopt the decoder's interleaved buffer directly (no per-sample
+                // de-interleave loop); _channels stay lazy.
+                audioBuffer._setInterleavedBuffer(decoded.audioData);
 
                 if (successCallback) {
                     successCallback(audioBuffer);
@@ -169,14 +172,9 @@ export async function createWebAudioInstance() {
                     sampleRate: this.sampleRate
                 });
 
-                for (let ch = 0; ch < decoded.channels; ch++) {
-                    const channelData = audioBuffer._channels[ch];
-                    for (let frame = 0; frame < decoded.length; frame++) {
-                        channelData[frame] = decoded.audioData[frame * decoded.channels + ch];
-                    }
-                }
-
-                audioBuffer._updateInternalBuffer();
+                // Adopt the decoder's interleaved buffer directly (no per-sample
+                // de-interleave loop); _channels stay lazy.
+                audioBuffer._setInterleavedBuffer(decoded.audioData);
 
                 if (successCallback) {
                     successCallback(audioBuffer);
