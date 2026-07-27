@@ -111,8 +111,45 @@ export class WasmAudioEngine {
         this.wasmModule._free(paramNamePtr);
     }
 
-    disconnectNode(_nodeId) {
-        // TODO: Implement disconnect in WASM
+    /**
+     * Disconnect a source node from one destination, or from all of them.
+     *
+     * @param {number} nodeId  the source
+     * @param {number} [destId] a specific destination; omit to disconnect
+     *                          the source from everything it feeds
+     */
+    disconnectNodes(nodeId, destId) {
+        this.wasmModule._disconnectNodes(
+            this.graphId,
+            nodeId,
+            destId === undefined ? -1 : destId
+        );
+    }
+
+    /** Back-compat alias: disconnect this node from every destination. */
+    disconnectNode(nodeId) {
+        this.disconnectNodes(nodeId, undefined);
+    }
+
+    /**
+     * disconnect(output) — drop everything fed from one output index.
+     *
+     * The graph stores connections as dest -> [sources] with no per-output
+     * fan-out, so output 0 (the only one every built-in node has) is the whole
+     * node. Higher indices only exist on ChannelSplitter, where this would
+     * need the connection record to carry the index; until then they are a
+     * no-op rather than a silent full disconnect, which would be worse.
+     */
+    disconnectOutput(nodeId, outputIndex) {
+        if (outputIndex === 0) this.disconnectNodes(nodeId, undefined);
+    }
+
+    /**
+     * disconnect(audioParam) — param connections are not modelled yet
+     * (connectToParam is itself still a stub), so there is nothing to undo.
+     */
+    disconnectFromParam(_nodeId, _destId, _paramName) {
+        // no-op until connectToParam is implemented
     }
 
     setNodeParameter(nodeId, paramName, value) {

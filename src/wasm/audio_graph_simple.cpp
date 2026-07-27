@@ -1231,9 +1231,47 @@ void deinterleaveAudio(float* interleaved, float* planar, int frame_count, int n
     }
 }
 
+// Disconnect a source from a destination, or from everything.
+//
+// Mirrors AudioNode.disconnect() in the Web Audio spec:
+//   dest_id >= 0  remove source_id -> dest_id (that edge only)
+//   dest_id <  0  remove source_id from EVERY destination it feeds
+//
+// Only ONE instance of the edge is removed per call, because connecting the
+// same pair twice is legal and produces two summed edges; disconnect() undoes
+// one connect(). Removing all duplicates at once would silence a graph that
+// the spec says should still be audible.
+EMSCRIPTEN_KEEPALIVE
+void disconnectNodes(int graph_id, int source_id, int dest_id) {
+    auto it = graphs.find(graph_id);
+    if (it == graphs.end()) return;
+    AudioGraph* graph = it->second;
+
+    if (dest_id >= 0) {
+        auto conn_it = graph->connections.find(dest_id);
+        if (conn_it == graph->connections.end()) return;
+        std::vector<int>& sources = conn_it->second;
+        for (size_t i = 0; i < sources.size(); ++i) {
+            if (sources[i] == source_id) {
+                sources.erase(sources.begin() + i);
+                return;   // one edge per call
+            }
+        }
+        return;
+    }
+
+    // dest_id < 0: drop this source everywhere it appears.
+    for (auto& entry : graph->connections) {
+        std::vector<int>& sources = entry.second;
+        for (size_t i = 0; i < sources.size(); ) {
+            if (sources[i] == source_id) sources.erase(sources.begin() + i);
+            else ++i;
+        }
+    }
+}
+
 // Stubs for compatibility
 EMSCRIPTEN_KEEPALIVE void connectToParam(int, int, int, const char*, int) {}
-EMSCRIPTEN_KEEPALIVE void disconnectNodes(int, int, int) {}
 EMSCRIPTEN_KEEPALIVE void setNodePeriodicWave(int, int, float*, int) {}
 EMSCRIPTEN_KEEPALIVE void setNodeProperty(int, int, const char*, float) {}
 EMSCRIPTEN_KEEPALIVE void setNodeStringProperty(int, int, const char*, const char*) {}

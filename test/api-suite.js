@@ -387,6 +387,67 @@ console.log('\nTest 18: AudioBufferSourceNode Resampling');
     assert(lateAverage > 0.9, 'Resampled buffer remains active for full duration');
 }
 
+// Test 19: disconnect() removes an edge and silences that branch
+console.log('\nTest 19: AudioNode.disconnect()');
+{
+    const sampleRate = 8000;
+    const length = 800;
+
+    // Rendered WITH the connection: a DC offset of 1 straight to destination.
+    const connectedCtx = new OfflineAudioContext({
+        numberOfChannels: 1,
+        length,
+        sampleRate
+    });
+    const connectedSource = connectedCtx.createConstantSource();
+    connectedSource.offset.value = 1;
+    connectedSource.connect(connectedCtx.destination);
+    connectedSource.start(0);
+    const connected = (await connectedCtx.startRendering()).getChannelData(0);
+
+    // Same graph, disconnected before rendering.
+    const cutCtx = new OfflineAudioContext({
+        numberOfChannels: 1,
+        length,
+        sampleRate
+    });
+    const cutSource = cutCtx.createConstantSource();
+    cutSource.offset.value = 1;
+    cutSource.connect(cutCtx.destination);
+    cutSource.disconnect(cutCtx.destination);
+    cutSource.start(0);
+    const cut = (await cutCtx.startRendering()).getChannelData(0);
+
+    let cutPeak = 0;
+    for (let i = 0; i < cut.length; i++) {
+        const a = Math.abs(cut[i]);
+        if (a > cutPeak) cutPeak = a;
+    }
+
+    assert(Math.abs(connected[400]) > 0.9, 'Connected source is audible');
+    assert(cutPeak === 0, 'Disconnected source is silent');
+
+    // disconnect() with no argument drops every destination.
+    const allCtx = new OfflineAudioContext({
+        numberOfChannels: 1,
+        length,
+        sampleRate
+    });
+    const allSource = allCtx.createConstantSource();
+    allSource.offset.value = 1;
+    allSource.connect(allCtx.destination);
+    allSource.disconnect();
+    allSource.start(0);
+    const all = (await allCtx.startRendering()).getChannelData(0);
+
+    let allPeak = 0;
+    for (let i = 0; i < all.length; i++) {
+        const a = Math.abs(all[i]);
+        if (a > allPeak) allPeak = a;
+    }
+    assert(allPeak === 0, 'disconnect() with no argument silences the node');
+}
+
 // Summary
 console.log(`\n${'='.repeat(50)}`);
 console.log(`Test Results: ${passed} passed, ${failed} failed`);
