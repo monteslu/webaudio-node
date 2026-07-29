@@ -448,6 +448,59 @@ console.log('\nTest 19: AudioNode.disconnect()');
     assert(allPeak === 0, 'disconnect() with no argument silences the node');
 }
 
+// Test 20: AudioBufferSourceNode.loop keeps a source playing past its buffer
+console.log('\nTest 20: AudioBufferSourceNode.loop');
+{
+    const sampleRate = 8000;
+    const bufferLength = 800; // 0.1s of source material
+    const length = 4000; // rendered 5x longer than the buffer
+
+    const makeBuffer = (ctx) => {
+        const buffer = ctx.createBuffer(1, bufferLength, sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferLength; i++) data[i] = 1;
+        return buffer;
+    };
+
+    // loop = true: still audible long after the buffer's own duration.
+    const loopCtx = new OfflineAudioContext({
+        numberOfChannels: 1,
+        length,
+        sampleRate
+    });
+    const loopSource = loopCtx.createBufferSource();
+    loopSource.buffer = makeBuffer(loopCtx);
+    loopSource.loop = true;
+    loopSource.connect(loopCtx.destination);
+    loopSource.start(0);
+    const looped = (await loopCtx.startRendering()).getChannelData(0);
+
+    // loop = false: the same source is silent once the buffer runs out.
+    const onceCtx = new OfflineAudioContext({
+        numberOfChannels: 1,
+        length,
+        sampleRate
+    });
+    const onceSource = onceCtx.createBufferSource();
+    onceSource.buffer = makeBuffer(onceCtx);
+    onceSource.connect(onceCtx.destination);
+    onceSource.start(0);
+    const once = (await onceCtx.startRendering()).getChannelData(0);
+
+    let loopedTailPeak = 0;
+    let onceTailPeak = 0;
+    for (let i = bufferLength * 2; i < length; i++) {
+        const l = Math.abs(looped[i]);
+        const o = Math.abs(once[i]);
+        if (l > loopedTailPeak) loopedTailPeak = l;
+        if (o > onceTailPeak) onceTailPeak = o;
+    }
+
+    assert(Math.abs(looped[100]) > 0.9, 'Looping source is audible in its first pass');
+    assert(loopedTailPeak > 0.9, 'Looping source is still audible past the buffer length');
+    assert(onceTailPeak === 0, 'Non-looping source is silent past the buffer length');
+}
+
 // Summary
 console.log(`\n${'='.repeat(50)}`);
 console.log(`Test Results: ${passed} passed, ${failed} failed`);

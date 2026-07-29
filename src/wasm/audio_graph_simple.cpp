@@ -627,6 +627,13 @@ void setNodeParameter(int graph_id, int node_id, int param_id, float value) {
             node.state->offset = value;
             setConstantSourceOffset(node.state->constant_source_state, value);
         }
+    } else if (node.type == 3 && node.state->buffer_source_state) { // buffer_source
+        // The JS side maps AudioBufferSourceNode.loop to PARAM_LOOP
+        // (WasmAudioEngine.js PARAM_ID_MAP), but nothing consumed it here,
+        // so a looping source played once and stopped.
+        if (param_id == PARAM_LOOP) {
+            setBufferSourceLoop(node.state->buffer_source_state, value != 0.0f);
+        }
     }
     // Keep the param's automation base value in sync (AudioParam.value semantics):
     // if a timeline exists, its current_value is the value before any events.
