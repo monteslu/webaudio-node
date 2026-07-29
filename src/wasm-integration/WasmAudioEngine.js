@@ -119,11 +119,7 @@ export class WasmAudioEngine {
      *                          the source from everything it feeds
      */
     disconnectNodes(nodeId, destId) {
-        this.wasmModule._disconnectNodes(
-            this.graphId,
-            nodeId,
-            destId === undefined ? -1 : destId
-        );
+        this.wasmModule._disconnectNodes(this.graphId, nodeId, destId === undefined ? -1 : destId);
     }
 
     /** Back-compat alias: disconnect this node from every destination. */

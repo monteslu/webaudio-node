@@ -455,7 +455,7 @@ console.log('\nTest 20: AudioBufferSourceNode.loop');
     const bufferLength = 800; // 0.1s of source material
     const length = 4000; // rendered 5x longer than the buffer
 
-    const makeBuffer = (ctx) => {
+    const makeBuffer = ctx => {
         const buffer = ctx.createBuffer(1, bufferLength, sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferLength; i++) data[i] = 1;
