@@ -76,6 +76,7 @@ extern "C" {
     void startOscillator(OscillatorNodeState* state, double when);
     void stopOscillator(OscillatorNodeState* state, double when);
     void setOscillatorCurrentTime(OscillatorNodeState* state, double time);
+    void setPeriodicWave(OscillatorNodeState* state, float* wavetable, int size);
     void processOscillatorNode(OscillatorNodeState* state, float* output, int frame_count, float frequency, float detune);
 
     // Gain
@@ -1226,6 +1227,25 @@ void setNodeBufferId(int graph_id, int node_id, int buffer_id) {
     }
 }
 
+/*
+ * PeriodicWave (custom oscillator waveform).
+ *
+ * setPeriodicWave existed on the oscillator node but was never reachable
+ * through the graph API, so OscillatorNode.setPeriodicWave had nothing to call
+ * and custom waveforms could not be used at all.
+ */
+EMSCRIPTEN_KEEPALIVE
+void setNodePeriodicWave(int graph_id, int node_id, float* wavetable, int size) {
+    auto it = graphs.find(graph_id);
+    if (it == graphs.end()) return;
+    auto node_it = it->second->nodes.find(node_id);
+    if (node_it == it->second->nodes.end()) return;
+    Node& node = node_it->second;
+    if (node.type != 1 || !node.state || !node.state->osc_state) return;  // oscillator only
+    if (!wavetable || size <= 0) return;
+    setPeriodicWave(node.state->osc_state, wavetable, size);
+}
+
 EMSCRIPTEN_KEEPALIVE
 void setWaveShaperCurve(int graph_id, int node_id, float* curve_data, int curve_length) {
     auto it = graphs.find(graph_id);
@@ -1362,9 +1382,12 @@ void disconnectNodes(int graph_id, int source_id, int dest_id) {
     }
 }
 
-// Stubs for compatibility
+// Stubs for compatibility.
+//
+// setNodePeriodicWave USED to be one of these: a no-op that accepted a custom
+// waveform and silently discarded it, so OscillatorNode.setPeriodicWave
+// appeared to work and changed nothing. It is implemented above now.
 EMSCRIPTEN_KEEPALIVE void connectToParam(int, int, int, const char*, int) {}
-EMSCRIPTEN_KEEPALIVE void setNodePeriodicWave(int, int, float*, int) {}
 EMSCRIPTEN_KEEPALIVE void setNodeProperty(int, int, const char*, float) {}
 EMSCRIPTEN_KEEPALIVE void setNodeStringProperty(int, int, const char*, const char*) {}
 
