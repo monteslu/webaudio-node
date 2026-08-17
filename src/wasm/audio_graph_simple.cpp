@@ -163,6 +163,13 @@ extern "C" {
     void setPannerPosition(PannerNodeState* state, float x, float y, float z);
     void setPannerOrientation(PannerNodeState* state, float x, float y, float z);
     void setListenerPosition(PannerNodeState* state, float x, float y, float z);
+    // Distance/cone model. These exist in panner_node.cpp but were never declared
+    // here, which is why setNodeParameter could not dispatch to them.
+    void setPannerRefDistance(PannerNodeState* state, float ref_distance);
+    void setPannerMaxDistance(PannerNodeState* state, float max_distance);
+    void setPannerRolloffFactor(PannerNodeState* state, float rolloff);
+    void setPannerConeAngles(PannerNodeState* state, float inner, float outer);
+    void setPannerConeOuterGain(PannerNodeState* state, float gain);
     void processPannerNode(PannerNodeState* state, float* input, float* output, int frame_count, bool has_input);
 
     // IIRFilter
@@ -218,6 +225,18 @@ struct NodeState {
     float delay_time;        // delay
     float pan;               // stereo panner
     float offset;            // constant source
+
+    // Panner position/orientation, cached per axis.
+    //
+    // setPannerPosition/Orientation take all three components at once, but the
+    // Web Audio API exposes positionX/Y/Z as separate AudioParams. PannerNodeState
+    // is opaque in this translation unit, so the current value cannot be read
+    // back to fill in the other two — they are kept here instead. Defaults match
+    // the spec: position (0,0,0), orientation (1,0,0).
+    float panner_pos_x, panner_pos_y, panner_pos_z;
+    float panner_orient_x, panner_orient_y, panner_orient_z;
+    // setPannerConeAngles takes inner and outer together, same problem.
+    float panner_cone_inner, panner_cone_outer;
 
     // Automation timelines per automatable param, keyed by ParamID. Lazily created
     // on the first scheduled event; absent → use the plain float value above.
@@ -405,6 +424,14 @@ int createNode(int graph_id, const char* type_str) {
         state->channel_splitter_state = nullptr;
         state->channel_merger_state = nullptr;
         state->media_stream_source_state = nullptr;
+        state->panner_pos_x = 0.0f;
+        state->panner_pos_y = 0.0f;
+        state->panner_pos_z = 0.0f;
+        state->panner_orient_x = 1.0f;   // spec default: facing +X
+        state->panner_orient_y = 0.0f;
+        state->panner_orient_z = 0.0f;
+        state->panner_cone_inner = 360.0f;   // spec defaults: cone disabled
+        state->panner_cone_outer = 360.0f;
         return state;
     };
 
@@ -626,6 +653,64 @@ void setNodeParameter(int graph_id, int node_id, int param_id, float value) {
         if (param_id == PARAM_OFFSET) {
             node.state->offset = value;
             setConstantSourceOffset(node.state->constant_source_state, value);
+        }
+    } else if (node.type == 12 && node.state->panner_state) { // panner
+        // Every one of these has a working setter on the node; nothing dispatched
+        // to them, so a game moving a 3D sound heard no change at all.
+        switch (param_id) {
+            case PARAM_POSITION_X:
+            case PARAM_POSITION_Y:
+            case PARAM_POSITION_Z:
+                if (param_id == PARAM_POSITION_X) node.state->panner_pos_x = value;
+                else if (param_id == PARAM_POSITION_Y) node.state->panner_pos_y = value;
+                else node.state->panner_pos_z = value;
+                setPannerPosition(node.state->panner_state,
+                                  node.state->panner_pos_x,
+                                  node.state->panner_pos_y,
+                                  node.state->panner_pos_z);
+                break;
+            case PARAM_ORIENTATION_X:
+            case PARAM_ORIENTATION_Y:
+            case PARAM_ORIENTATION_Z:
+                if (param_id == PARAM_ORIENTATION_X) node.state->panner_orient_x = value;
+                else if (param_id == PARAM_ORIENTATION_Y) node.state->panner_orient_y = value;
+                else node.state->panner_orient_z = value;
+                setPannerOrientation(node.state->panner_state,
+                                     node.state->panner_orient_x,
+                                     node.state->panner_orient_y,
+                                     node.state->panner_orient_z);
+                break;
+            case PARAM_REF_DISTANCE:
+                setPannerRefDistance(node.state->panner_state, value);
+                break;
+            case PARAM_MAX_DISTANCE:
+                setPannerMaxDistance(node.state->panner_state, value);
+                break;
+            case PARAM_ROLLOFF_FACTOR:
+                setPannerRolloffFactor(node.state->panner_state, value);
+                break;
+            case PARAM_CONE_INNER_ANGLE:
+            case PARAM_CONE_OUTER_ANGLE:
+                if (param_id == PARAM_CONE_INNER_ANGLE) node.state->panner_cone_inner = value;
+                else node.state->panner_cone_outer = value;
+                setPannerConeAngles(node.state->panner_state,
+                                    node.state->panner_cone_inner,
+                                    node.state->panner_cone_outer);
+                break;
+            case PARAM_CONE_OUTER_GAIN:
+                setPannerConeOuterGain(node.state->panner_state, value);
+                break;
+            default:
+                break;
+        }
+    } else if (node.type == 10 && node.state->compressor_state) { // dynamics_compressor
+        switch (param_id) {
+            case PARAM_THRESHOLD: setCompressorThreshold(node.state->compressor_state, value); break;
+            case PARAM_KNEE:      setCompressorKnee(node.state->compressor_state, value); break;
+            case PARAM_RATIO:     setCompressorRatio(node.state->compressor_state, value); break;
+            case PARAM_ATTACK:    setCompressorAttack(node.state->compressor_state, value); break;
+            case PARAM_RELEASE:   setCompressorRelease(node.state->compressor_state, value); break;
+            default: break;
         }
     } else if (node.type == 3 && node.state->buffer_source_state) { // buffer_source
         // The JS side maps AudioBufferSourceNode.loop to PARAM_LOOP

@@ -202,26 +202,42 @@ void setPannerConeOuterGain(PannerNodeState* state, float gain) {
 
 // Compute distance gain based on distance model
 static float computeDistanceGain(PannerNodeState* state, float distance) {
+    // The spec clamps distance to at least refDistance before applying any model.
+    // Without that clamp the default configuration (source AT the listener, so
+    // distance 0, refDistance 1, rolloff 1) makes the inverse model divide by
+    // 1 + 1*(0-1) = 0, returning infinity — which multiplies into the samples and
+    // comes out the other side as NaN for the WHOLE graph. A brand new
+    // PannerNode with no parameters touched produced nothing but NaN.
     distance = fmaxf(0.0f, distance);
+    const float ref = fmaxf(state->ref_distance, 1e-6f);
+    const float clamped = fmaxf(ref, fminf(distance, state->max_distance));
 
+    float gain;
     switch (state->distance_model) {
-        case LINEAR_DISTANCE:
-            return 1.0f - state->rolloff_factor *
-                   (fminf(distance, state->max_distance) - state->ref_distance) /
-                   (state->max_distance - state->ref_distance);
-
-        case INVERSE_DISTANCE:
-            return state->ref_distance /
-                   (state->ref_distance + state->rolloff_factor *
-                    (fminf(distance, state->max_distance) - state->ref_distance));
-
+        case LINEAR_DISTANCE: {
+            // max == ref would divide by zero here for the same reason.
+            const float span = state->max_distance - ref;
+            if (span <= 1e-6f) { gain = 1.0f; break; }
+            gain = 1.0f - state->rolloff_factor * (clamped - ref) / span;
+            break;
+        }
+        case INVERSE_DISTANCE: {
+            const float denom = ref + state->rolloff_factor * (clamped - ref);
+            gain = denom <= 1e-6f ? 1.0f : ref / denom;
+            break;
+        }
         case EXPONENTIAL_DISTANCE:
-            return powf(fminf(distance, state->max_distance) / state->ref_distance,
-                       -state->rolloff_factor);
-
+            gain = powf(clamped / ref, -state->rolloff_factor);
+            break;
         default:
-            return 1.0f;
+            gain = 1.0f;
+            break;
     }
+
+    // Belt and braces: a non-finite gain must never reach the samples, because a
+    // single NaN propagates through every downstream node and silences the mix.
+    if (!(gain >= 0.0f) || !std::isfinite(gain)) gain = 0.0f;
+    return fminf(gain, 1.0f);
 }
 
 // Compute cone gain based on source orientation
