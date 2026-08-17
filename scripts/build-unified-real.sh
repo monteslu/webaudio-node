@@ -134,7 +134,13 @@ emar rcs "$CODEC_AR" "$CODEC_OBJ_DIR"/*.o
 
 # Stage 2: compile everything together - ALL nodes + utils + graph + decoders +
 # media stream + the codec lib.
-emcc $CXXFLAGS $INCLUDES \
+#
+# em++ rather than emcc: these are C++ sources, and newer emcc no longer infers
+# that from the file extensions when linking. It fails with "undefined symbol:
+# operator new(unsigned long)" and a warning suggesting exactly this. Because the
+# emsdk is pinned to 'latest', that change arrived on its own and broke a build
+# that had been green — using the C++ driver makes it version-independent.
+em++ $CXXFLAGS $INCLUDES \
     src/wasm/utils/fft.cpp \
     src/wasm/utils/audio_param.cpp \
     src/wasm/nodes/oscillator_node.cpp \
